@@ -16,7 +16,8 @@ Skript läuft aus dem Checkout). Gilt sie (Exitcode 0):
 - Danach nur noch: P4 (Testzeit, rote und flackernde Prüfungen), von Nutzern gemeldete Bugs, die Nutzer spüren, und
   Release bei Bedarf. Vor jedem Eintrag `zsh tests/umbau-woche.sh erlaubt <Typ> "<Titel>" <id> "<Status>"`, nur bei
   „ja …“ planen (Director in Schritt 1a wie Rückfall 1b). Keine neuen Features und Design-Einträge, auch nicht über den
-  Designer. Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen.
+  Designer. Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen: mit Status
+  „In Progress“ sagt der Filter „ja nur abschließen …“ (vorhandenen Commit nach main, CI, Done; keine neue Arbeit).
 - „Pausiert“: nie planen, nie bearbeiten, nie schließen.
 - Schritt 0 (Mitnehmen) und Schritt 4 (Push, CI, Release gepushter Commits) bleiben unverändert; „nicht beginnen“ gilt
   nur für neue Arbeit.

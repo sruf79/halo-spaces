@@ -86,6 +86,11 @@ def erlaubt(typ, titel, ident="", status=""):
         return True, "ja von Nutzern gemeldeter Bug (GitHub #n) – nur, wenn Nutzer ihn spüren"
     if k in UMBAU or UMBAU_TITEL.search(titel):
         return False, "nein Umbau-Eintrag: baut neon tagsüber, kein Lauf"
+    if status == "In Progress":
+        # Fable-Prüfung M6: was Tag 1 auf In Progress ließ, „bleibt In Progress und wird abgeschlossen“ (Wortlaut 20.11.):
+        # zu Ende bringen ist kein Beginnen, aber nur abschließen, keine neue Arbeit
+        return True, ("ja nur abschließen: steht auf In Progress (Tag 1 ließ ihn dort, „wird abgeschlossen“) – vorhandenen "
+                      "Commit nach main bringen, CI abwarten, Done; keine neue Arbeit")
     if typ.lower() == "feature":
         return False, "nein Feature/Design beginnt in der Umbau-Woche nicht"
     return False, "nein Bug ohne Meldung eines Nutzers (kein GitHub #n) beginnt in der Umbau-Woche nicht"

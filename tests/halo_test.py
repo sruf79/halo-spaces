@@ -17775,6 +17775,11 @@ Neu
                   w.resizeTo(width, 900);
                   Services.prefs.setIntPref("mail.threadpane.listview", view); Services.prefs.setIntPref("mail.pane_config.dynamic", layout);
                   const a3 = await toMail(); await wait(1500);
+                  // Auskunft (Diagnose CI 22.11.2026, Linux: Mailliste 39 px gestaucht): Fensterbreite gewünscht/erreicht,
+                  // Breite der Mailansicht, Today-Pane offen und breit
+                  const tpP = d.getElementById("today-pane-panel");
+                  out[`${name}/lage`] = { soll: width, ist: w.outerWidth, inner: w.innerWidth, screen: w.screen.availWidth, sizemode: d.documentElement.getAttribute("sizemode"),
+                    browser: Math.round(a3.browsingContext.embedderElement.getBoundingClientRect().width), today: tpP && !tpP.collapsed && !tpP.hidden ? Math.round(tpP.getBoundingClientRect().width) : 0 };
                   const fp = a3.document.getElementById("folderPane"), tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
                   const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
                   const measure = async () => {
@@ -17814,8 +17819,9 @@ Neu
         # schaffte und die Prüfung dann vom Rechner abhing: 11× rot seit 9.11., bis zu drei Messungen je Phase)
         def ruck(v):
             return any(v["back"]) or v["lastStep"] > last_max or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"]))
-        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < 6 or ruck(v))]
-        return not bad, "; ".join(bad) or f"{res}"
+        lage = {k: v for k, v in res.items() if k.endswith("/lage")}
+        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and k not in lage and (v["steps"] < 6 or ruck(v))]
+        return not bad, ("; ".join(bad) + f" – Lage {lage}" if bad else f"{res}")
     check("Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck in den letzten Bildern (vertikal und klassisch, enges und breites Fenster)", sidebar_no_jump, results)
 
     def address_book():

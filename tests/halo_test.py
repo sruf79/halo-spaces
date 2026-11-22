@@ -27499,6 +27499,97 @@ Neu
         return ok, f"{out} zeit={zeit}"
     check("Seitenleiste: am linken Fensterrand blendet sie erst nach kurzem Verweilen ein (kurz anstoßen löst nicht aus), auch wenn "
           "der Zeiger in die Größenänderungszone des Fensters fährt (macOS meldet dort nur das Verlassen des Fensters)", sidebar_float_edge, results)
+    def sidebar_float_touch():
+        # Touchscreen: Die ausgeblendete Seitenleiste schwebt ein, wenn ein Finger an den linken Fensterrand fährt
+        # oder vom Rand nach innen wischt, ohne Verweilen; ein Wisch nach links schließt sie wieder. Gegenproben:
+        # Tippen am Rand, senkrechtes Wischen am Rand, waagrechtes Wischen in der Fenstermitte und zum Rand hin,
+        # ohne ihn zu erreichen, lösen nichts aus; bei eingeblendeter Seitenleiste schwebt nichts. Der Finger kommt als
+        # DOM-Ereignisse am Element unter ihm: Thunderbirds eigene Testwege für einen echten Finger scheitern im
+        # Hauptfenster (Marionette pointerType touch und window.synthesizeTouchEvent: NS_ERROR_FAILURE, am Mac mit
+        # Thunderbird 160 gemessen 22.11.2026, auch mit eingeschalteten Touch-Ereignissen). Zwei Arten wie am Gerät:
+        # nur Zeiger-Ereignisse (pointerType touch), und mit Touch-Ereignissen, bei denen die Zeiger-Ereignisse nach
+        # dem ersten Stück mit pointercancel enden (so meldet es Thunderbird, sobald der Inhalt unter dem Finger scrollt)
+        def finger(pts, touch=False):
+            return m.js(f"""const pts = {json.dumps(pts)}, touch = {json.dumps(touch)};
+              const at = ([x, y]) => ({{ clientX: x, clientY: y, screenX: w.mozInnerScreenX + x, screenY: w.mozInnerScreenY + y }});
+              const el = d.elementFromPoint(...pts[0]) || d.documentElement;
+              const zeiger = (type, p) => el.dispatchEvent(new w.PointerEvent(type, {{ ...at(p), pointerId: 7, pointerType: "touch", isPrimary: true,
+                button: type == "pointermove" ? -1 : 0, buttons: type == "pointerup" || type == "pointercancel" ? 0 : 1, bubbles: true, cancelable: true }}));
+              const tippen = (type, p) => {{
+                const t = new w.Touch({{ identifier: 7, target: el, ...at(p) }}), da = type == "touchend" ? [] : [t];
+                el.dispatchEvent(new w.TouchEvent(type, {{ touches: da, targetTouches: da, changedTouches: [t], bubbles: true, cancelable: true }}));
+              }};
+              zeiger("pointerdown", pts[0]); if (touch) tippen("touchstart", pts[0]);
+              let lebt = true;
+              for (const [i, p] of pts.slice(1).entries()) {{
+                await wait(40);  // fester Takt zwischen den Meldungen eines Fingers
+                if (lebt) zeiger("pointermove", p);
+                if (touch) {{ if (lebt && i == 0) {{ zeiger("pointercancel", p); lebt = false; }} tippen("touchmove", p); }}
+              }}
+              if (lebt) zeiger("pointerup", pts.at(-1)); if (touch) tippen("touchend", pts.at(-1));
+              return 1;""")
+        def state(want):
+            # „off“ als Gegenprobe: abwarten, ob doch noch etwas kommt (die Maus braucht 400 ms Verweilen)
+            return m.js(f"""try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", 2000); }} catch {{}}
+              await wait({600 if want == "off" else 20}); return w.__mcSideFloatState?.();""")
+        out = {}
+        m.js(MAILLIST_JS + """w.resizeTo(1300, 800); await wait(400); w.__mcVorOrdner = a3.gFolder?.URI;
+          await showFolder(); a3.threadTree.selectedIndex = 0;
+          await bis(() => ad.getElementById("messageBrowser")?.getBoundingClientRect().width > 0, "Mail im Lesebereich", 4000);
+          const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
+          if (w.gSpacesToolbar.isHidden || sp.isCollapsed) { w.__mcColumnMigrate(false, false); await ruhig(600); }
+          // (am Mac und unter Linux ohne Touchscreen gibt es TouchEvent sonst nicht)
+          Services.prefs.setIntPref("dom.w3c_touch_events.enabled", 1);
+          await bis(() => typeof w.TouchEvent == "function", "Touch-Ereignisse an", 3000);
+          return 1;""")
+        try:
+            # Seitenleiste eingeblendet: Wisch vom Rand lässt nichts schweben
+            finger([(10, 420), (60, 422), (120, 424)])
+            out["shown"] = state("off")
+            m.js("""const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter; d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+              await ruhig(600); return 1;""")
+            finger([(10, 420)])
+            out["tap"] = state("off")
+            finger([(10, 300), (12, 400), (14, 520)])
+            out["vertical"] = state("off")
+            finger([(700, 420), (600, 422), (500, 424)])
+            out["middle"] = state("off")
+            finger([(300, 420), (200, 422), (60, 424)])
+            out["short"] = state("off")
+            finger([(10, 420), (50, 422), (120, 424)])
+            out["swipe_in"] = state("on")
+            out["pane"] = m.js("""const p = tm.currentAbout3Pane.document.getElementById("folderPane");
+              return p.classList.contains("mc-float-pane") && p.getBoundingClientRect().width > 100;""")
+            finger([(600, 420), (520, 422), (440, 424)])
+            out["swipe_out"] = state("off")
+            finger([(300, 420), (150, 422), (40, 424), (8, 425)], touch=True)
+            out["to_edge"] = state("on")
+            finger([(200, 420), (140, 422), (80, 424)], touch=True)
+            out["swipe_out2"] = state("off")
+            finger([(10, 420), (50, 422), (120, 424)], touch=True)
+            out["touch_in"] = state("on")
+            finger([(600, 420), (520, 422), (440, 424)])
+            out["touch_out"] = state("off")
+            # zweiter Finger aufgesetzt (Zoomen): die Spur endet, der Wisch zählt nicht
+            out["two"] = m.js("""const at = (x, y) => ({ clientX: x, clientY: y, screenX: w.mozInnerScreenX + x, screenY: w.mozInnerScreenY + y });
+              const el = d.elementFromPoint(10, 420), ev = (type, o) => el.dispatchEvent(new w.PointerEvent(type, { pointerType: "touch", bubbles: true, ...o }));
+              ev("pointerdown", { ...at(10, 420), pointerId: 7, isPrimary: true }); ev("pointerdown", { ...at(300, 300), pointerId: 8, isPrimary: false });
+              ev("pointermove", { ...at(120, 424), pointerId: 7, isPrimary: true }); ev("pointerup", { ...at(120, 424), pointerId: 7, isPrimary: true });
+              await wait(600); return w.__mcSideFloatState?.();""")
+        finally:
+            m.js("""Services.prefs.clearUserPref("dom.w3c_touch_events.enabled");
+              if (w.__mcSideFloatState?.() != "off") { d.documentElement.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); }
+              try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2000); } catch {}
+              await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
+              const a3 = tm.currentAbout3Pane; if (w.__mcVorOrdner && a3.gFolder?.URI != w.__mcVorOrdner) { a3.displayFolder(w.__mcVorOrdner); }
+              delete w.__mcVorOrdner; await ruhig(400); return 1;""")
+        ok = out == {"shown": "off", "tap": "off", "vertical": "off", "middle": "off", "short": "off", "swipe_in": "on", "pane": True,
+                     "swipe_out": "off", "to_edge": "on", "swipe_out2": "off", "touch_in": "on", "touch_out": "off", "two": "off"}
+        return ok, str(out)
+    check("Seitenleiste: am Touchscreen schwebt sie ein, wenn der Finger an den linken Fensterrand fährt oder vom Rand nach innen wischt, "
+          "ein Wisch nach links schließt sie; Tippen, senkrechtes Wischen und Wischen in der Fenstermitte lösen nichts aus", sidebar_float_touch, results)
     def sidebar_column_edges():
         # Seitenleisten-Knopf (ganze Spalte): Grau der Toolbar-Zeile über der Spalte, ihre Trennlinie und der
         # Seitenleisten-Knopf gleiten in jedem Bild mit der Spalte, statt stehen zu bleiben und am Ende zu springen

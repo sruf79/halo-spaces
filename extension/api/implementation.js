@@ -9461,7 +9461,8 @@ class CardEnhancer {
     this.sideEdgeUpdaters.add(updateSideEdge);
     const sideRO = new w.ResizeObserver(updateSideEdge);
     // (chat-view-toolbox: andere Breite der Chat-Knöpfe, z. B. neuer Statustext)
-    for (const id of ["calSidebar", "listPaneBox", "tabmail-container", "chat-view-toolbox"]) {
+    // (unifiedToolbarContent: Innenabstand für das Hinweis-Symbol einer Add-on-Installation, siehe Mail-Layout)
+    for (const id of ["calSidebar", "listPaneBox", "tabmail-container", "chat-view-toolbox", "unifiedToolbarContent"]) {
       const el = w.document.getElementById(id);
       if (el) {
         sideRO.observe(el);

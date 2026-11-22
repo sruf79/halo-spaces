@@ -13544,17 +13544,40 @@ def run_checks(m, version, profile, results):
             if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
             out.wechsel = { schmal, breit: st() };
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            // Hinweis-Symbol einer Add-on-Installation (steht in derselben Zeile wie die Knöpfe): solange es sichtbar
+            // ist, weichen Pillen; danach kommen sie bei gleicher Fensterbreite zurück (vorher blieb z. B. „Archiv“
+            // nach Installieren über einen Add-on-Tab eingeklappt, die Zeile selbst änderte ihre Breite ja nicht)
+            await toMail(); if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+            w.resizeTo(1500, 900); await ruhig(1500);
+            const box = d.getElementById("notification-popup-box"), icon = d.getElementById("addons-notification-icon");
+            // (nutzbare Breite: in der Mail steht das Symbol schwebend über der Zeile, die Knopfleiste macht ihm mit ihrem
+            // Innenabstand Platz)
+            const breiteKnoepfe = () => { const c = d.getElementById("unifiedToolbarContent"), cs = getComputedStyle(c);
+                                          return Math.round(c.clientWidth - parseFloat(cs.paddingInlineStart) - parseFloat(cs.paddingInlineEnd)); };
+            const vorher = { ...st(), zeile: breiteKnoepfe() };
+            box.hidden = false; icon.setAttribute("showing", "true");
+            await ruhig(1500);
+            const mit = { ...st(), zeile: breiteKnoepfe() };
+            box.hidden = true; icon.removeAttribute("showing");
+            await ruhig(1500);
+            out.hinweis = { vorher, mit, nachher: { ...st(), zeile: breiteKnoepfe() } };
           } finally {
+            d.getElementById("notification-popup-box").hidden = true; d.getElementById("addons-notification-icon")?.removeAttribute("showing");
             await toMail(); if (w.TodayPane.isVisible != tpWas) { tpCmd.doCommand(); await ruhig(1000); }
             w.resizeTo(1500, 900); await ruhig(800);
           }
           return out;""")
         # (der Kalender hat wenige Pillen – weicht dort schmal keine, zählt nur „wieder breit nichts gewichen“)
         cases = [(res.get(k) or {}, k != "calendar") for k in ("mail", "calendar", "wechsel")]
-        ok = all((not muss or (c.get("schmal", {}).get("hidden") and c.get("schmal", {}).get("ov")))
-                 and c.get("breit", {}).get("hidden") == [] and c.get("breit", {}).get("ov") is False for c, muss in cases)
+        h = res.get("hinweis") or {}
+        hv, hm, hn = h.get("vorher") or {}, h.get("mit") or {}, h.get("nachher") or {}
+        ok = (all((not muss or (c.get("schmal", {}).get("hidden") and c.get("schmal", {}).get("ov")))
+                  and c.get("breit", {}).get("hidden") == [] and c.get("breit", {}).get("ov") is False for c, muss in cases)
+              # das Symbol nahm der Knopfzeile Platz, danach wieder dieselbe Breite und dieselben Pillen wie vorher
+              and hm.get("zeile", 0) < hv.get("zeile", 0) and len(hm.get("hidden", [])) > len(hv.get("hidden", []))
+              and hn.get("zeile") == hv.get("zeile") and hn.get("hidden") == hv.get("hidden") and hn.get("ov") == hv.get("ov"))
         return ok, f"{res}"
-    check("Toolbar: Überlauf – wieder breit kommen alle Pillen zurück und „»“ verschwindet (Mail, Kalender, nach Bereichswechsel; GitHub #67)", toolbar_overflow_back, results)
+    check("Toolbar: Überlauf – wieder breit kommen alle Pillen zurück und „»“ verschwindet (Mail, Kalender, nach Bereichswechsel, nach Hinweis-Symbol einer Add-on-Installation; GitHub #67)", toolbar_overflow_back, results)
 
     def toolbar_min_window():
         # Mail-Space auf Mindestbreite (Fenster so schmal wie möglich, geöffnete Mail, mit und ohne Today-Pane, mit

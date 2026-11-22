@@ -26942,7 +26942,19 @@ Neu
           d.getElementById("spacesPinnedButton").click();
           await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
           await ruhig(600); return 1;""")
-        m.js("""w.__mcSpurZiel = null; w.__mcSpurFn = e => { w.__mcSpurZiel = e.target; }; w.addEventListener("mouseover", w.__mcSpurFn, true); return 1;""")
+        m.js("""w.__mcSpurZiel = null; w.__mcSpurFn = e => { w.__mcSpurZiel = e.target; }; w.addEventListener("mouseover", w.__mcSpurFn, true);
+          // Zeiten im Fenster selbst messen (Linux-CI: zwischen zwei Marionette-Befehlen vergehen dort oft über
+          // 200 ms, von außen gemessen war die Verzögerung dann schon abgelaufen – Läufe 44491376934, 44958579983
+          // „dwell: in“, 44488339409 „brush: on“): Ankunft im Auslösestreifen und erstes Einblenden danach
+          w.__mcRandAn = 0; w.__mcRandAuf = 0; w.__mcRandFn = () => { w.__mcRandAn = w.performance.now(); };
+          d.getElementById("mcSideHot").addEventListener("mouseenter", w.__mcRandFn);
+          const lauf = () => { if (!w.__mcRandFn) { return; }
+            if (w.__mcRandAn && !w.__mcRandAuf && w.__mcSideFloatState?.() != "off") { w.__mcRandAuf = w.performance.now(); }
+            w.requestAnimationFrame(lauf); };
+          w.requestAnimationFrame(lauf); return 1;""")
+        zeit = {}
+        def rand_neu():
+            m.js("w.__mcRandAn = 0; w.__mcRandAuf = 0; return 1;")
         try:
             out["mid"] = [mitte()]
             to(8)
@@ -26955,15 +26967,23 @@ Neu
             out["strip_off"] = weg()
             # erst nach Verweilen am Rand (400 ms, wie das Dock): nach 200 ms noch nicht, dann schon; kurz an
             # den Rand gestoßen und gleich zurück löst nicht aus
+            # („nach 200 ms noch nicht“ gemessen ab der Ankunft im Streifen, nicht ab dem nächsten Marionette-Befehl)
             out["mid"].append(mitte())
+            rand_neu()
             to(3)
-            out["dwell"] = m.js("await wait(200); return w.__mcSideFloatState?.();")
             out["dwell_on"] = m.js('try { await bis(() => w.__mcSideFloatState?.() == "on", "verweilt", 1500); } catch {} return w.__mcSideFloatState?.();')
+            zeit["dwell"] = m.js("return w.__mcRandAn && w.__mcRandAuf ? Math.round(w.__mcRandAuf - w.__mcRandAn) : -1;")
+            out["dwell"] = "off" if zeit["dwell"] >= 200 else f"nach {zeit['dwell']} ms"
             out["dwell_off"] = weg()
+            # kurz anstoßen: hin und zurück in einer Folge (100 ms am Rand), damit keine Befehlspause dazwischen liegt;
+            # die Leiste darf dabei auch nicht kurz erscheinen
             out["mid"].append(mitte())
-            to(3)
-            to(400)
-            out["brush"] = m.js("await wait(700); return w.__mcSideFloatState?.();")
+            rand_neu()
+            act([{"type": "pointerMove", "x": 3, "y": 420, "origin": "viewport", "duration": 30}, {"type": "pause", "duration": 100},
+                 {"type": "pointerMove", "x": 400, "y": 420, "origin": "viewport", "duration": 30}])
+            brush = m.js("await wait(700); return [w.__mcSideFloatState?.(), w.__mcRandAn > 0, w.__mcRandAuf > 0];")
+            zeit["brush"] = brush[1:]
+            out["brush"] = brush[0] if brush[1] and not brush[2] else f"{brush[0]} (Streifen erreicht {brush[1]}, erschienen {brush[2]})"
             to(600, 1)
             out["top"] = leave(600, -1, "off")
             out["mid"].append(mitte())
@@ -26974,13 +26994,14 @@ Neu
         finally:
             weg()
             m.js("""w.removeEventListener("mouseover", w.__mcSpurFn, true); delete w.__mcSpurFn; delete w.__mcSpurZiel;
+              d.getElementById("mcSideHot")?.removeEventListener("mouseenter", w.__mcRandFn); delete w.__mcRandFn; delete w.__mcRandAn; delete w.__mcRandAuf;
               await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
               await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
               const a3 = tm.currentAbout3Pane; if (w.__mcVorOrdner && a3.gFolder?.URI != w.__mcVorOrdner) { a3.displayFolder(w.__mcVorOrdner); }
               delete w.__mcVorOrdner; await ruhig(400); return 1;""")
         ok = out == {"mid": ["off"] * 5, "near": "off", "edge": "on", "edge_off": "off", "strip": "on", "strip_off": "off",
                      "dwell": "off", "dwell_on": "on", "dwell_off": "off", "brush": "off", "top": "off", "right": "off"}
-        return ok, str(out)
+        return ok, f"{out} zeit={zeit}"
     check("Seitenleiste: am linken Fensterrand blendet sie erst nach kurzem Verweilen ein (kurz anstoßen löst nicht aus), auch wenn "
           "der Zeiger in die Größenänderungszone des Fensters fährt (macOS meldet dort nur das Verlassen des Fensters)", sidebar_float_edge, results)
     def sidebar_column_edges():

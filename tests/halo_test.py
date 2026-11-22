@@ -292,6 +292,7 @@ def check(name, fn, results, immer=False, bekannt=False):
 KONSOLE_PUFFER = 250  # so viele Meldungen hält die Fehlerkonsole (nsConsoleService), ältere fallen heraus
 KONSOLE_DUNKEL = False  # Lauf im Dunkelmodus (steht in den Zeilen, damit „behoben“ im richtigen Modus geprüft wird)
 KONSOLE_STAND = None  # so viele Einträge der Mitschrift hat die Prüfung schon gemeldet (None: noch nicht gelaufen)
+PROTOKOLL_STAND = None  # ebenso für das Fehlerprotokoll (Prüfung „Fehlerprotokoll der Erweiterung …“)
 
 # Mitschrift im Hauptfenster suchen (auch wenn ein zweites Mail-Fenster das zuletzt benutzte ist)
 KONSOLE_FIND = '[...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole'
@@ -442,9 +443,12 @@ def konsole_nachtrag(m, wann):
             res["voll"] = False
         errors, notes = konsole_bewerten(res)
         konsole_melden(errors, notes)
-        if KONSOLE_STAND is None:
-            perrors, _ = konsole_bewerten(protokoll_lesen(m))
-            konsole_melden(perrors, [], "PROTOKOLL")
+        # Fehlerprotokoll: alles, wenn seine Prüfung nie lief, sonst nur, was danach kam (Konsolen-Prüfung, Screenshots)
+        pres = protokoll_lesen(m)
+        if PROTOKOLL_STAND is not None:
+            pres["eintraege"] = (pres.get("eintraege") or [])[PROTOKOLL_STAND:]
+        perrors, _ = konsole_bewerten(pres)
+        konsole_melden(perrors, [], "PROTOKOLL")
         if errors:
             print(f"Hinweis Fehlerkonsole: {len(errors)} Meldung(en) {wann}", flush=True)
     except Exception as e:
@@ -27725,10 +27729,13 @@ Neu
         # Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile
         # „PROTOKOLL  …“ mit der Prüfung, die zu ihrem Zeitstempel lief; der CI-Wächter trägt sie als Bug
         # „Tests: Fehlerprotokoll – …“ ins Board. Auch mit --only (zum Nachprüfen); erwartet() gilt auch hier
+        global PROTOKOLL_STAND
         try:
-            errors, _ = konsole_bewerten(protokoll_lesen(m), ONLY)
+            pres = protokoll_lesen(m)
+            errors, _ = konsole_bewerten(pres, ONLY)
         except Exception as e:  # Auslesen gescheitert: nur Hinweis, nie ein Fehlschlag (hält kein Release auf)
             return True, f"WARNUNG: Fehlerprotokoll nicht lesbar – {e}"
+        PROTOKOLL_STAND = len(pres.get("eintraege") or [])
         konsole_melden(errors, [], "PROTOKOLL")
         return True, (f"WARNUNG: {len(errors)} Fehler im Protokoll, siehe Zeilen darüber – kein Fehlschlag" if errors else "keine Fehler im Protokoll")
     check("Fehlerprotokoll der Erweiterung leer (nur Warnung)", errors, results, immer=True)

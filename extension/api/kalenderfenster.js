@@ -1238,6 +1238,28 @@ class EnhancerKalender {
         delete panel.__mcEdgeNow;
       }
     };
+    // Platzaufteilung der Toolbar (Einzug, Abstand nach „Verfassen“, Suchfeld,
+    // eingeklappte Knöpfe) für das Endmaß, bis sie still steht: ein Durchgang
+    // gibt dem Abstand nach „Verfassen“ nur den Platz, den der Abstandhalter
+    // vor dem Suchfeld gerade hat – den Rest holte erst das Nachmessen nach der
+    // Animation, und alle Knöpfe rechts von „Verfassen“ sprangen dann (Mail mit
+    // gewählter Nachricht, 1500 px, Ausblenden: 13 px)
+    const offsetsNow = () => {
+      const bar = barTarget(d).style;
+      const vars = ["--mc-toolbar-offset", "--mc-write-gap", "--mc-mid-gap"];
+      for (let i = 0, before = null; i < 4; i++) {
+        for (const f of this.offsetUpdaters || []) {
+          try {
+            f();
+          } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
+        }
+        const now = vars.map(v => bar.getPropertyValue(v)).join("|");
+        if (now == before) {
+          break;
+        }
+        before = now;
+      }
+    };
     if (showing) {
       d.getElementById("unifiedToolbarContainer")?.style.setProperty("--mc-tp-room", `${Math.round(full)}px`);
       panel.__mcSliding = "in";
@@ -1250,11 +1272,7 @@ class EnhancerKalender {
       // sprang um 120 px)
       w.__mcTodayTopSync?.();
       d.getElementById("unifiedToolbarContainer")?.removeAttribute("data-mc-tp-open");
-      for (const f of this.offsetUpdaters || []) {
-        try {
-          f();
-        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
-      }
+      offsetsNow();
       // Endmaß der Mailliste (die Pane liegt noch im Fluss)
       listToNow();
     }
@@ -1340,11 +1358,7 @@ class EnhancerKalender {
     // schon oben, solange die Pane im Fluss lag)
     if (!showing) {
       panel.__mcAnimating = false;
-      for (const f of this.offsetUpdaters || []) {
-        try {
-          f();
-        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
-      }
+      offsetsNow();
       panel.__mcAnimating = true;
       // Endmaß der Mailliste (die Pane liegt schon über dem Inhalt)
       listToNow();

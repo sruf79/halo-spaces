@@ -22266,7 +22266,18 @@ Neu
             AA.onAlarm(saved, saved.getAlarms()[0]);
             await bis(() => shown.length, "Mitteilung gezeigt", 3000);
             out.shown = shown.map(x => ({ title: x.title, text: x.text }));
-            let acked = null; for (const end = Date.now() + 5000; !acked && Date.now() < end; await takt(50)) { const i = await c.getItem(saved.id); acked = i?.alarmLastAck ? i : null; }
+            // „erledigt“ in der Datenbank des Kalenders nachsehen, nicht über c.getItem: Thunderbirds Zwischenspeicher
+            // des lokalen Kalenders kann die alte Fassung liefern, wenn eine Abfrage (Neuladen nach addItem) zugleich
+            // läuft – gemessen am Mac 1 bis 4 von 15, gespeichert war die Erinnerung jedes Mal (rot auf Linux beta)
+            const { Sqlite } = ChromeUtils.importESModule("resource://gre/modules/Sqlite.sys.mjs");
+            const conn = await Sqlite.openConnection({ path: PathUtils.join(PathUtils.profileDir, "calendar-data", "local.sqlite"), readOnly: true });
+            let acked = null;
+            try {
+              for (const end = Date.now() + 5000; !acked && Date.now() < end; await takt(50)) {
+                const rows = await conn.execute("SELECT alarm_last_ack FROM cal_events WHERE id = :id AND cal_id = :cal", { id: saved.id, cal: c.id });
+                acked = rows[0]?.getResultByName("alarm_last_ack") || null;
+              }
+            } finally { await conn.close(); }
             out.acked = !!acked;
             out.alarmWindow = !!Services.wm.getMostRecentWindow("Calendar:AlarmWindow");
             // Klick auf die Mitteilung öffnet den Termin

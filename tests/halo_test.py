@@ -6693,7 +6693,9 @@ def menu_checks(m, results):
               and (not mac or all(x in res.get("windowPopup", []) for x in ["Mail", "Address Book", "Calendar", "Tasks", "Chat"]))
               and res.get("checkedMail") == ["Mail"] and res.get("checkedCal") == ["Calendar"]
               and res.get("calInMail") == "true" and res.get("sortInMail") == "false" and res.get("calInCal") == "false" and res.get("sortInCal") == "true"
-              and all(not a == b == "|" for x in res.values() if isinstance(x, list) for a, b in zip(x, x[1:])))
+              and all(not a == b == "|" for x in res.values() if isinstance(x, list) for a, b in zip(x, x[1:]))
+              # keine Trennlinie ganz oben oder ganz unten (Fenster-Menü: Thunderbirds eigene vor „Minimize“ und am Ende)
+              and all(x[0] != "|" and x[-1] != "|" for x in res.values() if isinstance(x, list) and x))
         return ok, f"{res}"
     check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü (aktiver mit Häkchen), Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
 

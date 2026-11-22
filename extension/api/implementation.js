@@ -3469,6 +3469,9 @@ function hookMenubar(win, restorers) {
   // liefert den Befehl, dort wären die Einträge unsichtbar (auch für die
   // Hilfe-Suche von macOS)
   const zoom = $("windowPopup")?.querySelector(":scope > menuitem#zoomWindow");
+  // Thunderbirds eigene Trennlinien im Fenster-Menü: eine vor „Minimize“ und „sep-window-list“ am Ende (die
+  // Fensterliste dahinter gibt es nicht mehr) – oben und unten stünde sonst eine Linie; ausgeblendet in sweep()
+  const winSeps = MENUBAR_MAC && zoom ? [...zoom.parentNode.children].filter(el => el.localName == "menuseparator") : [];
   if (MENUBAR_MAC && zoom) {
     const sepA = make("menuseparator");
     sepA.classList.add("mc-menu-sep");
@@ -3490,6 +3493,9 @@ function hookMenubar(win, restorers) {
   const sweep = () => {
     for (const m of offMenus) {
       hide(m, true);
+    }
+    for (const sep of winSeps) {
+      hide(sep, true);
     }
     for (const popup of managed) {
       for (const el of popup.children) {

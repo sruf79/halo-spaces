@@ -5312,13 +5312,372 @@ categories-box moz-page-nav-button {
   background-color: var(--mt-window) !important;
 }
 
-/* Import/Export (about:import) dunkel in Fensterfarbe wie die übrigen
-   Tabs statt Firefox-Blauschwarz #18181B. Den leichten Schleier
-   rgba(0,0,0,0.03) des body aus aboutImport.css bewusst behalten: hell
-   hebt sich nur so die weiße Karte der Schritte von der Seite ab */
+/* Import/Export (about:import) als eine Seite in Fensterfarbe wie die
+   übrigen Tabs (dunkel nicht Firefox-Blauschwarz #18181B): ohne den
+   Schleier des body und ohne weiße Karte je Schritt; gewählt wird in
+   grauen Karten mit Zeilen wie auf den Einstellungsseiten */
 :root:has(#stepNav) {
   --in-content-page-background: var(--mt-window) !important;
   background-color: var(--mt-window) !important;
+  color: var(--mt-text) !important;
+}
+
+:root:has(#stepNav) body {
+  background-color: var(--mt-window) !important;
+}
+
+/* Raster: Schrittanzeige, Abschnitt und darunter eine Zeile mit der Hilfe
+   links und den Knöpfen rechts. Die Schritt-Bereiche (.tabPane) geben ihre
+   Abschnitte und Knopfleiste ans Raster weiter (display: contents); der
+   jeweils sichtbare Abschnitt füllt die Breite, Hilfe und Knöpfe teilen
+   sich die letzte Zeile (order), bei schmalem Fenster bricht die Hilfe um */
+:root:has(#stepNav) #main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  margin: 36px 40px !important;
+}
+
+:root:has(#stepNav) #main > :is(nav, #errorNotifications) {
+  grid-column: 1 / -1;
+}
+
+:root:has(#stepNav) #main > .tabPane {
+  display: contents;
+}
+
+:root:has(#stepNav) #main > .tabPane > section {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+}
+
+/* Schritte: graue Kreise 22 px mit Zahl, der aktuelle in Textfarbe gefüllt,
+   erledigte mit Häkchen; „Confirm“ als graue Kapsel gleicher Höhe; dazwischen
+   kurze Haarlinien statt blauer Striche über die ganze Breite */
+:root:has(#stepNav) #stepNav {
+  justify-content: flex-start !important;
+  margin: 0 0 28px !important;
+}
+
+:root:has(#stepNav) #stepNav li {
+  flex-grow: 0 !important;
+  font-size: 13px !important;
+}
+
+:root:has(#stepNav) #stepNav li:not(:first-child)::before {
+  flex: none !important;
+  inline-size: 22px;
+  margin: 0 8px !important;
+  border-block-start: var(--mt-hairline, 1px) solid var(--mt-separator) !important;
+}
+
+:root:has(#stepNav) #stepNav button {
+  block-size: 22px !important;
+  inline-size: 22px !important;
+  min-inline-size: 22px !important;
+  min-block-size: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 22px !important;
+}
+
+:root:has(#stepNav) #stepNav li.current button {
+  background: var(--mt-text) !important;
+  color: var(--mt-window) !important;
+}
+
+:root:has(#stepNav) #stepNav li.completed:not(.current) button {
+  color: transparent !important;
+  background: var(--mt-control) url("resource://mailcards/icons/check.svg") center / 14px no-repeat !important;
+  -moz-context-properties: stroke;
+  stroke: var(--mt-text-secondary);
+}
+
+:root:has(#stepNav) #stepNav li.completed:not(.current) button:not([disabled]):hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+:root:has(#stepNav) #navConfirm button {
+  inline-size: auto !important;
+  padding: 0 10px !important;
+}
+
+/* Titel: graues halo-Symbol 22 px vor „Import Tool“ bzw. „Export“ (übrige
+   Schritte ohne Symbol), 22 px halbfett; Leitsatz 13 px halbfett, Hilfetext
+   13 px grau */
+:root:has(#stepNav) .tabPane h1 {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px !important;
+  color: var(--mt-text) !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+}
+
+:root:has(#stepNav) .tabPane h1::before {
+  display: none !important;
+}
+
+:root:has(#stepNav) :is(#tabPane-start, #tabPane-export) h1::before {
+  display: block !important;
+  position: static !important;
+  flex: none;
+  inline-size: 22px !important;
+  block-size: 22px !important;
+  margin: 0 !important;
+  background-position: center !important;
+  background-size: 22px !important;
+  fill: transparent !important;
+  stroke: var(--mt-text-secondary) !important;
+}
+
+:root:has(#stepNav) .tabPane h2 {
+  margin: 0 !important;
+  color: var(--mt-text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane h2.light-heading {
+  margin-block-start: 20px !important;
+}
+
+:root:has(#stepNav) .tabPane section p {
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane .description,
+:root:has(#stepNav) .tabPane section > p:not(.tip-caption) {
+  margin-block: 2px 0 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Auswahl und Übersicht: graue Karte (Radius 10) mit Zeilen; Haarlinien
+   beginnen an der Textkante (14 px Rand + 16 px Knopf + 10 px Abstand) und
+   enden 14 px vor dem Rand. Leere Listen (z. B. keine Profile) ohne Karte */
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list, ul.summary-items, dl) {
+  margin: 16px 0 0 !important;
+  border-radius: var(--mt-radius-row, 10px) !important;
+  background: var(--mt-control) !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list, ul.summary-items) {
+  padding: 0 !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list, ul.summary-items):empty {
+  display: none !important;
+}
+
+:root:has(#stepNav) .tabPane .profile-list + .profile-list {
+  margin-block-start: 8px !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list) > label.toggle-container-with-text {
+  column-gap: 10px;
+  margin-block: 0 !important; /* Einzug der PST-Ordner bleibt (margin-inline-start je Tiefe) */
+  padding: 10px 14px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list) > label.toggle-container-with-text + label,
+:root:has(#stepNav) .tabPane ul.summary-items > li + li {
+  background: linear-gradient(var(--mt-separator), var(--mt-separator)) no-repeat 40px 0 / calc(100% - 54px) var(--mt-hairline, 1px);
+}
+
+:root:has(#stepNav) .tabPane label.toggle-container-with-text > input {
+  align-self: center;
+  margin: 0 !important;
+}
+
+:root:has(#stepNav) .tabPane label.toggle-container-with-text > :is(p, span):not(.tip-caption, .mc-pst-count) {
+  color: var(--mt-text) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane label.toggle-container-with-text > .tip-caption {
+  margin-block-start: 1px !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Übersicht („Confirm“): Zeilen ohne grüne Häkchen, Text an derselben Kante
+   wie die Auswahlzeilen */
+:root:has(#stepNav) .tabPane ul.summary-items {
+  list-style: none !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane ul.summary-items > li {
+  padding: 10px 14px 10px 40px !important;
+  font-size: 13px !important;
+}
+
+:root:has(#stepNav) .tabPane ul.summary-items > li + li {
+  background-position: 40px 0;
+}
+
+/* Quelle, Verzeichnis, Ziel: Zeilen in grauer Karte, Beschriftung grau */
+:root:has(#stepNav) .tabPane dl {
+  row-gap: 4px;
+  column-gap: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane dt {
+  color: var(--mt-text-secondary) !important;
+  font-weight: normal !important;
+}
+
+:root:has(#stepNav) .tabPane dd {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Knöpfe: rechts unten, „Back“ links neben dem Hauptknopf, 30 px Kapseln;
+   „Start Import“, „Export“, „Finish“ im Abschnitt ebenfalls rechts */
+:root:has(#stepNav) #main .buttons-container {
+  grid-column: 2;
+  order: 2;
+  justify-content: flex-end !important;
+  gap: 8px;
+  margin-block-start: 24px !important;
+}
+
+:root:has(#stepNav) main button:not(.btn-link, #stepNav button, #search-button) {
+  min-block-size: var(--mt-btn-h, 30px) !important;
+  block-size: var(--mt-btn-h, 30px) !important;
+  padding: 0 16px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  font-size: 13px !important;
+}
+
+:root:has(#stepNav) main button.back {
+  background-image: none !important;
+}
+
+:root:has(#stepNav) .tabPane .center-button {
+  margin: 20px 0 0 auto !important;
+}
+
+:root:has(#stepNav) .tabPane .center-button.btn-link {
+  margin-block-start: 8px !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.center, .progressPane) {
+  text-align: start !important;
+}
+
+:root:has(#stepNav) .tabPane p.center {
+  margin-block-start: 16px !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Export: eine Seite ohne Schritte; der Hinweis samt „Open profile folder“
+   in grauer Karte, „Export“ bzw. „Finish“ rechts in der Zeile der Hilfe
+   (der Abschnitt gibt seine Teile dafür ans Raster weiter) */
+:root:has(#stepNav) #tabPane-export > section {
+  display: contents !important;
+}
+
+:root:has(#stepNav) #tabPane-export > section > * {
+  grid-column: 1 / -1;
+}
+
+:root:has(#stepNav) #tabPane-export.progress .progressPane {
+  display: block !important;
+}
+
+:root:has(#stepNav) #tabPane-export > section > :is(#exportButton, .progressFinish.center-button) {
+  grid-column: 2;
+  order: 2;
+  margin: 24px 0 0 !important;
+}
+
+:root:has(#stepNav) #tabPane-export p.description {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 8px;
+  margin: 16px 0 0 !important;
+  padding: 12px 14px;
+  border-radius: var(--mt-radius-row, 10px);
+  background: var(--mt-control);
+}
+
+:root:has(#stepNav) #tabPane-export p.description > span {
+  flex: 1 1 calc(100% - 30px);
+}
+
+:root:has(#stepNav) #tabPane-export p.description > .btn-link {
+  margin: 0 !important;
+}
+
+/* Fortschritt wie im Archiv-Assistenten: Kapsel 4 px, Spur grau, Füllung
+   in der Systemfarbe, darunter der Stand grau 12 px */
+:root:has(#stepNav) .progressPaneProgressBar {
+  appearance: none !important;
+  block-size: 4px !important;
+  margin-block-start: 20px;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background: var(--mt-control-hover) !important;
+}
+
+:root:has(#stepNav) .progressPaneProgressBar::-moz-progress-bar {
+  border-radius: var(--mt-radius-capsule, 999px);
+  background: var(--mt-accent);
+}
+
+:root:has(#stepNav) .tabPane p.progressPaneDesc {
+  margin-block-start: 6px !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Hilfe: „Need help? Import documentation Support forum“ in einer Zeile links
+   neben den Knöpfen, grau ohne Unterstrich und ohne Bindestrich (der Text-
+   knoten „-“ verschwindet mit font-size 0), unter der Maus in Textfarbe */
+:root:has(#stepNav) #importFooter {
+  grid-column: 1;
+  order: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-block-size: var(--mt-btn-h, 30px);
+  margin: 24px 0 0 !important;
+  font-size: 0 !important;
+  text-align: start !important;
+}
+
+:root:has(#stepNav) #importFooter > * {
+  margin: 0 14px 0 0 !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  text-decoration: none !important;
+}
+
+:root:has(#stepNav) #importFooter > a:hover {
   color: var(--mt-text) !important;
 }
 
@@ -5372,9 +5731,13 @@ categories-box moz-page-nav-button {
    rechts in Grau; Abstände wie die übrigen Auswahlen, nur enger, weil
    eine Datei viele Ordner haben kann */
 #tabPane-halopst :is(.mc-pst-folders, .mc-pst-parts) > label {
-  grid-template-columns: min-content 1fr auto;
-  grid-template-areas: "i text num";
+  grid-template-columns: min-content 1fr auto !important;
+  grid-template-areas: "i text num" !important;
   margin-block: 0.35em;
+}
+
+#tabPane-halopst :is(.mc-pst-folders, .mc-pst-parts) > label > .mc-pst-name {
+  grid-area: text;
 }
 
 #tabPane-halopst .mc-pst-count {
@@ -10265,6 +10628,13 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 :root[mc-fifth-current][mc-fifth="web"] #unifiedToolbarContent > li[item-id="search-bar"] {
+  display: none !important;
+}
+
+/* Import und Export (about:import, mc-import setzt implementation.js): kein
+   Suchfeld im Kopf, es fände dort nichts; der Seitenleisten-Knopf bleibt,
+   er blendet wie im Einstellungs-Tab die Bereiche-Leiste aus */
+:root[mc-tab="contentTab"][mc-import] #unifiedToolbarContent > li[item-id="search-bar"] {
   display: none !important;
 }
 

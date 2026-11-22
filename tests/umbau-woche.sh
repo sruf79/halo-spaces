@@ -94,7 +94,9 @@ case $cmd in
     trap 'rm -rf $t' EXIT
     HALO_BOARD_ZWISCHEN_S=0 zsh $HIER/board.sh export > $t/export.json || { print -u2 "FEHLER: board.sh export"; exit 1 }
     git -C $REPO fetch -q origin 2>/dev/null
-    if gh run list -R sruf79/halo-spaces -w test.yml -s success -e push -L 300 --json headSha -q '.[].headSha' > $t/gruen.txt 2>/dev/null; then
+    # mit Zweig: A verlangt einen grünen Lauf auf main (bzw. Release-Tag), Prüfzweig-Läufe zählen nur für B (S0 c)
+    if gh run list -R sruf79/halo-spaces -w test.yml -s success -e push -L 300 --json headSha,headBranch \
+         -q '.[] | .headSha + "\t" + .headBranch' > $t/gruen.txt 2>/dev/null; then
       py sortieren $t/export.json $REPO --gruen $t/gruen.txt; exit $?
     fi
     print "# Hinweis: grüne CI-Läufe nicht lesbar (gh) – grün gilt nur, was in einem Release-Tag steckt"

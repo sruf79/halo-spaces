@@ -5,7 +5,8 @@
 #   sperre <Schalterdatei> <Vorlauf Std.>   rc 0 = keine neuen Worker (ab „ab“ minus Vorlauf, solange die Zeile steht)
 #   erlaubt <Typ> <Titel> [<id>] [<Status>] „ja …“ (rc 0) oder „nein …“ (rc 1): darf ein Lauf den Eintrag in der Woche beginnen?
 #   fable <Titel> [<id>]                    rc 0 = Fable aus der Tagesroutine erlaubt (nur nach „Rot bleibt rot“, S0 b)
-#   sortieren <export.json> <Repo> [--main REF] [--gruen DATEI] [--jetzt ISO]   Listen für Tag 1 (nur Einträge auf In Progress)
+#   sortieren <export.json> <Repo> [--main REF] [--gruen DATEI] [--jetzt ISO]   Listen für Tag 1 (nur Einträge auf In Progress);
+#                                           DATEI: je Zeile „<sha> <Zweig>“ grüner Push-Läufe (A nur aus Zweig main)
 # Zeit: HALO_JETZT (ISO mit Zone) für Proben, sonst jetzt.
 import datetime as dt
 import json
@@ -129,14 +130,21 @@ class Fakten:
         if rc:
             raise SystemExit("FEHLER: %s nicht lesbar" % main)
         self.main = set(out.split())
-        start = [s for s in gruen if self.existiert(s)]
+        # gruen: (sha, Zweig) grüner Push-Läufe. Für A („committet und CI grün“) zählt nur die volle CI auf main oder ein
+        # Release-Tag; ein Prüfzweig-Lauf (nur Linux und statisch) macht die Vorgänger seines Kopfs nicht grün (Fable-
+        # Prüfung M5). Für B gilt nach S0 c auch „Commit auf einem Prüfzweig bei grünen Tests“. Ohne Zweig: nicht main.
         rc, tags = git(repo, "tag", "-l", "v[0-9]*")
-        start += [t + "^{commit}" for t in tags.split()]
-        self.gruen = set()
-        if start:
-            rc, out = git(repo, "rev-list", *start)
-            self.gruen = set(out.split()) if rc == 0 else set()
+        auf_main = [s for s, z in gruen if z == "main" and self.existiert(s)] + [t + "^{commit}" for t in tags.split()]
+        auf_pruef = [s for s, z in gruen if z != "main" and self.existiert(s)]
+        self.gruen = self.vorgaenger(auf_main)
+        self.gruen_pruef = self.gruen | self.vorgaenger(auf_pruef)
         self.cache = {}
+
+    def vorgaenger(self, start):
+        if not start:
+            return set()
+        rc, out = git(self.repo, "rev-list", *start)
+        return set(out.split()) if rc == 0 else set()
 
     def existiert(self, h):
         rc, out = git(self.repo, "cat-file", "-t", h)
@@ -201,7 +209,7 @@ def einordnen_commit(n, absatz, hs, kurz, titel, teile, f):
     if in_main:
         return "B", kurz, "Commit in main, CI noch nicht grün: wartet auf Push/CI, abschließen"
     zweige = [f.pruefzweige(h) for h in hs]
-    if all(zweige) and gruen:
+    if all(zweige) and all(h in f.gruen_pruef for h in hs):
         return "B", kurz, "Commit auf Prüfzweig %s, Tests grün (S0 c): bleibt In Progress, übernehmen" % ",".join(zweige[-1])
     return "U", kurz, "Commit weder in main noch auf grünem Prüfzweig"
 
@@ -231,7 +239,7 @@ def sortieren(args):
             raise SystemExit("unbekannte Option " + o)
     gruen = []
     if gruen_datei:
-        gruen = [z.split()[0] for z in open(gruen_datei, encoding="utf-8") if z.strip()]
+        gruen = [(z.split() + [""])[:2] for z in open(gruen_datei, encoding="utf-8") if z.strip()]
     items = json.load(open(export, encoding="utf-8"))["items"]
     f = Fakten(repo, main, gruen)
     now = jetzt()

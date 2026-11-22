@@ -93,12 +93,15 @@ H_GRUEN=$(c a); H_MAIN=$(c b)
 git -C $G update-ref refs/remotes/origin/main HEAD
 git -C $G switch -qc pruef/worker-1 $H_GRUEN; H_PG=$(c d)
 git -C $G switch -qc pruef/worker-2 $H_GRUEN; H_PR=$(c e)
+git -C $G switch -qc pruef/worker-3 $H_MAIN; H_PM=$(c g)   # M5: grüner Prüfzweig-Lauf über einem main-Commit
 git -C $G switch -qc nacht/x $H_GRUEN; H_ANDERS=$(c f)
 git -C $G switch -q main
 H_ZIFFERN=
 for i in {1..400}; do h=$(c z$i); [[ $h == <-> ]] && { H_ZIFFERN=$h; break }; done
 git -C $G update-ref refs/remotes/origin/main HEAD
-git -C $G rev-parse $H_GRUEN > $T/gruen.txt; git -C $G rev-parse $H_PG >> $T/gruen.txt
+print -r -- "$(git -C $G rev-parse $H_GRUEN)	main" > $T/gruen.txt
+print -r -- "$(git -C $G rev-parse $H_PG)	pruef/worker-1" >> $T/gruen.txt
+print -r -- "$(git -C $G rev-parse $H_PM)	pruef/worker-3" >> $T/gruen.txt
 e() { print -r -- "{\"id\":\"PVTI_test$1\",\"typ\":\"$2\",\"status\":\"${5:-In Progress}\",\"title\":\"$3\",\"body\":\"$4\"}" }
 J=(
   "$(e AAAAA Bug 'Mail: fertig' "Text\\n\\ncommittet, wartet auf Push/CI ($H_GRUEN)")"
@@ -132,7 +135,7 @@ echo "$0 $*" >> '$T'/aufrufe.log; exit 1' > $T/bin/gh; chmod +x $T/bin/gh
 S=$(PATH=$T/bin:$PATH HALO_UMBAU_REPO=$G HALO_JETZT=2026-11-24T01:30+01:00 zsh $U sortieren $T/export.json --gruen $T/gruen.txt 2>&1; print "rc=$?")
 z() { print -r -- $S | awk -F'\t' -v k=$1 '$3 == k { print $1 "\t" $5 }' }
 pruefe "A: committet, Commit in main, CI grün → Done" "$(z AAAAA)" '^A	Commit in main, CI grün'
-pruefe "B: Commit in main, CI noch offen → bleibt, abschließen" "$(z BBBBB)" '^B	Commit in main, CI noch nicht grün'
+pruefe "B: Commit in main, CI noch offen → bleibt, abschließen; M5: grüner Prüfzweig darüber macht ihn nicht grün" "$(z BBBBB)" '^B	Commit in main, CI noch nicht grün'
 pruefe "B: Commit auf grünem Prüfzweig bleibt In Progress (S0 c)" "$(z BPRUE)" '^B	Commit auf Prüfzweig pruef/worker-1, Tests grün \(S0 c\)'
 pruefe "U: Prüfzweig ohne grüne Tests → einzeln prüfen (nie blind Pausiert)" "$(z UPROT)" '^U	Commit weder in main noch auf grünem Prüfzweig'
 pruefe "U: Commit auf anderem Zweig (kein pruef/) → einzeln prüfen" "$(z UANDR)" '^U	'
@@ -160,6 +163,7 @@ pruefe "ohne grüne Läufe: nichts wird Done (nur Release-Tags zählen)" \
   "$(HALO_UMBAU_REPO=$G zsh $U sortieren $T/export.json | awk -F'\t' '$3=="AAAAA"{print $1}')" '^B$'
 git -C $G tag v1.0.0 $H_GRUEN
 pruefe "Release-Tag gilt als grün" "$(HALO_UMBAU_REPO=$G zsh $U sortieren $T/export.json | awk -F'\t' '$3=="AAAAA"{print $1}')" '^A$'
+pruefe "M5: sortieren holt grüne Läufe mit Zweig (A nur aus main)" "$(<$U)" 'json headSha,headBranch'
 SK=$(grep -vE '^[[:space:]]*#' $HIER/umbau-woche.py $U)
 pruefe "Vorsortierung schreibt nie ins Board (kein status/notiz/neu/item-edit)" \
   "$(print -r -- $SK | grep -cE 'board\.sh (status|notiz|neu|text|titel|archiv)|item-edit|item-archive|updateProjectV2'; print -r -- $SK | grep -cE 'git[^|]*(push|commit|reset|checkout)')" '^0$' '^0$'

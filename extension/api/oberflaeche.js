@@ -194,6 +194,8 @@ class EnhancerOberflaeche {
     let endFolder = collapsing ? 0 : full;
     let endMsg = vertical ? (collapsing ? msgStart + full : msgStart - full) : 0;
     let endMsgProp = "";
+    // Breite der Mailliste im Endzustand (0 = nicht gemessen)
+    let listEnd = 0;
     if (vertical) {
       const startProp = grid.style.getPropertyValue(prop);
       const startMsgProp = grid.style.getPropertyValue(msgProp);
@@ -208,6 +210,26 @@ class EnhancerOberflaeche {
         }
       }
       this.offsetUpdaters?.forEach(fn => fn());
+      // „Mailliste behält ihre gemerkte Breite“ gilt auch für diesen Endzustand. Thunderbird 160 hält die Liste
+      // selbst fest (width … !important), die Leseansicht bekommt den Rest. Die ESR 153 tut das nicht: dort folgt
+      // die Liste der Rastervariable der Leseansicht, und das Nachführen (keepListWidth) ruht, solange die
+      // Bereiche-Leiste mitläuft – die Bewegung endete mit der engen Liste (382 statt 460 px), erst 30 ms nach dem
+      // Ende sprang sie samt allen Knöpfen der Toolbar auf ihre Breite (am Mac 77 px, unter Linux 9 px), und jedes
+      // zweite Mal blieb sie eng, weil Thunderbirds Teiler den Wert schon für gesetzt hielt. Darum hier gleich
+      // ausrechnen: was die Liste von ihrer gemerkten Breite abweicht, bekommt bzw. gibt die Leseansicht
+      // (nicht, wenn spaces.css die Liste auf den Platz begrenzt, und nie unter die Mindestbreite der Leseansicht)
+      const listEl = ab.document.getElementById("threadPane");
+      const listNow = listEl?.getBoundingClientRect().width || 0;
+      const listWant = Services.prefs.getIntPref(LIST_WIDTH_PREF, LIST_WIDTH_DEFAULT);
+      const listCap = listEl ? parseFloat(ab.getComputedStyle(listEl).maxWidth) : NaN;
+      const msgNow = parseFloat(grid.style.getPropertyValue(msgProp));
+      if (listNow && Number.isFinite(msgNow) && Math.abs(listNow - listWant) >= 1 &&
+          !(Number.isFinite(listCap) && listNow < listWant - 0.5 && listNow >= listCap - 0.5)) {
+        const msgMin = (parseFloat(ab.getComputedStyle(msgPane).minWidth) || 300) - msgExtra;
+        const msgNext = Math.max(msgMin, msgNow + listNow - listWant);
+        grid.style.setProperty(msgProp, `${Math.round(msgNext)}px`);
+      }
+      listEnd = listEl?.getBoundingClientRect().width || 0;
       endFolder = collapsing ? 0 : pane.getBoundingClientRect().width;
       endMsg = msgPane.getBoundingClientRect().width;
       endMsgProp = grid.style.getPropertyValue(msgProp) || ab.getComputedStyle(grid).getPropertyValue(msgProp);
@@ -368,8 +390,11 @@ class EnhancerOberflaeche {
         splitter.isCollapsed = true; // setzt die Variable selbst auf 0px
         // ESR 153 gibt die 1-px-Spur des Teilers erst danach frei – die Liste
         // wäre ein Bild lang breiter: Leseansicht im selben Schritt angleichen
-        if (vertical && listStart) {
-          const drift = (threadPane.getBoundingClientRect().width || listStart) - listStart;
+        // (Bezug ist die vorab gemessene Endbreite der Liste, nicht ihre Breite am Anfang: kehrt sie beim Ausblenden
+        // von der engen auf ihre gemerkte Breite zurück, drückte der Ausgleich sie sonst wieder auf die enge)
+        const listRef = listEnd || listStart;
+        if (vertical && listRef) {
+          const drift = (threadPane.getBoundingClientRect().width || listRef) - listRef;
           if (Math.abs(drift) >= 0.5) {
             const now = parseFloat(grid.style.getPropertyValue(msgProp)) || parseFloat(ab.getComputedStyle(grid).getPropertyValue(msgProp));
             if (Number.isFinite(now)) {

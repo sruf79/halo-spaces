@@ -247,7 +247,7 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 | Haarlinie | `--mt-hairline` 1 px, ab 2 dppx 0,5 px („wie bei Apple“) | C :13–14, :14982–14984 |
 | Trennlinien allgemein | `--mt-separator` `rgba(0,0,0,.08)` / `rgba(255,255,255,.08)` | C :24, :123 |
 | Linie zwischen Bereichen | `--mt-pane-line` 11 % / 10 % | C :68, :148 |
-| Trennstrich in Kapseln | 1 px breit, 20 px hoch (53 % von 38 px), mittig, `rgba(0,0,0,.2)` / `rgba(255,255,255,.23)`; beim Überfahren alle weg | C :95–102, :158; gemessen an V `mail-toolbar-kapsel*.webp` (B `…GYF4o`) |
+| Trennstrich in Kapseln | 1 px breit, 20 px hoch (53 % von 38 px), mittig, `rgba(0,0,0,.2)` / `rgba(255,255,255,.23)`; beim Überfahren nur die Striche neben dem Knopf unter der Maus weg (linker Knopf: rechter Strich, mittlerer: beide, rechter: linker; Board-Wunsch des Maintainers 21.11.2026) | C :95–102, :158; gemessen an V `mail-toolbar-kapsel*.webp` (B `…GYF4o`) |
 | Gefärbte Trennlinie der Bereiche-Leiste | 1 px, nur auf Kachelhöhe, 35 % hell / 30 % dunkel, je 175 px zurück in die Linienfarbe | C :2880–2889; E 13.11.2026 |
 
 ### Knöpfe, Felder, Leisten

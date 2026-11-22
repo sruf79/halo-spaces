@@ -155,7 +155,8 @@
   --mt-sidebar-selected-weight: 600;
   /* Kapseln mit mehreren Knöpfen wie Apple Mail (an Bildschirmfotos von Mail
      gemessen): Trennstrich 1 px, 53 % der Kapselhöhe (38 → 20 px), mittig;
-     beim Überfahren der Kapsel verschwinden alle Trennstriche, der Knopf unter
+     beim Überfahren verschwinden die Trennstriche neben dem Knopf unter der
+     Maus (die übrigen der Kapsel bleiben), der Knopf unter
      der Maus bekommt eine runde Fläche (Durchmesser 85 % der Kapselhöhe, also
      3 px Abstand zum Rand), gedrückt etwas dunkler (--mt-cap-dot: Kreis bzw.
      Oval mittig im Knopf) */
@@ -2962,19 +2963,27 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   justify-content: center !important;
 }
 
-/* wie Apple (Mail-Toolbar oben): steht die Maus auf einer Kapsel, verschwinden
-   ihre Trennstriche; der Knopf bzw. die Hälfte des geteilten Knopfs unter der
+/* wie Apple (Mail-Toolbar oben): steht die Maus auf einem Knopf, verschwinden
+   nur die Trennstriche links und rechts von ihm (der Strich hängt am rechten
+   Stück seines Stoßes); der Knopf bzw. die Hälfte des geteilten Knopfs unter der
    Maus bekommt eine runde Fläche mit Abstand zum Kapselrand */
-:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton):hover) > :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton),
-:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton):hover) > :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton),
-:root[mc-standalone] #header-view-toolbar:has(> :is(#otherActionsButton, #starMessageButton):hover) > :is(#otherActionsButton, #starMessageButton) {
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrReplyToSenderButton, #hdrSmartReplyButton):hover) > #hdrSmartReplyButton,
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrSmartReplyButton, #hdrForwardButton):hover) > #hdrForwardButton,
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrArchiveButton, #hdrTrashButton):hover) > #hdrTrashButton,
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrTrashButton, #hdrJunkButton):hover) > #hdrJunkButton,
+:root[mc-standalone] #header-view-toolbar:has(> :is(#otherActionsButton, #starMessageButton):hover) > #starMessageButton {
   background-image: var(--mt-cap-fill) !important;
   /* (Größe und Lage des Trennstrichs nicht auf die Schichten der Fläche
      übertragen – die Lichtkante oben schrumpfte sonst auf 1 × 20 px) */
   background-size: auto !important;
   background-position: 0 0 !important;
-  /* (die Fläche deckt; eine Farbe darunter schimmerte an den runden Enden
-     durch und änderte beim Überfahren die Kante) */
+}
+
+/* (die Fläche deckt; eine Farbe darunter schimmerte an den runden Enden
+   durch und änderte beim Überfahren die Kante) */
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton):hover) > :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton),
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton):hover) > :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton),
+:root[mc-standalone] #header-view-toolbar:has(> :is(#otherActionsButton, #starMessageButton):hover) > :is(#otherActionsButton, #starMessageButton) {
   background-color: transparent !important;
 }
 
@@ -3473,10 +3482,15 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   pointer-events: none !important;
 }
 
-/* wie Apple: steht die Maus auf der Kapsel, verschwinden ihre Trennstriche */
+/* wie Apple: unter der Maus verschwinden nur die Trennstriche neben dem Knopf
+   (links und rechts davon); die übrigen Striche der Kapsel bleiben. Jeder
+   Strich hängt am rechten Knopf seines Stoßes und weicht, wenn dieser oder
+   sein linker Nachbar überfahren wird */
 #unifiedToolbarContent:has(> li:is([item-id="get-messages"], [item-id="write-message"]):hover) > li[item-id="write-message"]::before,
-#unifiedToolbarContent:has(> li:is([item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"]):hover) > li:is([item-id="reply-all"], [item-id="forward-inline"])::before,
-#unifiedToolbarContent:has(> li:is([item-id="archive"], [item-id="delete"], [item-id="junk"]):hover) > li:is([item-id="delete"], [item-id="junk"])::before {
+#unifiedToolbarContent:has(> li:is([item-id="reply"], [item-id="reply-all"]):hover) > li[item-id="reply-all"]::before,
+#unifiedToolbarContent:has(> li:is([item-id="reply-all"], [item-id="forward-inline"]):hover) > li[item-id="forward-inline"]::before,
+#unifiedToolbarContent:has(> li:is([item-id="archive"], [item-id="delete"]):hover) > li[item-id="delete"]::before,
+#unifiedToolbarContent:has(> li:is([item-id="delete"], [item-id="junk"]):hover) > li[item-id="junk"]::before {
   opacity: 0 !important;
 }
 

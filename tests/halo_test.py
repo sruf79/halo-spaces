@@ -15171,10 +15171,11 @@ def run_checks(m, version, profile, results):
 
     def capsule_hover():
         # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch, mittig in
-        # --mt-cap-line; steht die Maus auf der Kapsel, verschwinden ihre Trennstriche (die der
+        # --mt-cap-line; steht die Maus auf einem Knopf, verschwinden nur die Striche neben ihm (die der
         # Nachbarkapsel bleiben), der Knopf unter der Maus bekommt eine runde Fläche (radial-gradient)
         # statt einer Fläche bis an den Kapselrand; ebenso Filter | … über der Mailliste (Trennstrich dort: GitHub #47)
-        res = m.js(MESSAGE_JS + '''
+        shot = "true" if os.environ.get("HALO_SHOTS") else "false"
+        res = m.js(MESSAGE_JS + f"const SHOT = {shot};" + '''
           const cs = (e, p) => w.getComputedStyle(e, p);
           const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
           const [arch, del, junk, fwd] = ["archive", "delete", "junk", "forward-inline"].map(li);
@@ -15199,6 +15200,27 @@ def run_checks(m, version, profile, results):
             out.hover = { del: cs(del, "::before").opacity, junk: cs(junk, "::before").opacity, fwd: cs(fwd, "::before").opacity,
                           img: cs(btn).backgroundImage.slice(0, 16), bg: cs(btn).backgroundColor, disabled: btn.disabled };
           } finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
+          // wie Apple Mail: nur die Striche neben dem Knopf unter der Maus weichen (links bzw. rechts davon),
+          // die übrigen der Kapsel bleiben – je Knopf die Deckkraft aller Striche der Kapsel
+          out.each = {};
+          const groups = [["archive", "delete", "junk"], ["reply", "reply-all", "forward-inline"]];
+          for (const g of groups) {
+            const lis = g.map(li);
+            if (!lis.every(e => e && e.getBoundingClientRect().width > 0)) { out.each[g[0]] = null; continue; }
+            for (const e of lis) {
+              const b = e.querySelector("button"), lk = [e, b].filter(Boolean);
+              for (const x of lk) InspectorUtils.addPseudoClassLock(x, ":hover");
+              try { await ruhig(150); out.each[e.getAttribute("item-id")] = lis.slice(1).map(x => cs(x, "::before").opacity).join("");
+                    if (SHOT) {
+                      // mit HALO_SHOTS ein Bild der Kapsel je überfahrenem Knopf
+                      const a = lis[0].getBoundingClientRect(), z = lis[lis.length - 1].getBoundingClientRect();
+                      const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(a.left - 6, a.top - 6, z.right - a.left + 12, a.height + 12), 2, "white");
+                      const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+                      cv.getContext("2d").drawImage(bm, 0, 0); (out.png ??= {})[e.getAttribute("item-id")] = cv.toDataURL("image/png").split(",")[1];
+                    } }
+              finally { for (const x of lk) InspectorUtils.removePseudoClassLock(x, ":hover"); }
+            }
+          }
           const cap = d.querySelector("#mcListHeader .mc-lh-tools");
           const tools = cap?.querySelector(":scope > .mc-lh-more");
           const filt = cap?.querySelector(":scope > .mc-lh-filter");
@@ -15224,12 +15246,23 @@ def run_checks(m, version, profile, results):
           } finally { w.resizeTo(oldW, oldH); await ruhig(300); }''')
         if res.get("missing"):
             return False, f"Toolbar-Knöpfe fehlen {res}"
+        pngs = res.pop("png", None) or {}
+        if os.environ.get("HALO_SHOTS") and pngs:
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            for name, data in pngs.items():
+                path = os.path.join(os.environ["HALO_SHOTS"], f"kapsel-trennstriche-{name}.png")
+                open(path, "wb").write(base64.b64decode(data))
+                print(f"Bild {path}", flush=True)
         r, h, l = res["rest"], res["hover"], res.get("list") or {}
         ok_rest = (r["w"] == "1px" and r["h"] == "20px" and abs(r["dy"]) <= 0.5 and same_color(r["color"], res["capLine"])
                    and r["del"] == "1" and r["junk"] == "1")
         # deaktivierte Knöpfe (keine Mail gewählt) bekommen keine Fläche, die Trennstriche verschwinden trotzdem
-        ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
+        ok_hover = (h["del"] == "0" and h["junk"] == "1" and h["fwd"] == "1"
                     and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
+        # je Knopf: links nur der rechte Strich weg, Mitte beide, rechts nur der linke (Deckkraft Strich 1, Strich 2)
+        ok_each = res.get("each") == {"archive": "01", "delete": "00", "junk": "10",
+                                      "reply": "01", "reply-all": "00", "forward-inline": "10"}
         # Listenkopf: Kreis 32 px, 3 px vom Kapselrand, mit Lichtkante (Fläche des Knopfs selbst, 18.11.2026)
         ok_list = (bool(l) and l["img"] == "none" and rgba_alpha(l["bg"]) > 0 and l["w"] == 32 and l["h"] == 32 and l["radius"] >= 16
                    and abs(l["top"] - 3) <= 0.5 and l.get("sh", "").startswith("rgba(255, 255, 255") and "inset" in l.get("sh", ""))
@@ -15237,9 +15270,9 @@ def run_checks(m, version, profile, results):
         ok_sep = (bool(sp) and sp["content"] not in ("none", "normal") and sp["w"] == "1px" and sp["h"] == "20px"
                   and abs(sp["dy"]) <= 0.5 and abs(sp["dx"]) <= 0.5 and sp["op"] == "1"
                   and same_color(sp["color"], res["capLine"]) and l.get("sep") == "0")
-        return (ok_rest and ok_hover and ok_list and ok_sep,
-                f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} filter|…={ok_sep} {res}")
-    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+        return (ok_rest and ok_hover and ok_each and ok_list and ok_sep,
+                f"ruhe={ok_rest} hover={ok_hover} je-knopf={ok_each} liste={ok_list} filter|…={ok_sep} {res}")
+    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren nur die Striche neben dem Knopf weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
 
     def capsule_plastic():
         # Knopf-Familie in der Mail-Symbolleiste (Variante A, plastische Kapseln B, 17.11.2026): jedes Kapselstück
@@ -25969,6 +26002,10 @@ Neu
             const px = (img, x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
             const diff = (a, b, x, y) => { const p = px(a, x, y), q = px(b, x, y); return Math.max(...p.map((v, k) => Math.abs(v - q[k]))); };
             out.btn = {};
+            // Trennstriche (Schicht 1 × 20 px am linken Rand des Stücks): in Ruhe und je überfahrenem Knopf
+            const sepIds = ["hdrTrashButton", "hdrJunkButton", "hdrSmartReplyButton", "hdrForwardButton", "starMessageButton"];
+            const lines = () => sepIds.filter(x => { const y = md.getElementById(x); return y && !y.hidden && mwin.getComputedStyle(y).backgroundSize.startsWith("1px"); });
+            out.linesRest = lines(); out.lines = {};
             for (const id of ids) {
               const e = md.getElementById(id);
               if (!e || e.hidden || !e.getBoundingClientRect().width) continue;
@@ -25982,6 +26019,7 @@ Neu
               for (const x of lock) InspectorUtils.addPseudoClassLock(x, ":hover");
               await ruhig(150);
               const hov = await shot(r);
+              out.lines[id] = lines();
               for (const x of lock) InspectorUtils.removePseudoClassLock(x, ":hover");
               await ruhig(100);
               // Kreis = Pixel, die beim Überfahren dunkler bzw. heller werden; Mitte Zeile, Rand oben und unten
@@ -26022,6 +26060,19 @@ Neu
             width, center = v["r"] - v["l"] + 1, (v["l"] + v["r"] + 1) / 2
             if not (28 <= width <= 33 and abs(center - v["iconMid"]) <= 1 and v["top"] == 0 and v["bottom"] == 0 and 26 <= v["rows"] <= 34):
                 bad.append(f"{k}: {v}")
+        # Trennstriche wie in der Mail-Symbolleiste: unter der Maus weichen nur die Striche neben dem Knopf
+        # (der Strich hängt am rechten Stück seines Stoßes), die übrigen der Kapsel bleiben
+        left = {"hdrTrashButton": "hdrArchiveButton", "hdrJunkButton": "hdrTrashButton", "hdrSmartReplyButton": "hdrReplyToSenderButton",
+                "hdrForwardButton": "hdrSmartReplyButton", "starMessageButton": "otherActionsButton"}
+        rest_lines = res.get("linesRest") or []
+        # (Stern: mit Drucken und Verschieben eigene Kapsel Stern | Pfeil, dann ohne Strich davor)
+        for need in ("hdrTrashButton", "hdrJunkButton", "hdrForwardButton"):
+            if need not in rest_lines:
+                bad.append(f"Trennstrich vor {need} fehlt in Ruhe {rest_lines}")
+        for k, got in (res.get("lines") or {}).items():
+            want = [x for x in rest_lines if x != k and left[x] != k]
+            if got != want:
+                bad.append(f"Trennstriche bei {k}: {got} statt {want}")
         tb, s0, s1 = res.get("tbStar"), res.get("star") or {}, res.get("starOn") or {}
         # Umriss gleich dem Toolbar-Stern, 22 px, grau; markiert gefüllt und orange (Toolbar: --mi-star-fill in --mt-star)
         if not (tb and s0.get("mask") == tb and s0.get("w") == 22 and s0.get("grey", 0) > 20 and s0.get("orange") == 0):
@@ -26030,7 +26081,7 @@ Neu
             bad.append(f"Stern markiert: {s1}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: beim Überfahren jeder Knopf mit grauem Kreis mittig hinter dem Symbol, kein Rechteck; "
-          "Stern wie in der Mail-Toolbar", message_window_hover_dots, results)
+          "Stern wie in der Mail-Toolbar; Trennstriche nur neben dem Knopf unter der Maus weg", message_window_hover_dots, results)
 
     def calendar_list_light():
         # Kalenderliste (Kalender und Aufgaben): Haken je Modus einheitlich, hell weiß und dunkel #1E1E1E, auch bei Gelb und

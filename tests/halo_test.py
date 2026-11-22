@@ -6748,7 +6748,8 @@ def menu_checks(m, results):
 
     def menubar_get_mail_key():
         # Mail › „Get New Mail“ zeigt Thunderbirds Kürzel für denselben Befehl (in Englisch ⇧⌘Y bzw. Strg+Umschalt+Y, alle
-        # Konten abrufen; der Buchstabe hängt an der Sprache); bis 21.11.2026 stand der Eintrag ohne Kürzel im Menü
+        # Konten abrufen; der Buchstabe hängt an der Sprache; unter Windows und Linux hat Thunderbird dafür Umschalt+F5, einen
+        # Tastencode statt eines Buchstabens); bis 21.11.2026 stand der Eintrag ohne Kürzel im Menü
         res = m.js(r"""
           await toMail();
           // die Menüleiste unter Windows/Linux blendet sich bei „popupshowing“ ein (wie mit Alt) – danach wieder wie vorher
@@ -6759,15 +6760,18 @@ def menu_checks(m, results):
           const out = {
             label: item?.getAttribute("label"), hidden: !!(item?.hidden || item?.collapsed), parent: item?.parentNode?.id,
             key: k ? [k.id, (k.getAttribute("key") || "").toLowerCase(), (k.getAttribute("modifiers") || "").split(/[\s,]+/).filter(Boolean).sort().join("+"),
-              (k.getAttribute("oncommand") || "").includes("cmd_getMsgsForAuthAccounts")] : null,
-            accel: item?.getAttribute("acceltext") || "",
+              (k.getAttribute("oncommand") || "").includes("cmd_getMsgsForAuthAccounts"), (k.getAttribute("keycode") || "").replace(/^VK_/, "")] : null,
+            accel: item?.getAttribute("acceltext") || "", mac: Services.appinfo.OS == "Darwin",
           };
           p.dispatchEvent(new w.Event("popuphiding", { bubbles: true }));
           if (inactive != null) tbm.setAttribute("inactive", inactive);
           return out;""")
         ok = (res.get("label") == "Get New Mail" and not res.get("hidden") and res.get("parent") == "messageMenuPopup"
-              and (res.get("key") or [None] * 4)[0::2] == ["key_getAllNewMessages", "accel+shift"] and res["key"][3]
-              and len(res["key"][1]) == 1 and res["key"][1].upper() in res.get("accel", ""))
+              and (res.get("key") or [None] * 5)[0] == "key_getAllNewMessages" and res["key"][3]
+              # Mac: Buchstabe mit ⇧⌘; Windows/Linux: Thunderbirds Kürzel dort (Buchstabe mit Strg+Umschalt oder Umschalt+F5)
+              and ((len(res["key"][1]) == 1 and res["key"][2] == "accel+shift" and res["key"][1].upper() in res.get("accel", ""))
+                   or (not res.get("mac") and not res["key"][1] and res["key"][4] and "shift" in res["key"][2].split("+")
+                       and res["key"][4] in res.get("accel", "") and "Shift" in res.get("accel", ""))))
         return ok, f"{res}"
     check("Menüleiste: Mail › „Get New Mail“ zeigt Thunderbirds Kürzel zum Abrufen aller Konten", menubar_get_mail_key, results)
 

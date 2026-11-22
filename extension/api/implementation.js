@@ -1371,6 +1371,65 @@ function restoreFieldColons() {
   colonDocs.clear();
 }
 
+// Add-ons-Verwaltung: Im Menü „…“ einer Karte steht „Remove“ wie im Vorbild
+// (Löschen zuletzt in eigener Gruppe) am Ende nach einer Trennlinie, oben
+// Preferences und Manage; Thunderbird setzt es als Erstes. Umgestellt wird nur
+// die Vorlage der Karten (und schon gebaute Menüs); Befehle, Ein-/Ausblenden
+// und Trennlinien regelt weiter Thunderbird. Pfeiltasten folgen der Reihenfolge
+// im Dokument und damit der sichtbaren.
+const ADDON_MENU_ORDER = ["install-update", "preferences", "expand", "hr", "report", "hr", "remove"];
+const addonMenuDocs = new Set();
+function orderAddonMenu(list) {
+  const items = [...list.children];
+  const hrs = items.filter(e => e.localName == "hr");
+  const byAction = new Map(items.filter(e => e.localName == "panel-item").map(e => [e.getAttribute("action"), e]));
+  if (!byAction.has("remove") || hrs.length < 2) {
+    return false;
+  }
+  let h = 0;
+  const order = ADDON_MENU_ORDER.map(a => a == "hr" ? hrs[h++] : byAction.get(a)).filter(Boolean);
+  // Unbekanntes (künftige Einträge) bleibt vor der letzten Gruppe
+  const rest = items.filter(e => !order.includes(e));
+  order.splice(order.length - 2, 0, ...rest);
+  list.append(...order);
+  return true;
+}
+function hookAddonMenuOrder(win) {
+  win.customElements?.whenDefined("addon-options").then(C => {
+    if (C.__mcOrder || win.closed) {
+      return;
+    }
+    C.fragment; // legt die Vorlage an (_template)
+    const tpl = C._template?.content.querySelector("panel-list");
+    if (!tpl || !orderAddonMenu(tpl)) {
+      return;
+    }
+    C.__mcOrder = true;
+    addonMenuDocs.add(Cu.getWeakReference(win));
+    // schon gebaute Karten: Trennlinien neu berechnen lassen
+    for (const el of win.document.querySelectorAll("addon-options")) {
+      const list = el.querySelector(":scope > panel-list");
+      if (list && orderAddonMenu(list)) {
+        list.querySelectorAll(":scope > hr").forEach(hr => (hr.hidden = false));
+        el.updateSeparatorsVisibility?.();
+      }
+    }
+  }).catch(e => log("addon menu order error", String(e).slice(0, 120)));
+}
+function restoreAddonMenuOrder() {
+  // neue Karten wieder aus Thunderbirds eigener Vorlage
+  for (const ref of addonMenuDocs) {
+    try {
+      const C = ref.get()?.customElements?.get("addon-options");
+      if (C?.__mcOrder) {
+        delete C._template;
+        delete C.__mcOrder;
+      }
+    } catch {}
+  }
+  addonMenuDocs.clear();
+}
+
 // Wie Apple Mail ohne Tabs: Inhalte, die Thunderbird als Tab ohne Bereich
 // öffnet, wären bei ausgeblendeter Tab-Leiste nach dem nächsten Wechsel
 // unsichtbar. Darum
@@ -8163,6 +8222,9 @@ class CardEnhancer {
             return;
           }
           const win = doc.defaultView;
+          if (url.startsWith("about:addons") && win && Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true)) {
+            win.addEventListener("DOMContentLoaded", () => hookAddonMenuOrder(win), { once: true });
+          }
           // Beschriftungen ohne Doppelpunkt in Fenstern, Dialogen und Einstellungen
           // (nicht Hauptfenster, Mailansicht, Adressbuch und Verfassen-Fenster)
           if (win && /^(chrome:\/\/(messenger|calendar|messenger-newsblog)\/|about:(preferences|accountsettings))/.test(url) &&
@@ -8219,6 +8281,7 @@ class CardEnhancer {
     Services.obs.addObserver(docObserver, "document-element-inserted");
     this.restorers.push(() => Services.obs.removeObserver(docObserver, "document-element-inserted"));
     this.restorers.push(restoreFieldColons);
+    this.restorers.push(restoreAddonMenuOrder);
     const onPhotos = () => this.avatars.byEmail.clear(); // neue Fotos beim nächsten Anzeigen nutzen
     MacPhotos.listeners.add(onPhotos);
     const t1 = setTimeout(() => MacPhotos.sync(), 20000);
@@ -12617,7 +12680,11 @@ class CardEnhancer {
       let W = 0, topH = 0, bottomH = 0;
       if (el) {
         const off = el.ownerDocument == d ? { left: 0, top: 0 } : win.browsingContext.embedderElement.getBoundingClientRect();
-        const pr = el.parentNode.getBoundingClientRect();
+        // Add-on-Tab (about:addons): die Leiste klebt mit Fensterhöhe am Rand (position: sticky), ihr Raster #full
+        // ist aber nur so hoch wie die Liste der Add-ons – schwebend fehlte darunter alles, auch die Fußzeile
+        // (GitHub #64); dort gilt die Höhe des Fensters
+        const pr = tab.mode.name == "contentTab" && win.getComputedStyle(el).position == "sticky" ? { top: 0, bottom: win.innerHeight }
+          : el.parentNode.getBoundingClientRect();
         W = tab.mode.name == "preferencesTab" ? 240 : Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);
         const top = Math.max(pr.top, I - off.top);
         const bottom = Math.min(pr.bottom, H - I - off.top);

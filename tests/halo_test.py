@@ -9894,6 +9894,64 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: Heute- und Hover-Kreis im Mini-Kalender rund und mittig um ein- und zweistellige Zahlen", today_minimonth_circles, results)
 
+    def today_minimonth_selected():
+        # Gewählter Tag im Mini-Kalender deutlich kräftiger als die Maus-Markierung, hell wie dunkel (vorher füllte die
+        # Auswahl mit --mt-control 0,05 / 0,07 und war schwächer als der Hover 0,09 / 0,12, dunkel kaum zu sehen).
+        # Gemessen wird die Fläche über der Zahl (8 px über der Mitte, außerhalb der Ziffern) als Helligkeitsabstand
+        # L* zum Hintergrund; die Auswahl muss mindestens das 1,4-fache des Hover-Abstands haben und mindestens 10 L*
+        # (Soll: hell 208 bzw. dunkel 83 auf 242 bzw. 40, Hover 220 bzw. 66, also etwa das 1,6-fache). Heute bleibt rot.
+        res = m.js(r"""
+          await toMail(); await ruhig(600);
+          const mm = d.getElementById("today-minimonth");
+          const vis = () => { const r = mm.getBoundingClientRect(); return r.width > 150 && r.right <= w.innerWidth + 1; };
+          if (!vis()) d.getElementById("mcTodayToggle").click();
+          await bis(vis, "Mini-Kalender der Today-Pane sichtbar", 8000);
+          mm.showMonth?.(new Date()); await ruhig(400);
+          const cells = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")], num = c => +c.textContent.trim();
+          const todayN = num(mm.querySelector("td.minimonth-day[today]"));
+          const free = cells.map(num).filter(n => n >= 10 && Math.abs(n - todayN) > 3);
+          const selN = free[0], hovN = free.find(n => Math.abs(n - selN) > 1);
+          const cell = n => cells.find(c => num(c) == n);
+          w.__mcSelOld = [...mm.querySelectorAll("td.minimonth-day[selected]")];
+          for (const c of w.__mcSelOld) c.removeAttribute("selected");
+          cell(selN).setAttribute("selected", "true"); await ruhig(200);
+          const r = cell(hovN).getBoundingClientRect();
+          return { dark: w.matchMedia("(prefers-color-scheme: dark)").matches, todayN, selN, hovN, hov: [r.left + r.width / 2, r.top + r.height / 2] };""")
+        x, y = res["hov"]
+        m.pointer([{"type": "pointerMove", "duration": 0, "x": int(x), "y": int(y), "origin": "viewport"}])
+        px = m.js(r"""
+          await ruhig(250);
+          const mm = d.getElementById("today-minimonth"), cells = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")];
+          const cell = n => cells.find(c => +c.textContent.trim() == n);
+          const read = async n => {
+            const td = cell(n), r = td.getBoundingClientRect(), cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+            cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+            try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"), 0, 0); }
+            catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+            const at = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+            const cx = Math.floor(cv.width / 2), cy = Math.floor(cv.height / 2);
+            return { hover: td.matches(":hover"), bg: at(0, 0), fill: at(cx, cy - 8), mid: at(cx - 9, cy) };
+          };
+          const out = { sel: await read(%d), hov: await read(%d), today: await read(%d) };
+          try { for (const c of mm.querySelectorAll("td.minimonth-day[selected]")) c.removeAttribute("selected");
+                for (const c of w.__mcSelOld || []) c.setAttribute("selected", "true"); } finally { delete w.__mcSelOld; }
+          return out;""" % (res["selN"], res["hovN"], res["todayN"]))
+        m.pointer([{"type": "pointerMove", "duration": 0, "x": 5, "y": 5}])
+
+        def lstar(c):
+            lin = [(v / 255 / 12.92) if v / 255 <= 0.04045 else ((v / 255 + 0.055) / 1.055) ** 2.4 for v in c]
+            yy = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+            return 116 * (yy ** (1 / 3) if yy > 0.008856 else 7.787 * yy + 16 / 116) - 16
+        sel, hov, today = px["sel"], px["hov"], px["today"]
+        d_sel = abs(lstar(sel["fill"]) - lstar(sel["bg"]))
+        d_hov = abs(lstar(hov["fill"]) - lstar(hov["bg"]))
+        # links neben der Zahl dieselbe Fläche wie darüber (ganzer Kreis gefüllt, nicht nur ein Rand)
+        same = max(abs(a - b) for a, b in zip(sel["fill"], sel["mid"])) <= 3
+        red = today["fill"][0] > 200 and today["fill"][1] < 110 and today["fill"][2] < 110
+        ok = hov["hover"] and d_hov > 3 and d_sel >= 10 and d_sel >= 1.4 * d_hov and same and red
+        return ok, f"dunkel={res['dark']} Auswahl ΔL*={d_sel:.1f} Hover ΔL*={d_hov:.1f} {px}"
+    check("Today-Pane: gewählter Tag im Mini-Kalender deutlich kräftiger als die Maus-Markierung (hell und dunkel), heute bleibt rot", today_minimonth_selected, results)
+
     def agenda_past_month():
         # ‹ des Mini-Kalenders in einen vergangenen Monat: die Liste blättert mit und steht am Ende, die letzten Termine
         # des Monats sind ohne Scrollen sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben
@@ -10755,6 +10813,72 @@ def calendar_checks(m, results):
               and e.get("tp") is True and e.get("squeezed") and e.get("ov"))
         return ok, f"{res}"
     check("Mail: eigene Toolbar-Belegung ohne Abstandhalter vorn – mit Platz bleibt jeder Knopf sichtbar, mit Today-Pane ragt keiner aus der Leiste, was weicht, steht im Menü „»“ und kommt zurück", mail_own_layout_fits, results)
+
+    def mail_not_under_today():
+        # Mit gewählter Mail und Today-Pane lief der Mailbereich unter die Pane (1500 px: 18 px, der rechte Rand der
+        # Hinweiskarte war verdeckt): Thunderbird hält Ordner- und Mailliste fest und gibt der Mail den Rest, auch unter
+        # ihren 480 px. Jetzt gibt die Mailliste nach (spaces.css), danach die Mail: der Mailbereich endet vor der Pane,
+        # die Karte hat rechts denselben Abstand wie links; Pane zu → Liste wieder in ihrer gemerkten Breite. Beim Ein- und
+        # Ausblenden gleiten Liste, erster Knopf über der Mail und Trennlinie der Toolbar-Zeile (kein Sprung, auch nicht
+        # am Ende). Kleiner Bildschirm (1280 px, vorgetäuscht): auch dann nichts unter der Pane, Liste und Mail ≥ 300 (Thunderbirds Grenzen)
+        res = m.js(MESSAGE_JS + r"""
+          const tpWas = !!w.TodayPane?.isVisible, out = {}, ad = a3.document;
+          const screenDesc = Object.getOwnPropertyDescriptor(w, "screen");
+          const br = () => a3.browsingContext.embedderElement.getBoundingClientRect();
+          const firstBtn = () => [...d.querySelectorAll("#unifiedToolbarContent > li")].find(li => li.getAttribute("item-id") != "spacer" && li.getBoundingClientRect().width > 0);
+          const lineVar = () => parseFloat((d.getElementById("unifiedToolbarContainer") || d.documentElement).style.getPropertyValue("--mc-list-right"));
+          const meas = () => {
+            const off = br().left, mp = ad.getElementById("messagePane").getBoundingClientRect(), tp = d.getElementById("today-pane-panel");
+            const end = Math.min(br().right, w.TodayPane?.isVisible ? tp.getBoundingClientRect().left : w.innerWidth);
+            const r = { list: Math.round(ad.getElementById("threadPane").getBoundingClientRect().width * 10) / 10,
+              msg: Math.round(mp.width), over: Math.round((off + mp.right - end) * 10) / 10 };
+            // Hinweiskarte der Mailingliste (#mcListBanner): Abstand links und rechts (rechts bis zur sichtbaren Kante)
+            const mb = a3.messageBrowser, n = mb?.contentDocument?.getElementById("mcListBanner"), nr = n?.getBoundingClientRect();
+            if (nr?.width) {
+              const mbl = off + mb.getBoundingClientRect().left;
+              r.inset = [Math.round(nr.left * 10) / 10, Math.round((Math.min(end, off + mp.right) - (mbl + nr.right)) * 10) / 10];
+            }
+            return r;
+          };
+          // Ein-/Ausblenden Bild für Bild: rechte Kante der Liste, erster Knopf, Trennlinie der Zeile
+          const toggle = async on => {
+            if (!!w.TodayPane?.isVisible == on) return null;
+            const frames = [], off = br().left, sample = () => frames.push([off + ad.getElementById("threadPane").getBoundingClientRect().right,
+              firstBtn()?.getBoundingClientRect().left ?? 0, lineVar()]);
+            let run = true; const loop = () => { if (!run) return; sample(); w.requestAnimationFrame(loop); };
+            sample(); d.getElementById("mcTodayToggle").click(); w.requestAnimationFrame(loop);
+            await bis(() => !!w.TodayPane?.isVisible == on && !d.getElementById("today-pane-panel").__mcAnimating, "Today-Pane " + on, 4000);
+            await ruhig(1200); run = false; sample();
+            // größter Schritt je Bild (Liste, Knopf, Linie) und Gesamtweg der Liste
+            const step = k => Math.round(Math.max(0, ...frames.slice(1).map((f, i) => Math.abs(f[k] - frames[i][k]))) * 10) / 10;
+            return { n: frames.length, list: step(0), btn: step(1), line: Number.isFinite(frames[0][2]) ? step(2) : 0,
+                     weg: Math.round(Math.abs(frames.at(-1)[0] - frames[0][0]) * 10) / 10 };
+          };
+          const settle = () => stabil(() => [meas(), w.innerWidth], 4000);
+          try {
+            w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000);
+            await toggle(false); await settle(); out.zu = meas();
+            out.einAnim = await toggle(true); await settle(); out.auf = meas();
+            out.ausAnim = await toggle(false); await settle(); out.zuWieder = meas();
+            await toggle(true); await settle(); out.aufWieder = meas();
+            out.want = Services.prefs.getIntPref("extensions.mailcards.listWidth", 460);
+            // kleiner Bildschirm: Mindestbreite des Fensters endet am Bildschirm
+            w.screen = { availWidth: 1280, availHeight: 860, availLeft: 0, availTop: 0, width: 1280, height: 900, left: 0, top: 0 };
+            w.dispatchEvent(new w.Event("resize")); await ruhig(300); d.documentElement.style.minWidth = "";
+            w.resizeTo(1280, 860); await until(() => w.outerWidth == 1280, 3000); await settle(); out.klein = meas(); out.kleinIw = w.innerWidth;
+          } finally {
+            if (screenDesc) Object.defineProperty(w, "screen", screenDesc); else delete w.screen;
+            w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000); if (!!w.TodayPane?.isVisible != tpWas) await toggle(tpWas);
+          }
+          return out;""")
+        lay = ("zu", "auf", "zuWieder", "aufWieder", "klein")
+        ok = (all(res[k]["over"] <= 0.5 for k in lay)
+              and all("inset" not in res[k] or abs(res[k]["inset"][0] - res[k]["inset"][1]) <= 2 for k in lay)
+              and all(res[k]["list"] >= 299.5 and res[k]["msg"] >= 300 for k in lay)
+              and abs(res["zu"]["list"] - res["want"]) <= 1 and abs(res["zuWieder"]["list"] - res["want"]) <= 1
+              and all(a and a["list"] <= 6 and a["btn"] <= 6 and a["line"] <= 6 for a in (res["einAnim"], res["ausAnim"])))
+        return ok, f"{res}"
+    check("Mail: mit gewählter Mail und Today-Pane (1500 px und kleiner Bildschirm) läuft der Mailbereich nicht unter die Pane, Hinweiskarte rechts mit gleichem Abstand wie links; Mailliste gibt nach und hat ohne Pane wieder ihre Breite, beim Ein-/Ausblenden gleiten Liste, Knöpfe und Trennlinie ohne Sprung", mail_not_under_today, results)
 
     def ab_sidebar_frames():
         # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
@@ -13252,6 +13376,53 @@ def run_checks(m, version, profile, results):
               and not (res.get("wide") or {}).get("ov") and not (res.get("wide") or {}).get("hidden"))
         return ok, f"{res}"
     check("Toolbar: Überlauf wie Apple Mail – im schmalen Fenster weichen Pillen ganz, links neben der Lupe erscheint „»“ mit den ausgeblendeten Aktionen", toolbar_overflow, results)
+
+    def toolbar_overflow_back():
+        # GitHub #67 Teil c: wird das Fenster wieder breiter (z. B. größerer Bildschirm), kommen die gewichenen Pillen
+        # zurück in die Leiste und „»“ verschwindet – in der Mail und in den übrigen Bereichen, auch wenn das Fenster in
+        # einem anderen Bereich schmal war und erst danach in der Mail breiter wird (mit und ohne Today-Pane)
+        res = m.js(MESSAGE_JS + r"""
+          const out = {};
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const tpWas = w.TodayPane.isVisible;
+          const st = () => {
+            const content = d.getElementById("unifiedToolbarContent");
+            const ov = d.getElementById("mcToolbarOverflow");
+            return { hidden: [...content.children].filter(l => !l.hidden && l.hasAttribute("mc-squeezed") && l.id != "mcToolbarOverflow").map(l => l.getAttribute("item-id")),
+                     ov: !!(ov && !ov.hasAttribute("mc-squeezed") && ov.getBoundingClientRect().width) };
+          };
+          const breit = Math.min(1900, w.screen.availWidth);
+          try {
+            if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+            for (const [name, open] of [["mail", toMail], ["calendar", toCalendar]]) {
+              await open(); await ruhig(1000);
+              w.resizeTo(800, 900); await ruhig(1500);
+              const schmal = st();
+              w.resizeTo(breit, 900); await ruhig(1500);
+              if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+              out[name] = { schmal, breit: st() };
+              tpCmd.doCommand(); await ruhig(1500);
+            }
+            // schmal im Kalender, breit erst nach dem Wechsel in die Mail
+            await toCalendar(); await ruhig(1000);
+            w.resizeTo(800, 900); await ruhig(1500);
+            await toMail(); await ruhig(1500);
+            const schmal = st();
+            w.resizeTo(breit, 900); await ruhig(1500);
+            if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+            out.wechsel = { schmal, breit: st() };
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          } finally {
+            await toMail(); if (w.TodayPane.isVisible != tpWas) { tpCmd.doCommand(); await ruhig(1000); }
+            w.resizeTo(1500, 900); await ruhig(800);
+          }
+          return out;""")
+        # (der Kalender hat wenige Pillen – weicht dort schmal keine, zählt nur „wieder breit nichts gewichen“)
+        cases = [(res.get(k) or {}, k != "calendar") for k in ("mail", "calendar", "wechsel")]
+        ok = all((not muss or (c.get("schmal", {}).get("hidden") and c.get("schmal", {}).get("ov")))
+                 and c.get("breit", {}).get("hidden") == [] and c.get("breit", {}).get("ov") is False for c, muss in cases)
+        return ok, f"{res}"
+    check("Toolbar: Überlauf – wieder breit kommen alle Pillen zurück und „»“ verschwindet (Mail, Kalender, nach Bereichswechsel; GitHub #67)", toolbar_overflow_back, results)
 
     def toolbar_min_window():
         # Mail-Space auf Mindestbreite (Fenster so schmal wie möglich, geöffnete Mail, mit und ohne Today-Pane, mit
@@ -18985,9 +19156,12 @@ Neu
 
     def addons_menu_icons():
         # Menüs der Add-ons-Verwaltung mit einzelnen Symbolen wie das Vorbild (Kontextmenü einer Liste mit nur einem
-        # Eintrag mit Symbol): keine eigene Symbolspalte, das Symbol (16 px) beginnt an der Textkante der übrigen
-        # Einträge, sein Text rückt um Symbol und Luft nach rechts; Symbol in Textfarbe, markiert in der Schriftfarbe der
-        # Markierung; das Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü) steht links im Rand, sein Text an der Kante
+        # Eintrag mit Symbol): keine eigene Symbolspalte, das Symbol (14 px, Feld 2 px vor der Kante) beginnt mit seinem
+        # Zeichen an der Textkante der übrigen Einträge, sein Text rückt um Feld und 8 px Luft nach rechts; Symbol in
+        # Textfarbe, markiert in der Schriftfarbe der Markierung; das Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü)
+        # steht links im Rand, sein Text an der Kante. „Remove“ steht im Menü „…“ wie im Vorbild zuletzt nach einer
+        # Trennlinie (Preferences/Manage oben) mit dem halo-Papierkorb als Linie (Zeichen bis zum Text 10 px wie die
+        # Vorlage); Rand und Schatten des Menüs wie die Menüs des Systems (--mt-menu-shadow)
         res = m.js(r'''
           w.resizeTo(1500, 900);
           const ID = "mail-cards@sebastian.local";
@@ -18995,7 +19169,7 @@ Neu
           const ad = await until(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector(`addon-card[addon-id="${ID}"] .more-options-button`) && x; }, 8000);
           await ruhig(800);
           const aw = ad.defaultView; const cs = (e, p) => aw.getComputedStyle(e, p); const R = e => e.getBoundingClientRect();
-          const probe = v => { const p = ad.createElement("div"); p.style.color = v; ad.body.append(p); const c = cs(p).color; p.remove(); return c; };
+          const probe = (v, k = "color") => { const p = ad.createElement("div"); p.style[k] = v; ad.body.append(p); const c = cs(p)[k]; p.remove(); return c; };
           const out = { menus: [], shots: [] };
           const snap = async (pl, name) => {
             const r = R(pl), cv = ad.createElement("canvas"); cv.width = Math.ceil(r.width + 24) * 2; cv.height = Math.ceil(r.height + 24) * 2;
@@ -19015,14 +19189,28 @@ Neu
               const b = i.shadowRoot.querySelector("button"), l = b.querySelector('[part="label"]'), c = cs(b);
               const img = c.backgroundImage, px = parseFloat(c.backgroundPositionX), sz = parseFloat(c.backgroundSize);
               const icon = img && img != "none" ? { left: Math.round((R(b).left + px - R(pl).left) * 2) / 2, size: sz, gap: Math.round((R(l).left - R(b).left - px - sz) * 2) / 2,
-                                                    fill: c.fill == probe("var(--mt-text)"), check: /check\.svg/.test(img) } : null;
+                                                    fill: c.fill == probe("var(--mt-text)") && c.stroke == probe("var(--mt-text)"), check: /check\.svg/.test(img),
+                                                    trash: /mailcards\/icons\/trash\.svg/.test(img), box: [R(b).left + px, R(b).top + (R(b).height - sz) / 2, sz] } : null;
               let hov = null;
-              if (icon) { InspectorUtils.addPseudoClassLock(b, ":hover"); hov = cs(b).fill == probe("var(--mt-accent-text)") && cs(b).backgroundColor == probe("var(--mt-accent)");
+              if (icon) { InspectorUtils.addPseudoClassLock(b, ":hover"); hov = cs(b).fill == probe("var(--mt-accent-text)") && cs(b).stroke == probe("var(--mt-accent-text)") && cs(b).backgroundColor == probe("var(--mt-accent)");
                           if (name == "mehr" && i.getAttribute("action") == "remove") out.hoverRemove = true;
                           InspectorUtils.removePseudoClassLock(b, ":hover"); }
               return { action: i.getAttribute("action"), text: Math.round((R(l).left - R(pl).left) * 2) / 2, icon, hov };
             });
-            out.menus.push({ name, items });
+            // sichtbare Reihenfolge samt Trennlinien
+            const seq = [...pl.children].filter(e => !e.hidden && R(e).height).map(e => e.localName == "hr" ? "hr" : e.getAttribute("action"));
+            const shadow = cs(pl).boxShadow, want = probe("var(--mt-menu-shadow)", "boxShadow");
+            // Papierkorb sichtbar gezeichnet (Linie in Schriftfarbe über context-stroke): Pixel im Symbolfeld, die
+            // deutlich von der Menüfläche abweichen
+            for (const it of items.filter(i => i.icon?.trash)) {
+              const [x, y, sz] = it.icon.box, bg = (await aw.browsingContext.currentWindowGlobal.drawSnapshot(new aw.DOMRect(x, y, sz, sz), 2, "white"));
+              const cv = ad.createElement("canvas"); cv.width = cv.height = sz * 2; const cx = cv.getContext("2d"); cx.drawImage(bg, 0, 0);
+              const px = cx.getImageData(0, 0, sz * 2, sz * 2).data, ref = [px[0], px[1], px[2]];
+              let ink = 0; for (let k = 0; k < px.length; k += 4) if (Math.abs(px[k] - ref[0]) + Math.abs(px[k + 1] - ref[1]) + Math.abs(px[k + 2] - ref[2]) > 150) ink++;
+              it.icon.ink = ink; delete it.icon.box;
+            }
+            items.forEach(i => i.icon && delete i.icon.box);
+            out.menus.push({ name, items, seq, shadowOk: shadow == want && want != "none", radius: cs(pl).borderTopLeftRadius });
             await snap(pl, name);
             const rm = name == "mehr" && [...pl.querySelectorAll('panel-item[action="remove"]')][0]?.shadowRoot.querySelector("button");
             if (rm) { InspectorUtils.addPseudoClassLock(rm, ":hover"); await ruhig(100); await snap(pl, name + "-markiert"); InspectorUtils.removePseudoClassLock(rm, ":hover"); }
@@ -19048,16 +19236,25 @@ Neu
                 ic = i["icon"]
                 if not ic or ic["check"]:
                     # Text an der gemeinsamen Kante (Menürand 5 + 10 px), Häkchen 9 px davor im Rand
-                    if i["text"] != edge or (ic and (ic["size"] != 9 or ic["left"] + 9 + 1 != edge or not ic["fill"] or not i["hov"])):
+                    if i["text"] != edge or (ic and (ic["size"] != 9 or ic["left"] + 9 + 1 != edge or not i["hov"])):
                         return False
-                elif not (ic["left"] == edge and ic["size"] == 16 and ic["gap"] == 8 and i["text"] == edge + 24 and ic["fill"] and i["hov"]):
+                # Feld 14 px 2 px vor der Kante, Text 8 px danach; Papierkorb: Zeichen (2,2 px eingerückt) an der Kante,
+                # vom Zeichen bis zum Text 10 px wie die Vorlage
+                elif not (ic["left"] == edge - 2 and ic["size"] == 14 and ic["gap"] == 8 and i["text"] == edge + 20 and ic["fill"] and i["hov"]):
                     return False
-            return edge == 15
+            return edge == 15 and mn["shadowOk"] and mn["radius"] == "12px"
+        def remove_ok(mn):
+            # Remove zuletzt, davor eine Trennlinie, Preferences/Manage (falls sichtbar) oben; halo-Papierkorb als Linie
+            seq = mn["seq"] if mn else []
+            rm = [i for i in (mn["items"] if mn else []) if i["action"] == "remove"]
+            return (len(seq) >= 3 and seq[-1] == "remove" and seq[-2] == "hr" and seq.count("remove") == 1
+                    and all(seq.index(a) < seq.index("remove") - 1 for a in ("preferences", "expand") if a in seq)
+                    and bool(rm) and rm[0]["icon"] is not None and rm[0]["icon"]["trash"] and rm[0]["icon"].get("ink", 0) >= 40)
         menus = res.get("menus") or []
-        remove = [i for i in (menus[0]["items"] if menus and menus[0] else []) if i["action"] == "remove"]
-        ok = len(menus) == 2 and all(menu_ok(mn) for mn in menus) and bool(remove) and remove[0]["icon"] is not None
+        ok = len(menus) == 2 and all(menu_ok(mn) for mn in menus) and remove_ok(menus[0])
         return ok, f"{res}"
-    check("Add-ons: Menüs mit einzelnen Symbolen (Remove, Häkchen) ohne eigene Symbolspalte, Symbol an der Textkante mit Luft zum Text, markiert in Schriftfarbe",
+    check("Add-ons: Menüs mit einzelnen Symbolen (Remove, Häkchen) ohne eigene Symbolspalte, Symbol an der Textkante mit Luft zum Text, markiert in Schriftfarbe; "
+          "Remove zuletzt nach einer Trennlinie mit dem halo-Papierkorb (14 px), Rand und Schatten wie die Menüs des Systems",
           addons_menu_icons, results)
 
     def radius_tiers():
@@ -22460,6 +22657,53 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Schrift 13 px, Seitenleiste bündig, Listen/DNS/Export als ruhige Karten, leerer DNS-Status verborgen, Unterüberschriften 13 px, OCSP einzeilig, Offline-Dialog untereinander", settings_cards, results)
 
+    def settings_policies_note():
+        # Hinweis „Thunderbird is managed by an organization“ (erscheint nur mit Unternehmensregeln; hier eingeblendet,
+        # wie es Thunderbird bei aktiven Regeln tut): leise graue Karte wie der Hinweis über der Mailliste (E22) statt
+        # kleinem blauem Unterstrich-Link: Fläche --mt-hint-bg ohne Rand, Radius 10, 10 px Innenrand seitlich, Text
+        # 13 px, Symbol grau; Link bleibt (about:policies), Akzentfarbe ohne Unterstrich, unter der Maus unterstrichen.
+        # Mit HALO_SHOTS zusätzlich ein Bild der Karte.
+        res = m.js(r"""
+          w.resizeTo(1500, 950); w.openPreferencesTab("paneGeneral"); await until(() => w.outerWidth == 1500 && w.outerHeight == 950, 2500);
+          await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.readyState == "complete" && x.getElementById("policies-container"); }, "Einstellungen-Tab geladen", 8000);
+          const t = tm.currentTabInfo, cw = t.browser.contentWindow, cd = cw.document, pc = cd.getElementById("policies-container");
+          const a = pc.querySelector("a"), icon = pc.querySelector(".info-icon"), cs = e => cw.getComputedStyle(e);
+          try {
+            pc.removeAttribute("hidden");
+            await cd.l10n.translateElements([a]);
+            await bis(() => a.textContent.trim() && pc.getBoundingClientRect().width > 0 && pc, "Hinweis sichtbar", 4000); await ruhig(300);
+            const probe = cd.createElement("div"); probe.style.cssText = "position:absolute;background-color:var(--mt-hint-bg);color:var(--mt-accent)";
+            cd.documentElement.append(probe); const want = { bg: cs(probe).backgroundColor, accent: cs(probe).color };
+            probe.style.color = "var(--mt-text-secondary)"; want.grey = cs(probe).color; probe.style.color = "var(--mt-text)"; want.text = cs(probe).color; probe.remove();
+            const p = cs(pc), ic = cs(icon), l = cs(a);
+            const out = { want, dark: w.matchMedia("(prefers-color-scheme: dark)").matches, bg: p.backgroundColor, border: p.borderTopWidth, radius: p.borderTopLeftRadius,
+              pad: [p.paddingInlineStart, p.paddingInlineEnd], font: p.fontSize, color: p.color, iconFill: ic.fill, iconW: Math.round(icon.getBoundingClientRect().width),
+              h: Math.round(pc.getBoundingClientRect().height),
+              link: { href: a.getAttribute("href"), color: l.color, deco: l.textDecorationLine, font: l.fontSize, text: a.textContent.trim() } };
+            InspectorUtils.addPseudoClassLock(a, ":hover"); out.hoverDeco = cs(a).textDecorationLine; InspectorUtils.removePseudoClassLock(a, ":hover");
+            if (Services.env.get("HALO_SHOTS")) {
+              const r = pc.getBoundingClientRect(), x0 = Math.max(0, r.left - 20), y0 = Math.max(0, r.top - 20);
+              const bm = await cw.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(x0, y0, r.width + 40, r.height + 40), 2, "white");
+              const cv = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height; cv.getContext("2d").drawImage(bm, 0, 0);
+              out.png = cv.toDataURL("image/png");
+            }
+            return out;
+          } finally { pc.setAttribute("hidden", "hidden"); tm.closeTab(t); await ruhig(500); }""")
+        png = res.pop("png", None)
+        if png and os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            path = os.path.join(os.environ["HALO_SHOTS"], f"einstellungen-policies-{'dunkel' if res.get('dark') else 'hell'}.png")
+            open(path, "wb").write(base64.b64decode(png.split(",", 1)[1]))
+            print(f"Bild {path}", flush=True)
+        wnt, ln = res["want"], res["link"]
+        ok = (same_color(res["bg"], wnt["bg"]) and res["border"] == "0px" and res["radius"] == "10px" and res["pad"] == ["10px", "10px"]
+              and res["font"] == "13px" and same_color(res["color"], wnt["text"]) and same_color(res["iconFill"], wnt["grey"]) and res["iconW"] == 16
+              and ln["href"] == "about:policies" and ln["text"] and same_color(ln["color"], wnt["accent"]) and ln["deco"] == "none"
+              and ln["font"] == "13px" and res["hoverDeco"] == "underline")
+        return ok, f"{res}"
+    check("Einstellungen: Hinweis „managed by an organization“ als leise graue Karte (Radius 10, 13 px, Symbol grau), Link zu den Regeln in Akzentfarbe ohne Unterstrich, unter der Maus unterstrichen", settings_policies_note, results)
+
     def settings_e2ee_cards():
         # Einstellungen: Karte nur mit „Advanced settings“ ohne Fläche (andere Karten behalten sie);
         # Ende-zu-Ende-Texte (html:p) wie Erklärtexte 12 px grau ohne Abstand oben, Linie als Haarlinie,
@@ -23840,6 +24084,86 @@ Neu
               and out.get("off") == "off" and a.get("clip") == "")
         return ok, f"{out}"
     check("Einstellungen: ausgeblendete Seitenleiste schwebt auch über der eingebetteten Add-on-Seite sichtbar ein", pref_embedded_float, results)
+
+    def addons_reenable_float():
+        # GitHub #64, Fall 2: Seitenleiste ausgeblendet, halo.spaces in Einstellungen → Add-ons deaktivieren, Mail-Tab,
+        # zurück zum Add-on-Tab, wieder aktivieren: die schwebende Leiste zeigt danach alle Einträge (sichtbar, anwählbar)
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        def state(want, ms=2500):
+            return m.js(f'try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", {ms}); }} catch {{}} await wait(20); return w.__mcSideFloatState?.();')
+        info = r"""const tab = tm.currentTabInfo, doc = tab.browser?.contentDocument;
+          const side = doc?.getElementById("pref-category-box") || doc?.getElementById("sidebar");
+          if (!side) return { mode: tab.mode.name, side: null };
+          const cw = doc.defaultView, o = tab.browser.getBoundingClientRect();
+          const ents = [...side.querySelectorAll("richlistitem.category, moz-page-nav-button, .category[viewid]")].filter(e => !e.hidden && (!e.closest(".mc-float-pane") || e.checkVisibility()));
+          const cs = e => cw.getComputedStyle(e);
+          return { mode: tab.mode.name, url: doc.documentURI, state: w.__mcSideFloatState?.(), float: side.classList.contains("mc-float-pane"),
+                   cls: side.className, style: side.getAttribute("style"),
+                   rect: (r => [Math.round(r.top), Math.round(r.height), Math.round(r.width)])(side.getBoundingClientRect()),
+                   par: side.parentNode.id + ":" + (r => [Math.round(r.top), Math.round(r.height)])(side.parentNode.getBoundingClientRect()),
+                   items: ents.map(e => { const r = e.getBoundingClientRect(), c = cs(e);
+                     const hit = r.width > 0 ? doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
+                     return { id: e.id || e.getAttribute("view") || e.getAttribute("value"), h: Math.round(r.height), w: Math.round(r.width),
+                              op: c.opacity, vis: c.visibility, hit: !!hit && (hit == e || e.contains(hit) || hit.closest?.("moz-page-nav-button") == e
+                                || (hit.getRootNode?.().host && e.contains(hit.getRootNode().host)) || hit.getRootNode?.().host == e),
+                              hitName: hit?.localName + "#" + (hit?.id || ""), sel: e.hasAttribute("selected") || e.selected || false,
+                              st: e.getAttribute("style") }; }) };"""
+        out = {}
+        try:
+            # wie der Nutzer: Seitenleiste im Mail-Tab ausblenden (Ordnerliste zu), dann Einstellungen → Add-ons
+            m.js(r"""await toMail();
+              if (!w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "ausgeblendet", 3000); }
+              await ruhig(600); return 1;""")
+            m.js(PREFS_OPEN_JS + r"""
+              await pick("paneMcAddons", 3500);
+              await until(() => page("about:addons")?.contentDocument?.querySelector("addon-card"), 8000);
+              await ruhig(600); return 1;""")
+            out["vorher"] = {k: v for k, v in m.js(info).items() if k != "style"}
+            out["aus"] = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const a = await AddonManager.getAddonByID("%s"); await a.disable();
+              await bis(() => !a.isActive, "halo.spaces entladen", 8000); await ruhig(1500);
+              const tab = tm.currentTabInfo, pd = tab.browser?.contentDocument;
+              return { mode: tab.mode.name, url: pd?.documentURI, sel: pd?.getElementById("categories")?.selectedItem?.id, tabs: tm.tabInfo.map(t => t.mode.name) };""" % ADDON_ID)
+            # wie der Nutzer: zum Mail-Tab und zurück, dann Add-on-Seite (Fußzeile der Einstellungen) öffnen
+            out["addons"] = m.js(r"""
+              const prefs = tm.currentTabInfo;
+              tm.switchToTab(0); await ruhig(500); tm.switchToTab(prefs); await ruhig(500);
+              const pd = prefs.browser.contentDocument;
+              pd.getElementById("addonsButton")?.click();
+              await until(() => tm.currentTabInfo.browser?.contentDocument?.querySelector("addon-card"), 8000); await ruhig(800);
+              const t = tm.currentTabInfo; tm.switchToTab(0); await ruhig(500); tm.switchToTab(t); await ruhig(500);
+              return { mode: t.mode.name, url: t.browser?.contentDocument?.documentURI, tabs: tm.tabInfo.map(t => t.mode.name) };""")
+            out["an"] = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const a = await AddonManager.getAddonByID("%s"); await a.enable();
+              await bis(() => typeof w.__mcSideFloatState == "function", "halo.spaces geladen", 10000); await ruhig(1500);
+              return { mode: tm.currentTabInfo.mode.name, hidden: w.gSpacesToolbar.isHidden,
+                       folder: tm.tabInfo[0].chromeBrowser?.contentWindow?.paneLayout?.folderPaneSplitter?.isCollapsed };""" % ADDON_ID)
+            out["ruhend"] = m.js(info)
+            to(500); to(1)
+            out["on"] = state("on")
+            out["float"] = m.js(info)
+            to(700)
+            out["off"] = state("off")
+        finally:
+            m.js("""if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "Seitenleiste wieder da", 3000).catch(() => {}); }
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const a = await AddonManager.getAddonByID("%s"); if (!a.isActive) await a.enable();
+              for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t); await ruhig(400); return 1;""" % ADDON_ID)
+        f = out.get("float") or {}
+        items = f.get("items") or []
+        # alle Einträge samt Fußzeile („Thunderbird Settings“) sichtbar und anwählbar (vorher endete die schwebende Leiste
+        # mit der kurzen Add-on-Liste, darunter fehlte alles)
+        ok = (out.get("on") == "on" and f.get("mode") == "contentTab" and f.get("float") and len(items) >= 4
+              and any(i["id"] == "preferencesButton" for i in items)
+              and all(i["h"] > 0 and i["op"] == "1" and i["vis"] == "visible" and i["hit"] for i in items))
+        return ok, f"{out}"
+    check("Add-ons: ausgeblendete Seitenleiste schwebt nach Deaktivieren und Aktivieren von halo.spaces mit allen Einträgen ein", addons_reenable_float, results)
 
     def pref_embedded_late_l10n():
         # langsamer Start (GitHub-Issue #32, Linux-CI): ist die Fußzeile mit „Account Settings“/„Add-ons and Themes“
@@ -25304,36 +25628,50 @@ Neu
           "Stern wie in der Mail-Toolbar", message_window_hover_dots, results)
 
     def calendar_list_light():
-        # Kalenderliste wie Apple Kalender: angehakt gefüllt in der Kalenderfarbe, Haken in Thunderbirds Kontrastfarbe
-        # (helle Farbe → dunkler Haken); nicht angehakt leeres Kästchen mit Rand in der Kalenderfarbe
+        # Kalenderliste (Kalender und Aufgaben): Haken je Modus einheitlich, hell weiß und dunkel #1E1E1E, auch bei Gelb und
+        # sehr blassen Farben; nicht angehakt volles Farbkästchen ohne Haken; feiner dunkler Rand bleibt (Vorlagen 20.11.2026)
         res = m.js(r"""
-          const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://")); c.name = "Halo Hell";
-          c.setProperty("color", "#DCEBFB"); cal.manager.registerCalendar(c);
-          await toCalendar(); await ruhig(600);
-          const li = await until(() => d.querySelector(`#calendar-list li[calendar-id="${c.id}"]`), 4000);
-          const box = li?.querySelector(".calendar-color"), input = li?.querySelector("input.calendar-displayed");
-          const lum = s => { const v = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
-            return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-          const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return Math.round((x + 0.05) / (y + 0.05) * 10) / 10; };
-          const look = () => { const cs = w.getComputedStyle(box), af = w.getComputedStyle(box, "::after");
-            return { bg: cs.backgroundColor, border: cs.borderTopColor, bw: cs.borderTopWidth, check: af.content != "none" ? af.backgroundColor : null, op: cs.opacity }; };
-          const out = { row: !!li };
-          if (box) {
-            out.on = look(); out.on.contrast = out.on.check ? ratio(out.on.check, out.on.bg) : 0;
-            input.click(); await ruhig(400);
-            out.off = look();
-            input.click(); await ruhig(300);
+          const farben = { gelb: "#FFCC00", blass: "#DCEBFB" }, cs = {};
+          for (const [n, f] of Object.entries(farben)) { const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+            c.name = "Halo " + n; c.setProperty("color", f); cal.manager.registerCalendar(c); cs[n] = c; }
+          const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches };
+          const look = box => { const s = w.getComputedStyle(box), af = w.getComputedStyle(box, "::after");
+            return { bg: s.backgroundColor, bw: s.borderTopWidth, check: af.content != "none" ? af.backgroundColor : null, op: s.opacity, sh: s.boxShadow }; };
+          const messen = async space => {
+            const r = {};
+            for (const [n, c] of Object.entries(cs)) {
+              const li = await until(() => d.querySelector(`#calendar-list li[calendar-id="${c.id}"]`), 4000);
+              const box = li?.querySelector(".calendar-color"), input = li?.querySelector("input.calendar-displayed");
+              if (!box || !input) { r[n] = null; continue; }
+              r[n] = { on: look(box) }; input.click(); await ruhig(400);
+              r[n].off = look(box); input.click(); await ruhig(300);
+            }
+            out[space] = r;
+          };
+          try {
+            await toCalendar(); await ruhig(600); await messen("kalender");
+            tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben-Tab"); await ruhig(800); await messen("aufgaben");
+          } finally {
+            for (const c of Object.values(cs)) { cal.manager.unregisterCalendar(c); cal.manager.removeCalendar?.(c); }
+            await toMail();
           }
-          cal.manager.unregisterCalendar(c); cal.manager.removeCalendar?.(c);
-          await toMail();
           return out;""")
-        on, off = res.get("on") or {}, res.get("off") or {}
-        light = "rgb(220, 235, 251)"
-        ok = (res.get("row") and on.get("bg") == light and on.get("contrast", 0) >= 4.5
-              and off.get("check") is None and off.get("bg") in ("rgba(0, 0, 0, 0)", "transparent") and off.get("border") == light
-              and off.get("op") == "1")
-        return ok, f"{res}"
-    check("Kalenderliste: helle Kalenderfarbe mit dunklem Haken, nicht angehakt leeres Kästchen mit farbigem Rand (wie Apple Kalender)", calendar_list_light, results)
+        tick = "rgb(30, 30, 30)" if res.get("dark") else "rgb(255, 255, 255)"
+        soll = {"gelb": "rgb(255, 204, 0)", "blass": "rgb(220, 235, 251)"}
+        bad = []
+        for space in ("kalender", "aufgaben"):
+            for n, farbe in soll.items():
+                e = (res.get(space) or {}).get(n)
+                if not e:
+                    bad.append(f"{space}/{n}: Zeile fehlt"); continue
+                on, off = e["on"], e["off"]
+                if not (on["bg"] == farbe and on["check"] == tick and on["op"] == "1" and "inset" in on["sh"]):
+                    bad.append(f"{space}/{n} angehakt: {on}")
+                if not (off["bg"] == farbe and off["check"] is None and off["op"] == "1" and off["bw"] in ("0px", "") and "inset" in off["sh"]):
+                    bad.append(f"{space}/{n} aus: {off}")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Kalenderliste: Haken hell weiß und dunkel dunkel bei jeder Kalenderfarbe (auch Gelb und blass), nicht angehakt volles "
+          "Farbkästchen ohne Haken, feiner Rand bleibt (Kalender und Aufgaben)", calendar_list_light, results)
 
     def mac_photos_off():
         # Einstellungsseite (setSetting) direkt über das Experiment-Modul; den

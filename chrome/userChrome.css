@@ -42,6 +42,11 @@
   --mt-control: rgba(0, 0, 0, 0.05);
   --mt-control-hover: rgba(0, 0, 0, 0.09);
   --mt-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.06);
+  /* Rand und Schatten der Menüs, die halo selbst zeichnet (Add-ons-Verwaltung),
+     wie die Menüs des Systems: Rand nach dem UI-Kit („Menus“: 0,5 px Schwarz
+     20 %, 1 px #666 15 %), Schatten am Kontextmenü der Vorlage gemessen (unten
+     am Rand 18 % dunkler, nach 16 px weg; seitlich 14 %, nach 15 px weg) */
+  --mt-menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(102, 102, 102, 0.15), 0 4px 14px rgba(0, 0, 0, 0.22);
   --mt-radius-panel: 18px;
   /* schwebende Seitenleiste (Dia 3/4), an Dia gemessen: 3 px vom Fensterrand,
      Radius 10 px, zarter Schatten (am Rand ~9 % dunkler, nach 15 px weg),
@@ -274,6 +279,8 @@
     --mt-control: rgba(255, 255, 255, 0.07);
     --mt-control-hover: rgba(255, 255, 255, 0.12);
     --mt-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 2px 12px rgba(0, 0, 0, 0.35);
+    /* UI-Kit „Menus“ dunkel: 0,5 px Schwarz 80 %, 1 px #666 40 % */
+    --mt-menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(102, 102, 102, 0.4), 0 4px 14px rgba(0, 0, 0, 0.35);
     /* Menüfläche wie macOS 27 („Liquid Glass / Menus“ dunkel: #5A5A5A
        50 %) über der Unschärfe des Systems; hell bleibt sie heller als die
        Vorgabe (#E6E6E6 55 % wirkt über der Unschärfe grauer als die Menüs
@@ -6327,12 +6334,23 @@ menuseparator[mc-tidy-hidden] {
   position: relative !important;
 }
 
+/* Haken einheitlich je Modus, unabhängig von der Kalenderfarbe: hell weiß, dunkel fast schwarz
+   (Wert aus der dunklen Vorlage gemessen, 20.11.2026) */
+#calendar-list {
+  --mt-cal-check: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  #calendar-list {
+    --mt-cal-check: #1E1E1E;
+  }
+}
+
 #calendar-list > li:has(input.calendar-displayed:checked) .calendar-color::after {
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
-  /* Haken in Thunderbirds Kontrastfarbe des Kalenders (bei hellen Farben dunkel) */
-  background-color: var(--mc-cal-fore, white) !important;
+  background-color: var(--mt-cal-check) !important;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 8.3 2.6 2.6L12 5.4'/%3E%3C/svg%3E") center / contain no-repeat !important;
 }
 
@@ -6341,12 +6359,8 @@ menuseparator[mc-tidy-hidden] {
   background-color: var(--mt-text-secondary) !important;
 }
 
-/* nicht angehakt wie Apple Kalender: leeres Kästchen mit Rand in der Kalenderfarbe
-   (statt blasser Füllung – bei hellen Farben war kein Unterschied zu sehen) */
-#calendar-list > li:not([calendar-disabled]):has(input.calendar-displayed:not(:checked)) .calendar-color {
-  background-color: transparent !important;
-  border: 1.5px solid var(--mc-cal-back, var(--mt-text-secondary)) !important;
-}
+/* nicht angehakt: volles Farbkästchen ohne Haken (beide Vorlagen, hell und dunkel, 20.11.2026);
+   Thunderbirds Füllung bleibt, der Haken entfällt über :checked oben */
 
 /* sehr helle Kalenderfarben: zusätzlich ein feiner dunkler Rand, damit das Kästchen nicht verschwindet */
 #calendar-list > li .calendar-color {
@@ -6582,8 +6596,24 @@ menuseparator[mc-tidy-hidden] {
   background: var(--mc-day-circle) !important;
 }
 
+/* gewählter Tag: deutlich kräftiger als die Maus-Markierung (--mt-control-hover
+   0,09 / 0,12), hell und dunkel gleich deutlich fürs Auge. Gemessen auf dem
+   Grau der Seitenleiste (hell 242, dunkel 40): hell 0,14 Schwarz ergibt 208
+   (Hover 220), dunkel 0,20 Weiß ergibt 83 (Hover 66), in L* jeweils etwa
+   1,6-mal der Abstand der Maus-Markierung. Vorher --mt-control (0,05 / 0,07),
+   schwächer als die Maus-Markierung und dunkel kaum zu sehen */
+:is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) {
+  --mt-minimonth-selected: rgba(0, 0, 0, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) {
+    --mt-minimonth-selected: rgba(255, 255, 255, 0.20);
+  }
+}
+
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[selected] {
-  --mc-day-fill: var(--mt-control);
+  --mc-day-fill: var(--mt-minimonth-selected);
   background: var(--mc-day-circle) !important;
 }
 
@@ -10608,6 +10638,41 @@ splitter.splitter:has(+ .conv-bottom) {
   inline-size: min(100%, 800px) !important;
 }
 
+/* Hinweis „Thunderbird is managed by an organization“ (nur bei
+   Unternehmensregeln): ein Hinweis, keine Warnung, darum wie die Hinweiskarte
+   über der Mailliste (E22): leise graue Fläche ohne Rand, Radius 10 px,
+   10 px Innenrand seitlich, Text 13 px in Textfarbe, Symbol grau. Der Link
+   (about:policies) bleibt, in Akzentfarbe ohne Unterstrich, unter der Maus
+   unterstrichen */
+#policies-container.info-box-container {
+  background-color: var(--mt-hint-bg) !important;
+  border: none !important;
+  border-radius: var(--mt-radius-row, 10px) !important;
+  padding: 7px 10px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+  align-items: center !important;
+}
+
+#policies-container .info-icon {
+  -moz-context-properties: fill !important;
+  fill: var(--mt-text-secondary) !important;
+  inline-size: 16px !important;
+  block-size: 16px !important;
+  margin-block-start: 0 !important;
+  margin-inline-end: 8px !important;
+  align-self: center !important;
+}
+
+#policies-container a {
+  color: var(--mt-accent) !important;
+  text-decoration: none !important;
+}
+
+#policies-container a:hover {
+  text-decoration: underline !important;
+}
+
 /* Kleinste Fensterbreite: Inhalt schrumpft mit statt rechts abgeschnitten
    (sonst bestimmt die längste Zeile die Breite, z. B. in „Verfassen“);
    Zeilen mit Auswahllisten (Weiterleiten als, Verzeichnis, Adressbücher)
@@ -11286,7 +11351,8 @@ addon-card .addon-inline-options {
 
 /* Menüs der Add-ons-Verwaltung („…“ an der Karte, Zahnrad im Kopf) wie die
    übrigen halo-Menüs: 12 px Radius ohne Rahmen, 22-px-Zeilen mit 6 px Radius,
-   Markierung in Akzentfarbe, Haarlinien-Trenner. Feste Fläche wie die
+   Markierung in Akzentfarbe, Haarlinien-Trenner, Rand und Schatten wie die
+   Menüs des Systems (--mt-menu-shadow). Feste Fläche wie die
    Tooltips – im Inhalt gibt es keine Unschärfe von macOS. Nur diese beiden
    Menüs, panel-list steckt auch in anderen Seiten. Die Zeilen liegen im
    Schatten-DOM: extension/parts.css */
@@ -11298,7 +11364,7 @@ addon-card .addon-inline-options {
   background-color: var(--mt-tooltip-bg) !important;
   border: none !important;
   border-radius: var(--mt-radius-popup, 12px) !important;
-  box-shadow: var(--mt-shadow), 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+  box-shadow: var(--mt-menu-shadow) !important;
   padding: 5px !important;
   color: var(--mt-text) !important;
   font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
@@ -17454,6 +17520,28 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Kopf (Bild, Name, Ordner, Uhrzeit) nicht mehr sauber */
 #messagePane {
   min-width: 480px !important;
+}
+
+/* Kein Bereich unter der Today-Pane: Thunderbird hält Ordnerliste und
+   Mailliste mit „width: …px !important“ fest und gibt der Mail den Rest
+   (Teiler „resize-with-window“). Reichte der Rest nicht für die 480 px, lief
+   das Raster rechts aus dem Bild (bei 1500 px Fensterbreite mit Today-Pane
+   18 px, der rechte Kartenrand war verdeckt). Dann gibt zuerst die Mailliste
+   nach (bis 300 px), danach die Mail (bis 300 px, beides Thunderbirds Grenze).
+   --mt-3p-room: Platz für Liste und Mail (Fenster ohne Ordnerliste und die
+   beiden 1-px-Teiler); --mt-list-hold hält die Liste während der Animation
+   der Today-Pane fest (kalenderfenster.js) */
+body.layout-vertical {
+  --mt-list-min: 300px;
+  --mt-3p-room: calc(100vw - var(--folderPaneSplitter-width, 0px) - 2px);
+}
+
+body.layout-vertical #threadPane {
+  max-width: var(--mt-list-hold, max(var(--mt-list-min), calc(var(--mt-3p-room) - 480px))) !important;
+}
+
+body.layout-vertical #messagePane {
+  min-width: max(300px, min(480px, calc(var(--mt-3p-room) - var(--mt-list-min)))) !important;
 }
 
 /* Absendername etwas größer, wie bei Apple – einzeilig, notfalls mit „…“ */

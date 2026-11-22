@@ -412,19 +412,32 @@ class ConversationCards {
       expected = box.scrollTop;
       height = box.scrollHeight;
     };
-    // Scrollen ohne gewachsene Karten kommt vom Nutzer – dann nicht mehr eingreifen
+    // Scrollen an eine andere Stelle als die zuletzt gesetzte kommt vom Nutzer –
+    // dann nicht mehr eingreifen. Solange die Karte gehalten wird, führt
+    // Thunderbird die Scrollposition beim Wachsen der Karten nicht selbst nach
+    // (overflow-anchor), damit jede fremde Position eindeutig der Nutzer ist.
+    // Vorher entschied der Vergleich der Gesamthöhe: wuchs zwischen dem Scrollen
+    // des Nutzers und dem nächsten Bild eine noch ladende Karte, galt sein
+    // Scrollen als Wachsen und die Ansicht sprang zur gewählten Karte zurück.
+    // Ausnahme: der Inhalt ist kürzer geworden, die Ansicht steht am Ende an
     const onScroll = () => {
-      if (expected != null && box.scrollHeight == height && Math.abs(box.scrollTop - expected) > 2) {
-        stop();
+      if (expected == null || Math.abs(box.scrollTop - expected) <= 2) {
+        return;
       }
+      if (box.scrollHeight < height && box.scrollTop >= box.scrollHeight - box.clientHeight - 2) {
+        return;
+      }
+      stop();
     };
     const resize = new win.ResizeObserver(() => align());
     const stop = () => {
       resize.disconnect();
       box.removeEventListener("scroll", onScroll);
+      box.style.overflowAnchor = "";
     };
     this.keepStop?.();
     this.keepStop = stop;
+    box.style.overflowAnchor = "none";
     for (const c of box.querySelectorAll(".mc-conv-card")) {
       resize.observe(c);
     }

@@ -3439,11 +3439,23 @@ def reading_checks(m, results):
           // selbst gescrollt: die Ansicht bleibt dort, die gewählte Karte holt sie nicht zurück
           const box = a3.document.getElementById("mcConversation");
           if (box) { box.scrollTop = 0; await ruhig(800); out.user = box.scrollTop; }
+          // ebenso, wenn gerade dann noch eine Karte fertig lädt (wächst), bevor das nächste Bild kommt: vorher galt
+          // das Scrollen des Nutzers als Wachsen, die Ansicht sprang zur gewählten Karte zurück (unter Linux ESR in
+          // der CI rot, user 1432; am Mac wachsen die Karten bis 535 ms nach der Auswahl, auf langsamen Rechnern später)
+          const again = await pick("halo-richtig-2");
+          const box2 = a3.document.getElementById("mcConversation");
+          const late = box2 && [...box2.querySelectorAll(".mc-conv-browser")].at(-1);
+          if (late && again.sel == "halo-richtig-2") {
+            const pinned = box2.scrollTop;
+            late.style.height = `${parseFloat(late.style.height) + 60}px`; box2.scrollTop = 0;
+            await ruhig(800); out.userLoading = { pinned, after: box2.scrollTop };
+          }
           a3.threadTree.selectedIndex = -1; await ruhig(300);
           return out;""")
         p = res.get("pick") or []
+        ul = res.get("userLoading") or {}
         ok = (len(p) == 4 and all(x.get("sel") == x["id"] and x.get("top") == x["id"] and x.get("off") is not None and -40 <= x["off"] <= 120 for x in p)
-              and res.get("user") == 0)
+              and res.get("user") == 0 and (ul.get("pinned") or 0) > 500 and ul.get("after") == 0)
         return ok, f"{res}"
     check("Leseansicht: Konversation zeigt immer die gewählte Mail (GitHub #60)", conversation_right_mail, results)
 

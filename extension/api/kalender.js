@@ -503,12 +503,8 @@ function hookMultiweekScroll(mv, win, B) {
     const v = recent.reduce((a, x) => a + x.dy, 0) / span;
     return Math.abs(v) >= 0.4 ? v : 0;
   };
-  const onWheel = event => {
-    if (!active() || event.ctrlKey || event.altKey || event.metaKey || !event.deltaY) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
+  // vor jeder Bewegung von Hand: laufendes Einrasten und geplanten Neuaufbau anhalten
+  const halt = () => {
     wheelAt = win.performance.now();
     unpark();
     if (anim) {
@@ -519,17 +515,17 @@ function hookMultiweekScroll(mv, win, B) {
       (win.cancelIdleCallback || win.clearTimeout).call(win, later);
       later = 0;
     }
-    const h = rowH();
+    win.clearTimeout(idle);
+  };
+  // das Raster um dy Pixel weiter (Mausrad, Trackpad, Finger)
+  const move = dy => {
     // Richtung für die Reihenfolge, in der Termine der Puffer-Wochen kommen
-    mv.__mcDir = Math.sign(event.deltaY);
-    // nur Pixel-Bewegungen (Trackpad) tragen Schwung, ein Mausrad nicht
-    samples = event.deltaMode === 0 ? [...samples.slice(-12), { t: event.timeStamp, dy: event.deltaY }] : [];
-    pos += event.deltaMode == event.DOM_DELTA_LINE ? event.deltaY * LINE
-      : event.deltaMode == event.DOM_DELTA_PAGE ? event.deltaY * h : event.deltaY;
+    mv.__mcDir = Math.sign(dy);
+    pos += dy;
     // Vorrat fast aufgebraucht (eine Woche Rest): jetzt schon weiterrücken –
     // Standbild in diesem Bild, Neuaufbau im nächsten (beides in einem Bild
     // ließ es länger als zwei Bildwechsel stehen)
-    if (Math.abs(pos) > (B - 1) * h && !pending) {
+    if (Math.abs(pos) > (B - 1) * rowH() && !pending) {
       cover();
       pending = win.requestAnimationFrame(() => {
         pending = 0;
@@ -537,10 +533,91 @@ function hookMultiweekScroll(mv, win, B) {
       });
     }
     schedule();
-    win.clearTimeout(idle);
+  };
+  const onWheel = event => {
+    if (!active() || event.ctrlKey || event.altKey || event.metaKey || !event.deltaY) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    // (ein Finger zieht gerade: er führt, bis er loslässt)
+    if (touch) {
+      return;
+    }
+    halt();
+    const h = rowH();
+    // nur Pixel-Bewegungen (Trackpad) tragen Schwung, ein Mausrad nicht
+    samples = event.deltaMode === 0 ? [...samples.slice(-12), { t: event.timeStamp, dy: event.deltaY }] : [];
+    move(event.deltaMode == event.DOM_DELTA_LINE ? event.deltaY * LINE
+      : event.deltaMode == event.DOM_DELTA_PAGE ? event.deltaY * h : event.deltaY);
     // mit Schwung früher einrasten bzw. loslaufen (die Wartezeit wäre sonst
     // eine Pause zwischen Wischer und Auslaufen)
     idle = win.setTimeout(snap, glideSpeed() ? 70 : 160);
+  };
+  // Finger auf einem Touchscreen (gemeldet 22.11.2026, Windows-Tablet: Wischen tat nichts). Die Ansicht hat keinen
+  // eigenen Rollbereich (das Raster wird verschoben), ein Finger erzeugt deshalb kein Mausrad-Ereignis; der Weg des
+  // Fingers kommt aus den Zeiger-Ereignissen (pointerType touch, touch-action: none in spaces.css hält sie am
+  // Laufen). Das Raster folgt dem Finger pixelgenau, erst nach TOUCH_SLOP Pixeln (darunter bleibt es ein Tippen:
+  // Tag wählen, Termin öffnen); Loslassen rastet ein, ein schneller Wischer läuft mit demselben Schwung aus wie am
+  // Trackpad. Ein Finger auf der auslaufenden Ansicht hält sie an. Maus und Stift bleiben, wie sie sind (ziehen
+  // Termine). touch: der führende Finger { id, y: letzte Lage, drag: zieht schon, at: Zeit der letzten Bewegung,
+  // stopped: hat die Ansicht mitten in einer Bewegung angehalten }
+  const TOUCH_SLOP = 6;
+  let touch = null;
+  const onTouchDown = event => {
+    if (event.pointerType != "touch" || !event.isPrimary || touch || !active()) {
+      return;
+    }
+    // (läuft die Ansicht gerade aus, rastet ein oder wartet darauf: anhalten, beim Loslassen neu einrasten)
+    const h = rowH();
+    const stopped = !!anim || Math.abs(pos - Math.round(pos / h) * h) > 0.5;
+    touch = { id: event.pointerId, y: event.clientY, drag: false, at: event.timeStamp, stopped };
+    samples = [];
+    if (stopped) {
+      halt();
+    }
+  };
+  const onTouchMove = event => {
+    if (!touch || event.pointerId != touch.id) {
+      return;
+    }
+    let dy = touch.y - event.clientY;
+    if (!touch.drag) {
+      if (Math.abs(dy) < TOUCH_SLOP) {
+        return;
+      }
+      touch.drag = true;
+      // (ab hier gehen die Bewegungen an die Ansicht selbst: der berührte Termin kann beim Nachladen verschwinden)
+      try {
+        mv.setPointerCapture(touch.id);
+      } catch {}
+      // (der Weg bis zur Schwelle zählt nicht mit, sonst spränge das Raster beim Loslaufen)
+      dy -= Math.sign(dy) * TOUCH_SLOP;
+    }
+    touch.y = event.clientY;
+    touch.at = event.timeStamp;
+    if (!dy) {
+      return;
+    }
+    halt();
+    samples = [...samples.slice(-12), { t: event.timeStamp, dy }];
+    move(dy);
+  };
+  const onTouchEnd = event => {
+    if (!touch || event.pointerId != touch.id) {
+      return;
+    }
+    const { drag, at, stopped } = touch;
+    touch = null;
+    if (!drag && !stopped) {
+      return;
+    }
+    // (Finger stand vor dem Loslassen still, oder das System hat die Geste abgebrochen: kein Schwung)
+    if (event.type == "pointercancel" || event.timeStamp - at > 100) {
+      samples = [];
+    }
+    win.clearTimeout(idle);
+    snap();
   };
   // Vorkommen um die Ansicht in den Speicher (beim Start von Thunderbird und
   // beim Einblenden; nichts zu tun, solange der Vorrat reicht – Rückmeldung
@@ -552,6 +629,10 @@ function hookMultiweekScroll(mv, win, B) {
     mv.__mcPreload?.();
   };
   mv.addEventListener("wheel", onWheel, { capture: true, passive: false });
+  const touchEvents = [["pointerdown", onTouchDown], ["pointermove", onTouchMove], ["pointerup", onTouchEnd], ["pointercancel", onTouchEnd]];
+  for (const [type, fn] of touchEvents) {
+    mv.addEventListener(type, fn, { capture: true, passive: true });
+  }
   const ro = new win.ResizeObserver(entries => {
     if (active()) {
       // (nur bei geänderter Breite: die Höhe ändert den Umbruch der Tage nicht mit jedem Bild)
@@ -601,12 +682,15 @@ function hookMultiweekScroll(mv, win, B) {
   mv.__mcScrollPos = () => pos;
   // gerade gescrollt (Rad, Einrasten, Schwung, Neuaufbau steht an): für den
   // Vorrat, der dann wartet
-  mv.__mcScrollBusy = () => !!(anim || pending) || win.performance.now() - wheelAt < 300;
+  mv.__mcScrollBusy = () => !!(anim || pending || touch?.drag) || win.performance.now() - wheelAt < 300;
   // (für Bewegungen, die die Breite gleich ändern: schon vor dem ersten Bild, siehe toggleSpaceSidebar)
   mv.__mcPark = park;
   apply();
   return () => {
     mv.removeEventListener("wheel", onWheel, { capture: true });
+    for (const [type, fn] of touchEvents) {
+      mv.removeEventListener(type, fn, { capture: true });
+    }
     ro.disconnect();
     win.clearTimeout(idle);
     win.clearTimeout(startWarm);

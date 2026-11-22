@@ -9287,6 +9287,84 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (immer an), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
 
+    def multiweek_touch():
+        # Mehrwochen-Ansicht mit dem Finger (Touchscreen, gemeldet 22.11.2026 unter Windows: Wischen tat nichts – die
+        # Ansicht hörte nur auf das Mausrad, ein Finger erzeugt keines). Zeiger-Ereignisse mit pointerType touch:
+        # slow: langsames Ziehen um gut eine halbe Woche – das Raster folgt dem Finger pixelgenau (Weg minus Schwelle
+        # von 6 px), nach dem Loslassen (Finger stand vorher still: kein Schwung) genau eine Woche weiter; back: dasselbe
+        # nach unten, eine Woche zurück; tap: Tippen und Wackeln unter der Schwelle bewegt nichts; fast: schneller
+        # Wischer läuft mit Schwung aus (mindestens zwei Wochen weiter als der Weg des Fingers), nie zurück, Endlage auf
+        # einer Wochengrenze; hold: ein Finger auf der auslaufenden Ansicht hält sie an (Lage bleibt 6 Bilder lang),
+        # Loslassen rastet ein; mouse: Ziehen mit der Maus verschiebt nichts (zieht weiter Termine); touchAction: none
+        # an der Ansicht (sonst bricht das System die Geste nach den ersten Pixeln ab)
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const el = d.getElementById("multiweek-view"); const mv = el.wrappedJSObject || el;
+          const out = {};
+          try {
+            const top = dt => { const b = mv.findDayBoxForDate(dt); return b ? b.getBoundingClientRect().top : null; };
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
+            const sleep = ms => new Promise(r => w.setTimeout(r, ms));
+            const frame = () => new Promise(r => w.requestAnimationFrame(r));
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            const vr = el.getBoundingClientRect(); const x = Math.round(vr.left + vr.width / 2), mid = Math.round(vr.top + vr.height / 2);
+            let ziel = null;
+            const zeiger = (type, y, art = "touch") => { ziel = type == "pointerdown" ? mv.monthbody.querySelector("calendar-month-day-box") : ziel;
+              ziel.dispatchEvent(new w.PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: 7, pointerType: art, isPrimary: true, clientX: x, clientY: y, buttons: type == "pointerup" ? 0 : 1 })); };
+            const start = () => { const f = mv.rangeStartDate.clone(); f.isDate = true; return f; };
+            const lage = first => { const now = mv.rangeStartDate.clone(); now.isDate = true;
+              return { weeks: Math.round((now.nativeTime - first.nativeTime) / 6048e8), aligned: Math.round(top(now) - head()) }; };
+            // feste Pausen: Bewegungen mit echtem Zeitabstand (die Geschwindigkeit kommt aus den Zeitstempeln)
+            const ziehen = async (weg, n, art = "touch") => { zeiger("pointerdown", mid, art); await sleep(16);
+              for (let i = 1; i <= n; i++) { zeiger("pointermove", mid - weg * i / n, art); await sleep(16); } };
+            out.touchAction = w.getComputedStyle(el).touchAction;
+            // langsam vor und zurück: Finger steht 150 ms still, dann loslassen
+            for (const [name, dir] of [["slow", 1], ["back", -1]]) {
+              const first = start(), p0 = mv.__mcScrollPos(), weg = dir * (Math.round(rowH * 0.6) + 6);
+              await ziehen(weg, 10); await frame();
+              const follow = Math.round(mv.__mcScrollPos() - p0 - dir * Math.round(rowH * 0.6));
+              await sleep(150); zeiger("pointerup", mid - weg); await ruhig(900);
+              out[name] = { follow, ...lage(first) };
+            }
+            { const first = start(), p0 = mv.__mcScrollPos();
+              zeiger("pointerdown", mid); await sleep(30); zeiger("pointerup", mid);
+              zeiger("pointerdown", mid); await sleep(16); zeiger("pointermove", mid - 4); await sleep(16); zeiger("pointermove", mid + 3); await sleep(16); zeiger("pointerup", mid + 3);
+              await ruhig(500);
+              out.tap = { moved: Math.round(mv.__mcScrollPos() - p0), ...lage(first) }; }
+            { const first = start(), p0 = mv.__mcScrollPos();
+              await ziehen(Math.round(rowH * 0.6) + 6, 10, "mouse"); await sleep(150); zeiger("pointerup", mid, "mouse"); await ruhig(500);
+              out.mouse = { moved: Math.round(mv.__mcScrollPos() - p0), ...lage(first) }; }
+            { const first = start(); const track = []; let still = 0;
+              await ziehen(406, 10); zeiger("pointerup", mid - 406);
+              const t0 = w.performance.now();
+              while (w.performance.now() - t0 < 4000 && still < 12) { await frame(); const p = mv.__mcScrollPos(); track.push(p);
+                still = track.length > 1 && track[track.length - 2] === p ? still + 1 : 0; }
+              await ruhig(900);
+              out.fast = { plain: Math.round(400 / rowH), frames: track.length, ...lage(first),
+                           back: track.slice(0, track.indexOf(Math.max(...track)) + 1).some((p, i, a) => i && p < a[i - 1] - 0.5) }; }
+            { const first = start();
+              await ziehen(406, 10); zeiger("pointerup", mid - 406);
+              await frame(); await frame(); await frame(); const a = mv.__mcScrollPos();
+              await frame(); const b = mv.__mcScrollPos();
+              zeiger("pointerdown", mid); const held = []; for (let i = 0; i < 6; i++) { await frame(); held.push(mv.__mcScrollPos()); }
+              zeiger("pointerup", mid); await ruhig(900);
+              out.hold = { running: b > a, still: held.every(p => p === held[0]), ...lage(first) }; }
+          } finally {
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        sl, bk, tp, ms, fa, ho = (res.get(k) or {} for k in ("slow", "back", "tap", "mouse", "fast", "hold"))
+        ok = (res.get("touchAction") == "none"
+              and abs(sl.get("follow", 9)) <= 1 and sl.get("weeks") == 1 and abs(sl.get("aligned", 9)) <= 1
+              and abs(bk.get("follow", 9)) <= 1 and bk.get("weeks") == -1 and abs(bk.get("aligned", 9)) <= 1
+              and tp.get("moved") == 0 and tp.get("weeks") == 0 and abs(tp.get("aligned", 9)) <= 1
+              and ms.get("moved") == 0 and ms.get("weeks") == 0
+              and isinstance(fa.get("plain"), int) and fa.get("weeks", 0) >= fa["plain"] + 2 and not fa.get("back")
+              and fa.get("frames", 0) >= 12 and abs(fa.get("aligned", 9)) <= 1
+              and ho.get("running") and ho.get("still") and ho.get("weeks", 0) >= 1 and abs(ho.get("aligned", 9)) <= 1)
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht mit dem Finger scrollen (Touchscreen) – Raster folgt dem Finger, Loslassen rastet auf der Woche ein, schneller Wischer läuft mit Schwung aus, Finger hält ihn an, Tippen und Maus verschieben nichts", multiweek_touch, results)
+
     def multiweek_many():
         # Nacharbeit 9.11.2026 („nach einiger Zeit ruckelt es“): vier tägliche Termine, 40 Wochen am Stück scrollen
         # (mehrere Neuaufbauten). Sichtbare Tage nie ohne Termine, Termine der Puffer-Wochen in Häppchen nachgetragen

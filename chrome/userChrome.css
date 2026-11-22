@@ -7106,10 +7106,13 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
    Wochentagen, eigene Ebene), außerhalb abgeschnitten */
 /* (das Raster liegt frei über der Ansicht: mit den Puffer-Wochen ist es höher
    als sichtbar und darf die Ansicht nicht mitwachsen lassen) */
+/* (touch-action: Wischen mit dem Finger wertet die Erweiterung selbst aus, kalender.js „Finger auf einem
+   Touchscreen“; ohne die Angabe bricht das System die Geste nach den ersten Pixeln ab) */
 calendar-multiweek-view[mc-mw-scroll] {
   position: relative !important;
   overflow: hidden !important;
   min-height: 0 !important;
+  touch-action: none;
 }
 
 calendar-multiweek-view[mc-mw-scroll] .monthtable {

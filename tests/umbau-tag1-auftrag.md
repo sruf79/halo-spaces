@@ -8,6 +8,17 @@ Progress und wird abgeschlossen; angefangen, aber nicht fertig → „Pausiert�
 Sammelfrage S0 (22.11.2026, „mit allen empfehlungen einverstanden“), Teil c: P4- und Umbau-Einträge bleiben auf
 „In Progress“, dazu Einträge mit Commit auf einem Prüfzweig bei grünen Tests.
 
+Entschieden nach der Fable-Prüfung vom 22.11.2026 (Deutung der beiden Wortlaute, von neon übernommen):
+- Von Nutzern gemeldete Bugs (Typ Bug mit „GitHub #n“) auf „In Progress“ laufen weiter, mit oder ohne Commit; nie
+  „Pausiert“ (Liste N).
+- Bugs des Maintainers ohne „GitHub #n“ zählen nicht als Nutzer-Bug, außer bei Absturz, Datenverlust oder einem
+  ausdrücklichen Wunsch des Maintainers.
+- „zur Abnahme“ bleibt „In Progress“, auch mit grüner CI, weder Done noch Pausiert; geschlossen wird erst nach
+  „abgenommen“ (Abnahme-Lauf nach dem Release, docs/release.md).
+- Neue Einträge „Tests: flackert“ und „Tests: CI rot“ sind P4 und bleiben „In Progress“ (Liste D).
+- Design-Bugs von Nutzern: nicht entschieden (offene Frage S1 an den Maintainer); bis zur Antwort unberührt lassen,
+  weder beginnen noch pausieren.
+
 Wann: nach Schritt 0 (a bis c), vor Schritt 1. In dieser Nacht nichts an eigenen Skripten und Abläufen bauen.
 
 1. Zählung vorher: `HALO_BOARD_ZWISCHEN_S=0 zsh tests/board.sh liste > ~/halo-nacht/<datum>-umbau-vorher.txt`, Zahl je
@@ -35,8 +46,8 @@ Wann: nach Schritt 0 (a bis c), vor Schritt 1. In dieser Nacht nichts an eigenen
    - Liste U (nicht eindeutig belegt): einzeln lesen (`zsh tests/board.sh zeige <id>`, `git branch -a --contains <Hash>`,
      `gh run list`). Nur wenn der Fall danach eindeutig auf eine Regel des Wortlauts passt, wie A, B oder C behandeln:
      Reihe (n/m), „Teil“, „Schritt“ oder Offenes mit Commit heißt „angefangen, nicht fertig“, also Pausiert mit Notiz
-     (nie bei einem Nutzer-Bug, siehe Liste N), die Hash und Zweig nennt (der Commit geht nicht verloren); Reihen nie Done. Nicht eindeutig (z. B. „zur Abnahme“,
-     „Entscheidung fehlt“, CI rot ohne belegte Ursache): nicht anfassen, im Bericht unter „Offen (Tag 1)“ mit Grund nennen.
+     (nie bei einem Nutzer-Bug, siehe Liste N), die Hash und Zweig nennt (der Commit geht nicht verloren); Reihen nie Done. „zur Abnahme“: immer
+     nicht anfassen (feste Regel oben). Nicht eindeutig (z. B. „Entscheidung fehlt“, CI rot ohne belegte Ursache): nicht anfassen, im Bericht unter „Offen (Tag 1)“ mit Grund nennen.
 4. Nie: Einträge auf „Pausiert“, „Todo“ oder „Wartet auf OK“ anfassen; einen pausierten Eintrag bearbeiten oder schließen
    (nie schließen, auch nicht als Done); Einträge anlegen; Titel oder Text ersetzen.
 5. Zählung nachher wie in 1. In Progress vorher = In Progress nachher + auf Done gesetzte + auf Pausiert gesetzte;

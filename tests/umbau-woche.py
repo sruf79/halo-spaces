@@ -34,6 +34,9 @@ UNFERTIG = re.compile(r"teilweise|Teil-?[Ff]ix|\bTeil\b|Teil \d|Schritt|[Oo]ffen
                       r"[Rr]evert|Nebenzweig|rot\b|flackert|nicht gelöst|Vorschlag|nicht umgesetzt|steht (noch )?aus|"
                       r"\bnoch aus\b|noch nicht (umgesetzt|erledigt|fertig|gelöst|abgenommen|geprüft)|fehlt noch|noch fehlt|"
                       r"ausstehend", re.I)
+# „zur Abnahme“ (Maintainer 18. und 20.11.2026, docs/release.md): bleibt In Progress, auch mit grüner CI; geschlossen
+# wird erst nach „abgenommen“ durch den Abnahme-Lauf (Entscheidung nach der Fable-Prüfung 22.11.2026, M4)
+ABNAHME = re.compile(r"zur Abnahme", re.I)
 COMMITTET = re.compile(r"committet|übernommen|cherry-pick|gepusht")
 HASH = re.compile(r"(?<![0-9A-Za-z_/-])[0-9a-f]{7,40}(?![0-9A-Za-z_-])")
 WORKER = re.compile(r"In Arbeit( beendet| aufgegeben)?: (worker-[^ ]+) \(Auslastungswächter, ([^),]+)")
@@ -204,6 +207,8 @@ def einordnen(i, f, now):
 
 
 def einordnen_commit(n, absatz, hs, kurz, titel, teile, f):
+    if any(ABNAHME.search(a) for a in teile[n:]):
+        return "U", kurz, "zur Abnahme: bleibt In Progress, geschlossen erst nach „abgenommen“ (feste Regel)"
     if n != len(teile) - 1:
         return "U", kurz, "nach der letzten Commit-Notiz folgen weitere Notizen"
     if not COMMITTET.search(absatz):

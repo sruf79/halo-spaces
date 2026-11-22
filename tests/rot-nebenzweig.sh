@@ -151,6 +151,12 @@ PY
 )"})
   (( ${#ids} == 1 )) && print -r -- $ids[1]
 }
+karte_status() {   # <Karten-ID> → Status laut Board (leer, wenn nicht lesbar); mit --karte wird das Board erst hier geladen
+  if [[ -z $BOARD_OK ]] && "${BOARD_CMD[@]}" export > $T/board.json 2>/dev/null && jq -e '.items | type == "array"' $T/board.json >/dev/null 2>&1; then
+    BOARD_OK=1
+  fi
+  [[ -n $BOARD_OK ]] && jq -r --arg k $1 'first(.items[] | select(.id == $k) | .status // "")' $T/board.json 2>/dev/null
+}
 patch_id() { git show $1 | git patch-id --stable | awk '{ print $1 }' }
 
 for c in $REIHE; do
@@ -203,7 +209,12 @@ EOF
   if [[ -n $karte ]]; then
     "${BOARD_CMD[@]}" notiz $karte "**$(date '+%d.%m.%Y %H:%M'):** Release-CI rot${LAUF:+ (Lauf $LAUF)}${pruef:+, Prüfung „$pruef“}: Commit $k7 auf main zurückgenommen (Revert ${rv[1,7]}), die Änderung liegt auf $zweig. ${stufe}. Wiederaufnahme: Ursache belegen, Fix auf $zweig, dann zurück nach main (tests/rot-nebenzweig.sh)." >/dev/null 2>&1 \
       || print -r -- "WARNUNG: Board-Notiz für $karte nicht geschrieben – von Hand nachholen"
-    "${BOARD_CMD[@]}" status $karte todo >/dev/null 2>&1 || print -r -- "WARNUNG: Status Todo für $karte nicht gesetzt"
+    # Pausiert ist eine Entscheidung des Maintainers (Umbau-Woche): nur die Notiz, den Status nicht still aufheben
+    if [[ $(karte_status $karte) == Pausiert ]]; then
+      print -r -- "HINWEIS: $karte steht auf Pausiert – Status bleibt, nur Notiz geschrieben"
+    else
+      "${BOARD_CMD[@]}" status $karte todo >/dev/null 2>&1 || print -r -- "WARNUNG: Status Todo für $karte nicht gesetzt"
+    fi
   else
     print -r -- "WARNUNG: keine eindeutige Board-Karte zu $k7${BOARD_OK:-, Board nicht lesbar} – Notiz von Hand (Zweig $zweig, Schlüssel $schluessel)"
   fi

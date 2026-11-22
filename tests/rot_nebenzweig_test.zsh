@@ -85,6 +85,20 @@ jq -n --arg a ${A2[1,7]} '{items: [{id: "PVTI_mail", status: "In Progress", titl
 pruefe "wieder rot (neuer Hash, gleiche Karte): Stufe 2 Fable, Zweig mit Anhang" "$(lauf --pruefung 'Mail: Liste neu')" \
   "→ pruef/rot-PVTI_mail-${A2[1,7]}," '^Modellstufe: 2\. Rot .* → Fable '
 
+# 3b. Pausierte Karte (Umbau-Woche): Notiz ja, Status bleibt (kein Todo); auch mit --karte
+neu_repo; rm -f $T/rot.txt $T/folge.log
+jq -n --arg a ${A[1,7]} '{items: [{id: "PVTI_pau", status: "Pausiert", title: "Mail: Liste", body: "committet \($a)"}]}' > $T/board.json
+O=$(HALO_RNZ_LOG=$T/leer lauf --pruefung 'Mail: Liste neu')
+pruefe "pausierte Karte: Nebenzweig wie sonst, Hinweis, Notiz geschrieben" "$O
+$(cat $T/folge.log)" "→ pruef/rot-PVTI_pau," '^HINWEIS: PVTI_pau steht auf Pausiert' '^notiz PVTI_pau .*zurückgenommen'
+pruefe "pausierte Karte: kein Status Todo" "$(grep -c '^status ' $T/folge.log)" '^0$'
+neu_repo; rm -f $T/rot.txt $T/folge.log
+jq -n '{items: [{id: "PVTI_kal", status: "Pausiert", title: "Kalender", body: ""}]}' > $T/board.json
+O=$(HALO_RNZ_LOG=$T/leer lauf --commit $B --karte PVTI_kal --pruefung 'Alt: bleibt')
+pruefe "--karte auf pausierter Karte: Hinweis, kein Status Todo" "$O
+status=$(grep -c '^status ' $T/folge.log)" '^HINWEIS: PVTI_kal steht auf Pausiert' '^status=0$'
+rm -f $T/folge.log
+
 # 4. Ohne Karte: Schlüssel patch-id; frühere Zählerzeile mit altem Hash derselben Änderung zählt mit
 neu_repo; rm -f $T/rot.txt $T/folge.log
 jq -n '{items: []}' > $T/board.json

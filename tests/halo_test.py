@@ -23448,7 +23448,8 @@ Neu
           await until(() => { const i = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img"); return i && i.complete && i.naturalWidth > 0; }, 5000);
           const item = pd.getElementById("mcCat-paneMcHalo"), img = item?.querySelector("img");
           const out = { label: item?.querySelector(".category-name")?.textContent, icon: img ? [img.src.slice(0, 5), img.naturalWidth > 0] : null,
-                        // Symbol ohne eigene weiße Kachel auf den Ring zugeschnitten – so groß wie die übrigen Kacheln
+                        // Symbol ohne die weiße Kachel aus der Datei auf den Ring zugeschnitten – so groß wie die übrigen Kacheln
+                        // (die neutrale Kachel darunter kommt aus spaces.css, siehe „Symbole der Seitenleiste …“)
                         crop: !!img?.src.includes(encodeURIComponent('viewBox="3 3 58 58"')), size: img ? Math.round(img.getBoundingClientRect().width) : null,
                         other: Math.round(pd.querySelector("#category-general .category-icon").getBoundingClientRect().width),
                         footerHidden: !!pd.querySelector("#pref-category-box .sidebar-footer-list")?.hidden,
@@ -23463,7 +23464,7 @@ Neu
           return out;""")
         manifest = json.load(open(os.path.join(ROOT, "extension", "manifest.json")))
         p = res.get("pane", {})
-        ok = (res["label"] == "halo.spaces" and res["icon"] == ["data:", True] and res["footerHidden"] and rgba_alpha(res["tile"]) == 0
+        ok = (res["label"] == "halo.spaces" and res["icon"] == ["data:", True] and res["footerHidden"] and rgba_alpha(res["tile"]) == 1
               and res["crop"] and res["size"] == res["other"]
               and p.get("embed") and p.get("remote") and p.get("url") == "/options/options.html?in=prefs" and p["rect"]["h"] > 500
               and p["rect"]["l"] == p["cat"]["l"] + p["cat"]["w"] and p.get("hash") == "#mcHalo" and res["back"]
@@ -23592,33 +23593,53 @@ Neu
     check("Einstellungen: „Own keywords“ ändern nach geschlossenem zweitem Hauptfenster – keine Fehler aus dessen Kalender-Stichwörtern", emoji_pref_closed_window, results)
 
     def pref_symbols():
-        # Einstellungen: neun neu gezeichnete weiße Symbole (Variante B) auf eigenen Kachelfarben mit Verlauf; „General“ mit
-        # Schiebereglern statt Zahnrad; im Dunkeln feine helle Innenkante; halo.spaces-Symbol bleibt ohne Kachel
+        # Einstellungen: neu gezeichnete weiße Symbole auf eigenen Kachelfarben mit Verlauf; im Dunkeln feine helle Innenkante.
+        # Variante B (Maintainer 16.11.2026): General mit dem halo-Zahnrad (Mitte ausgespart) statt Schiebereglern, Calendar als
+        # gefülltes Blatt mit ausgesparter Kopflinie und Feldern, Export for Mobile als gefülltes Telefon mit ausgespartem Pfeil,
+        # Rules mit Strich 2.3; halo.spaces mit dem Logo auf eigener neutraler Kachel (hell weiß mit dunkler, dunkel #1C1C1E mit
+        # heller Innenkante, ohne Verlauf, sonst bliebe die Mitte des Logos als Scheibe sichtbar); „Settings“ unten links in den
+        # Kontoeinstellungen mit demselben Zahnrad auf derselben grauen Kachel
         res = m.js(PREFS_OPEN_JS + r"""
-          const cs = e => pw.getComputedStyle(e);
+          const cs = e => e.ownerDocument.defaultView.getComputedStyle(e);
           const sel = { general: "#category-general .category-icon", appearance: "#category-appearance .category-icon", composition: "#category-compose .category-icon, #category-composition .category-icon",
             calendar: "#category-calendar .category-icon", privacy: "#category-privacy .category-icon", chat: "#category-chat .category-icon",
-            export: "#category-qrexport .category-icon", account: "#mcCat-paneMcAccounts .category-icon", addons: "#mcCat-paneMcAddons .category-icon" };
+            export: "#category-qrexport .category-icon", account: "#mcCat-paneMcAccounts .category-icon", addons: "#mcCat-paneMcAddons .category-icon",
+            rules: "#mcCat-paneMcRules .category-icon" };
           const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches };
+          // Merkmal je Symbol im data:-Bild (Variante B): Zahnrad-Umriss, ausgesparte Kopflinie, Telefon-Maske, Strich 2.3
+          const mark = { general: "M18.86%2010.61", calendar: "y=%228.6%22%20width=%2218%22%20height=%221.3%22", export: "mask%20id=%22e%22", rules: "stroke-width=%222.3%22" };
           for (const [k, s] of Object.entries(sel)) {
             const e = pd.querySelector(s);
             if (!e) { out[k] = null; continue; }
             const c = cs(e), r = e.getBoundingClientRect();
             out[k] = { bg: c.backgroundColor, grad: /linear-gradient/.test(c.backgroundImage), shadow: c.boxShadow, size: Math.round(r.width),
-                       glyph: /^url\("data:image\/svg\+xml/.test(c.content) && c.content.includes("%23fff") };
+                       glyph: /^url\("data:image\/svg\+xml/.test(c.content) && c.content.includes("%23fff") && (!mark[k] || c.content.includes(mark[k])) };
           }
-          const halo = pd.querySelector("#mcCat-paneMcHalo .category-icon");
-          out.halo = { grad: /linear-gradient/.test(cs(halo).backgroundImage), shadow: cs(halo).boxShadow };
+          const halo = pd.querySelector("#mcCat-paneMcHalo .category-icon"), hr = halo.getBoundingClientRect();
+          out.halo = { bg: cs(halo).backgroundColor, grad: /linear-gradient/.test(cs(halo).backgroundImage), shadow: cs(halo).boxShadow,
+                       size: Math.round(hr.width), radius: cs(halo).borderTopLeftRadius, logo: /^data:image\/svg/.test(halo.src || "") };
           out.footer = ["#accountButton", "#addonsButton"].map(s => { const e = pd.querySelector(s + " .sidebar-footer-icon"); return e ? /data:image\/svg/.test(cs(e).content) : null; });
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          // Kontoeinstellungen als eigener Tab: Fußzeile „Settings“ (#prefsButton) und „Add-ons and Themes“
+          w.MsgAccountManager(null);
+          const ad = await until(() => tm.currentTabInfo.browser?.contentDocument?.querySelector("#accountTreeBox #prefsButton .sidebar-footer-icon") && tm.currentTabInfo.browser.contentDocument, 8000);
+          out.konten = ad ? ["#prefsButton", "#addonsButton"].map(s => { const e = ad.querySelector(s + " .sidebar-footer-icon"); if (!e) return null;
+            const c = cs(e); return { bg: c.backgroundColor, size: Math.round(e.getBoundingClientRect().width), gear: c.content.includes(mark.general) }; }) : null;
+          if (ad) tm.closeTab(tm.currentTabInfo);
+          await ruhig(400);
           return out;""")
         want = {"general": "rgb(142, 142, 147)", "appearance": "rgb(15, 163, 184)", "composition": "rgb(255, 149, 0)", "calendar": "rgb(255, 59, 48)", "privacy": "rgb(10, 132, 255)",
-                "chat": "rgb(175, 82, 222)", "export": "rgb(52, 199, 89)", "account": "rgb(94, 92, 230)", "addons": "rgb(255, 45, 85)"}
+                "chat": "rgb(175, 82, 222)", "export": "rgb(52, 199, 89)", "account": "rgb(94, 92, 230)", "addons": "rgb(255, 45, 85)", "rules": "rgb(142, 142, 147)"}
         bad = [k for k, c in want.items() if not (res.get(k) and res[k]["bg"] == c and res[k]["grad"] and res[k]["glyph"] and res[k]["size"] == 24
                                                  and (("rgba(255, 255, 255, 0.16)" in res[k]["shadow"]) == bool(res["dark"])))]
-        ok = not bad and not res["halo"]["grad"] and res["halo"]["shadow"] == "none" and res["footer"] == [True, True]
-        return ok, f"{bad} {res}"
-    check("Einstellungen: Symbole der Seitenleiste neu gezeichnet (weiß auf eigenen Kachelfarben mit Verlauf, General mit Schiebereglern), im Dunkeln helle Innenkante", pref_symbols, results)
+        h = res["halo"]
+        halo_ok = (h["bg"] == ("rgb(28, 28, 30)" if res["dark"] else "rgb(255, 255, 255)") and not h["grad"] and h["size"] == 24 and h["radius"] == "6px"
+                   and h["logo"] and ("rgba(255, 255, 255, 0.16)" if res["dark"] else "rgba(0, 0, 0, 0.12)") in h["shadow"] and "0.5px inset" in h["shadow"])
+        k = res.get("konten") or [None, None]
+        konten_ok = (k[0] == {"bg": "rgb(142, 142, 147)", "size": 24, "gear": True} and bool(k[1]) and k[1]["bg"] == "rgb(255, 45, 85)" and not k[1]["gear"])
+        ok = not bad and halo_ok and konten_ok and res["footer"] == [True, True]
+        return ok, f"{bad} halo={halo_ok} konten={konten_ok} {res}"
+    check("Einstellungen: Symbole der Seitenleiste neu gezeichnet (weiß auf eigenen Kachelfarben mit Verlauf, General und „Settings“ der Kontoeinstellungen mit Zahnrad, halo.spaces-Logo auf neutraler Kachel), im Dunkeln helle Innenkante", pref_symbols, results)
 
     def update_source():
         # Update-Weg der Nutzer: Thunderbird kennt aus dem Paket die update_url (raw.githubusercontent.com, Zweig main),

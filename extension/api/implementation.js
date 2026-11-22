@@ -4807,7 +4807,10 @@ function hookTaskInfo(win, restorers, solo = null) {
     const b = el("button");
     b.type = "button";
     b.dataset.cmd = cmd;
-    b.textContent = { bold: "B", italic: "I", underline: "U", insertUnorderedList: "\u2022", insertOrderedList: "1." }[cmd] || "";
+    // (Symbole aus dem Stilblatt; Fett, Kursiv, Unterstrichen und Listen zeigen ihren Zustand)
+    if (cmd != "createLink") {
+      b.setAttribute("aria-pressed", "false");
+    }
     b.title = tr(label);
     b.setAttribute("aria-label", tr(label));
     b.addEventListener("mousedown", event => event.preventDefault());
@@ -4829,8 +4832,20 @@ function hookTaskInfo(win, restorers, solo = null) {
       }
       frame.contentWindow.focus();
       ndoc.execCommand(cmd, false, null);
+      noteState();
     });
     noteBar.append(b);
+  }
+  // eingeschaltete Formate an der Schreibmarke: Symbol in Systemfarbe
+  function noteState() {
+    const ndoc = frame.contentDocument;
+    for (const b of noteBar.querySelectorAll("button[aria-pressed]")) {
+      let on = false;
+      try {
+        on = ndoc?.designMode == "on" && ndoc.queryCommandState(b.dataset.cmd);
+      } catch {}
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    }
   }
   box.before(noteBar);
   const FORMATTED = "b, i, u, strong, em, a, ul, ol, h1, h2, h3, h4, blockquote, pre, font, span[style], p[style], div[style]";
@@ -4841,6 +4856,7 @@ function hookTaskInfo(win, restorers, solo = null) {
     if (ndoc?.designMode == "on" && accel && !event.altKey && !event.shiftKey && cmd) {
       event.preventDefault();
       ndoc.execCommand(cmd, false, null);
+      noteState();
     }
   };
   const onNoteClick = event => {
@@ -4858,6 +4874,8 @@ function hookTaskInfo(win, restorers, solo = null) {
       ndoc.execCommand("styleWithCSS", false, false);
     } catch {}
     noteBar.hidden = false;
+    ndoc.addEventListener("selectionchange", noteState);
+    noteState();
     doc.documentElement.setAttribute("mc-task-note-edit", "");
     place();
     let finished = false;
@@ -4867,6 +4885,7 @@ function hookTaskInfo(win, restorers, solo = null) {
       }
       finished = true;
       frame.contentWindow.removeEventListener("blur", onBlur);
+      ndoc.removeEventListener("selectionchange", noteState);
       ndoc.designMode = "off";
       noteBar.hidden = true;
       doc.documentElement.removeAttribute("mc-task-note-edit");

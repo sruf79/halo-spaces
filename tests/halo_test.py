@@ -20587,6 +20587,14 @@ Neu
             return items_;
           };
           let created = null;
+          // Formatleiste: bündig mit der Karte darüber (Ränder ±1 px), 30 px hoch, sechs Symbolknöpfe ohne Buchstaben
+          // (vorher ragte sie 14 px rechts über die Karte, die Knöpfe zeigten B, I, U, •, 1.)
+          const barGeo = () => { const bar = d.getElementById("mcTaskNoteBar"), card = d.getElementById("calendar-task-details-box");
+            const a = bar.getBoundingClientRect(), c = card.getBoundingClientRect();
+            return { dl: Math.round(a.left - c.left), dr: Math.round(a.right - c.right), h: Math.round(a.height),
+              text: [...bar.children].map(b => b.textContent).join(""),
+              icons: [...bar.children].map(b => /format-|link\.svg/.test(w.getComputedStyle(b, "::before").backgroundImage)),
+              inside: [...bar.children].every(b => { const r = b.getBoundingClientRect(); return r.left >= a.left - 0.5 && r.right <= a.right + 0.5 && r.width >= 24; }) }; };
           // (nach jedem Speichern neu wählen: Thunderbird baut die Liste neu auf)
           const pick = async () => {
             await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Felder"), "Aufgabe in der Liste", 6000);
@@ -20621,7 +20629,7 @@ Neu
             await bis(() => f0.contentDocument?.body?.textContent.includes("Notiz"), "Notiz schmal", 3000);
             f0.contentDocument.body.dispatchEvent(new f0.contentWindow.MouseEvent("click", { bubbles: true }));
             await bis(() => !d.getElementById("mcTaskNoteBar")?.hidden, "Formatleiste schmal", 3000); await ruhig(300);
-            out.narrowEdit = geo();
+            out.narrowEdit = geo(); out.narrowBar = barGeo();
             f0.contentWindow.dispatchEvent(new f0.contentWindow.FocusEvent("blur"));
             await until(() => d.getElementById("mcTaskNoteBar")?.hidden, 3000);
             for (const x of [...await items("Halo Schmal Leer"), ...await items("Halo Schmal Voll")]) { try { await c.deleteItem(x); } catch {} }
@@ -20659,8 +20667,12 @@ Neu
             nd.body.dispatchEvent(new nwin.MouseEvent("click", { bubbles: true }));
             const bar = d.getElementById("mcTaskNoteBar");
             out.edit = [nd.designMode, !!bar && !bar.hidden, bar ? [...bar.children].map(b => b.dataset.cmd) : null];
+            out.bar = barGeo();
             nwin.focus(); nd.execCommand("selectAll", false, null);
             bar.querySelector('[data-cmd="bold"]').click();
+            // eingeschaltet: Fett an der Schreibmarke zeigt sein Symbol in Systemfarbe
+            out.pressed = await until(() => bar.querySelector('[data-cmd="bold"]').getAttribute("aria-pressed") == "true", 2000)
+              && w.getComputedStyle(bar.querySelector('[data-cmd="bold"]')).color != w.getComputedStyle(bar.querySelector('[data-cmd="italic"]')).color;
             nwin.dispatchEvent(new nwin.FocusEvent("blur"));
             out.html = await spaeter(async () => { const x = await cur(); return /<(b|strong)\b/i.test(x?.descriptionHTML || "") && x.descriptionText.includes("Notiz fett") ? x.descriptionHTML : null; });
             out.editOff = await until(() => frame.contentDocument.designMode == "off" && d.getElementById("mcTaskNoteBar")?.hidden, 3000);
@@ -20693,10 +20705,13 @@ Neu
               and res.get("doneRow") == ["Completed On", False] and res.get("cancelled") and res.get("doneGone")
               and res.get("attach") == "example.org/plan.pdf" and res.get("addLink") == "Add Link…" and res.get("attachGone")
               and res.get("edit") == ["on", True, ["bold", "italic", "underline", "insertUnorderedList", "insertOrderedList", "createLink"]]
+              and all(b and abs(b["dl"]) <= 1 and abs(b["dr"]) <= 1 and b["h"] == 30 and b["text"] == "" and all(b["icons"]) and len(b["icons"]) == 6 and b["inside"]
+                      for b in (res.get("bar"), res.get("narrowBar")))
+              and res.get("pressed")
               and res.get("html") and res.get("editOff")
               and res.get("newTask") and res.get("newDialogs") == 0 and res.get("newTitle"))
         return ok, f"{res}"
-    check("Aufgaben: Detailspalte statt Bearbeiten-Dialog – All Day als Schalter, Status mit „Completed On“, Beschreibung mit Formatleiste (als HTML gespeichert), Anhänge mit „Remove“ und „Add Link…“, neue Aufgabe ohne Dialog mit Titel zum Eintippen", task_detail_fields, results)
+    check("Aufgaben: Detailspalte statt Bearbeiten-Dialog – All Day als Schalter, Status mit „Completed On“, Beschreibung mit Formatleiste (bündig mit der Karte, Symbole, als HTML gespeichert), Anhänge mit „Remove“ und „Add Link…“, neue Aufgabe ohne Dialog mit Titel zum Eintippen", task_detail_fields, results)
 
     def task_bar_cancel():
         # Rechtsklick auf den Fortschrittsstrich, „Cancelled“: auch eine erledigte Aufgabe wird abgesagt (vorher blieb sie

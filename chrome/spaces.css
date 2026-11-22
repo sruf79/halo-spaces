@@ -2830,16 +2830,27 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   opacity: 0.5;
 }
 
-/* Formatleiste unter der Notiz, nur beim Bearbeiten (Fett, Kursiv, Unterstrichen, Listen, Link) */
+/* Formatleiste unter der Notiz, nur beim Bearbeiten (Fett, Kursiv,
+   Unterstrichen, Listen, Link): graue Kapsel der Knopf-Familie bündig mit der
+   Karte darüber (vorher fit-content plus Innenabstand, 14 px über die Karte
+   hinaus), 30 px hoch wie die Knöpfe, mit feiner Lichtkante; sechs gleich
+   breite Symbolknöpfe in Textfarbe, Trennstriche zwischen den Gruppen
+   (Schrift | Listen | Link); unter der Maus ein runder Kreis mit Lichtkante,
+   gedrückt dunkler ohne Licht, eingeschaltet (Fett an der Schreibmarke usw.)
+   Symbol in Systemfarbe. Thunderbirds messenger.css setzt Knöpfe mit
+   Mindestbreite 5.5em und Rand, daher !important */
 #mcTaskNoteBar {
+  --mc-nb-h: var(--mt-btn-h, 30px);
+  --mc-nb-dot: calc(var(--mc-nb-h) - 6px);
   display: flex;
   flex: none;
-  gap: 2px;
-  margin: 0 20px 8px;
-  padding: 2px;
-  width: fit-content;
+  box-sizing: border-box;
+  height: var(--mc-nb-h);
+  margin: 8px 20px;
+  padding: 0;
   border-radius: var(--mt-radius-capsule, 999px);
   background: var(--mt-control);
+  box-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 1px 1px -1px rgba(0, 0, 0, 0.25);
 }
 
 #mcTaskNoteBar[hidden] {
@@ -2847,37 +2858,90 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 #mcTaskNoteBar > button {
-  appearance: none;
-  min-width: 26px;
-  height: 22px;
-  margin: 0;
-  padding: 0 6px;
-  border: none;
-  border-radius: var(--mt-radius-capsule, 999px);
-  background: transparent;
-  color: var(--mt-text);
-  font: inherit;
-  font-size: calc(12px * var(--mt-font-scale, 1));
+  appearance: none !important;
+  position: relative;
+  z-index: 0;
+  flex: 1 1 0;
+  box-sizing: border-box !important;
+  min-width: var(--mc-nb-h) !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--mt-text) !important;
+  outline-offset: -3px;
 }
 
-#mcTaskNoteBar > button:hover {
-  background: color-mix(in srgb, var(--mt-text) 8%, transparent);
+#mcTaskNoteBar > button:first-child {
+  border-start-start-radius: var(--mt-radius-capsule, 999px) !important;
+  border-end-start-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
-#mcTaskNoteBar > button[data-cmd="bold"] { font-weight: 700; }
-#mcTaskNoteBar > button[data-cmd="italic"] { font-style: italic; }
-#mcTaskNoteBar > button[data-cmd="underline"] { text-decoration: underline; }
+#mcTaskNoteBar > button:last-child {
+  border-start-end-radius: var(--mt-radius-capsule, 999px) !important;
+  border-end-end-radius: var(--mt-radius-capsule, 999px) !important;
+}
 
-#mcTaskNoteBar > button[data-cmd="createLink"]::before {
+/* Trennstrich vor der Gruppe (Listen, Link), 53 % der Höhe wie in den
+   übrigen Kapseln; neben dem Knopf unter der Maus verschwindet er */
+#mcTaskNoteBar > button:is([data-cmd="insertUnorderedList"], [data-cmd="createLink"]) {
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px calc(var(--mc-nb-h) * 0.53) no-repeat !important;
+}
+
+#mcTaskNoteBar > button:is([data-cmd="insertUnorderedList"], [data-cmd="createLink"]):hover,
+#mcTaskNoteBar > button:is([data-cmd="underline"], [data-cmd="insertOrderedList"]):hover + button {
+  background: transparent !important;
+}
+
+/* Symbol (16 px) über dem Kreis */
+#mcTaskNoteBar > button::before {
   content: "";
-  display: block;
-  width: 14px;
-  height: 14px;
-  margin: auto;
-  background: url("resource://mailcards/icons/link.svg") center / contain no-repeat;
-  -moz-context-properties: fill, stroke;
+  position: absolute;
+  inset: 0;
+  background: var(--mc-nb-icon) center / 16px 16px no-repeat;
+  -moz-context-properties: fill, fill-opacity, stroke;
   fill: transparent;
-  stroke: var(--mt-text);
+  stroke: currentColor;
+}
+
+#mcTaskNoteBar > button[data-cmd="bold"] { --mc-nb-icon: url("resource://mailcards/icons/format-bold.svg"); }
+#mcTaskNoteBar > button[data-cmd="italic"] { --mc-nb-icon: url("resource://mailcards/icons/format-italic.svg"); }
+#mcTaskNoteBar > button[data-cmd="underline"] { --mc-nb-icon: url("resource://mailcards/icons/format-underline.svg"); }
+#mcTaskNoteBar > button[data-cmd="insertUnorderedList"] { --mc-nb-icon: url("resource://mailcards/icons/format-list-bullet.svg"); }
+#mcTaskNoteBar > button[data-cmd="insertOrderedList"] { --mc-nb-icon: url("resource://mailcards/icons/format-list-number.svg"); }
+#mcTaskNoteBar > button[data-cmd="createLink"] { --mc-nb-icon: url("resource://mailcards/icons/link.svg"); }
+
+/* Kreis unter der Maus (85 % der Höhe) mit Lichtkante, gedrückt dunkler ohne Licht */
+#mcTaskNoteBar > button::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: calc(50% - var(--mc-nb-dot) / 2);
+  inset-inline-start: calc(50% - var(--mc-nb-dot) / 2);
+  width: var(--mc-nb-dot);
+  height: var(--mc-nb-dot);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#mcTaskNoteBar > button:hover::after {
+  opacity: 1;
+  background-color: var(--mt-cap-hover);
+  box-shadow: var(--mt-btn-ring);
+}
+
+#mcTaskNoteBar > button:hover:active::after {
+  background-color: var(--mt-cap-press);
+  box-shadow: var(--mt-btn-press-in);
+}
+
+#mcTaskNoteBar > button[aria-pressed="true"] {
+  color: AccentColor !important;
 }
 
 /* Aktionen (Kategorie, Erledigt, Priorität, Löschen) als Kapseln wie im

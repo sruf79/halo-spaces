@@ -701,6 +701,11 @@ def create_profile(xpi, port, dark=False, prefix="halo-test-"):
             # gerade veröffentlichte 3.30.0 in ein Paket 3.29.0 (CI 18.11. Lauf 44263445114 linux beta: Prüfung beim Start
             # 08:02:53, Vorbereitung erst danach; „Updates: bereitliegendes Update …“ fand den roten Punkt schon vorher)
             "network.dns.localDomains": "raw.githubusercontent.com",
+            # Region bekannt machen: ohne sie wartet die Datenschutz-Seite der Einstellungen beim Öffnen für immer darauf
+            # (DoHConfigController.loadRegion) und hält jeden geschlossenen Einstellungs-Tab im Speicher (rund 23 MB je Tab).
+            # Löst keine Netzabfrage aus (DoH-Liste aus Thunderbirds Paket, network.trr.mode bleibt 0); Prüfung „Speicher:
+            # geschlossene Einstellungs-Tabs …“
+            "doh-rollout.home-region": "AT",
             **({"ui.systemUsesDarkTheme": 1} if dark else {}),
         }.items():
             f.write(f"user_pref({json.dumps(pref)}, {json.dumps(value)});\n")
@@ -22785,11 +22790,15 @@ Neu
           out.dohBox = [cs(box).borderTopLeftRadius, cs(box).backgroundColor != "rgba(0, 0, 0, 0)",
             cs(opt).borderTopLeftRadius, parseFloat(cs(opt).borderTopWidth) <= 1, cs(opt).borderTopColor == line];
           out.pwSep = cs(cd.getElementById("privacyPasswordsCategory").nextElementSibling).display;
-          // Sicheres DNS: Statuskasten ohne Netzwerkstatus verborgen, mit Statustext sichtbar (Gegenprobe)
+          // Sicheres DNS: Statuskasten ohne Netzwerkstatus verborgen, mit Statustext sichtbar. Seit das Testprofil eine
+          // Region kennt (22.11.2026), richtet Thunderbird den Abschnitt fertig ein und schreibt „Status: Off“ wie bei
+          // Nutzern – vorher blieb der Text im Testprofil leer. Darum: echter Zustand, dann leer, dann mit Text
           const dss = cd.getElementById("dohStatusSection"), dst = cd.getElementById("dohStatus");
           const dssH = () => Math.round(dss.getBoundingClientRect().height);
+          await until(() => dst.textContent, 3000);
           out.dohStatus = [dst.textContent, cs(dss).display, dssH()];
-          const oldStatus = dst.textContent; dst.textContent = "Status: Off"; await ruhig(200);
+          const oldStatus = dst.textContent; dst.textContent = ""; await ruhig(200);
+          out.dohStatus.push(cs(dss).display, dssH()); dst.textContent = "Status: Off"; await ruhig(200);
           out.dohStatus.push(dssH()); dst.textContent = oldStatus; await ruhig(100);
           // Unterüberschriften (auch verschachtelte legend) nicht größer als der Kartentitel
           out.legendsPrivacy = [...new Set([...cd.querySelectorAll("#paneDeck legend")].map(l => cs(l).fontSize))];
@@ -22821,7 +22830,8 @@ Neu
               and res.get("offline") and res["offline"][0] is True and res["offline"][1] <= 30
               and res["doh"] and res["doh"][0] and res["doh"][1] == "rgba(0, 0, 0, 0)" and res["doh"][2]
               and res["dohBox"] == ["12px", True, "10px", True, True] and res["pwSep"] == "none"
-              and res["dohStatus"][1:3] == ["none", 0] and res["dohStatus"][3] > 0
+              and (res["dohStatus"][2] > 0 if res["dohStatus"][0] else res["dohStatus"][1:3] == ["none", 0])
+              and res["dohStatus"][3:5] == ["none", 0] and res["dohStatus"][5] > 0
               and res["legendsPrivacy"] == ["13px"] and res["ocsp"][0] <= 30 and res["ocsp"][1] == [True, True]
               and res.get("tree") == ["8px", True, True]
               and res["cal"][:2] == ["separator", "none"] and res["cal"][2] <= 20
@@ -24553,6 +24563,41 @@ Neu
               and res["fold"] == [True, False, True, True] and res.get("lateStart") == [True, "paneMcAccounts"])
         return ok, f"{res}"
     check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü (24-px-Zeilen), „Plugins“ nur mit Plugins", pref_embedded_subnav, results)
+
+    def prefs_tabs_freed():
+        # Geschlossene Einstellungs-Tabs werden freigegeben (22.11.2026): ohne bekannte Region (Testprofil, kein Netz) wartet
+        # Thunderbirds Datenschutz-Seite beim Öffnen für immer auf DoHConfigController.loadRegion() und hielt so jeden
+        # geschlossenen Tab samt Dokument im Speicher (rund 23 MB je Tab mit halo.spaces). create_profile() setzt deshalb
+        # doh-rollout.home-region. Tabs öffnen und schließen, Speicher bereinigen: ohne die Einstellung lebten alle weiter,
+        # mit ihr keiner. Gezählt werden nur Tabs ohne eingebettete Optionsseite von halo.spaces – solche hält Marionette
+        # selbst fest (in Messungen 1 von 6, je nach Zeitpunkt), das ist nicht Thema dieser Prüfung.
+        # (je Tab ein eigener Aufruf: Verweise im laufenden Prüfskript hielten das Dokument sonst selbst fest)
+        m.js("w.__haloEinstRefs = []; w.__haloEinstOpt = []; return 1;")
+        for i in range(14):
+            n = m.js(r"""
+              w.openPreferencesTab("paneGeneral");
+              await bis(() => tm.currentTabInfo.browser?.contentDocument?.readyState == "complete" && tm.currentTabInfo.browser.contentDocument.getElementById("paneDeck"), "Einstellungen-Tab geladen", 8000);
+              await ruhig(1500);
+              const doc = tm.currentTabInfo.browser.contentDocument;
+              w.__haloEinstRefs.push(Cu.getWeakReference(doc));
+              w.__haloEinstOpt.push([...doc.querySelectorAll("browser")].some(b => b.currentURI?.spec?.startsWith("moz-extension:")));
+              tm.closeTab(tm.currentTabInfo);
+              await bis(() => tm.currentTabInfo.mode.name != "preferencesTab", "Einstellungen-Tab zu", 5000); await ruhig(300);
+              return w.__haloEinstOpt.filter(x => !x).length;""")
+            if n >= 4:
+                break
+        res = m.js(r"""
+          await toMail();
+          const refs = w.__haloEinstRefs, opt = w.__haloEinstOpt; delete w.__haloEinstRefs; delete w.__haloEinstOpt;
+          const leben = () => refs.filter((r, i) => !opt[i] && r.get()).length;
+          // Speicher bereinigen, bis keiner mehr lebt (feste Pause: die Bereinigung gibt Dokumente erst in späteren Runden frei)
+          let alive = leben(), runden = 0;
+          for (; runden < 20 && alive > 0; runden++) { Cu.forceGC(); Cu.forceCC(); await wait(300); alive = leben(); }
+          return { tabs: refs.length, ohneOptionsseite: opt.filter(x => !x).length, alive, runden,
+                   wer: refs.map((r, i) => (opt[i] ? "o" : "") + (r.get() ? 1 : 0)).join(" "),
+                   region: Services.prefs.getStringPref("doh-rollout.home-region", "") };""")
+        return res["ohneOptionsseite"] >= 4 and res["alive"] <= 1, f"{res}"
+    check("Speicher: geschlossene Einstellungs-Tabs werden freigegeben (Region im Testprofil bekannt, sonst hält die Datenschutz-Seite jeden Tab fest)", prefs_tabs_freed, results)
 
     def pref_subnav_released():
         # Unterpunkte (Konten, Add-ons) beobachten mail.accountmanager.accounts; beim Schließen des Einstellungs-Tabs

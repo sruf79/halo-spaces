@@ -118,7 +118,7 @@ class EnhancerMailkarten {
     if (dateEl && hdr.date) {
       dateEl.textContent = appleListDate(hdr.date / 1000);
     }
-    this.markSearchHits(win, row);
+    this.markSearchHits(win, row, hdr, outgoing);
   }
 
   // Zeigt die Karte Empfänger statt Absender? Wie Thunderbird: in Ordnern für
@@ -168,14 +168,34 @@ class EnhancerMailkarten {
   }
 
   // Suchtreffer in Absender, Betreff und Vorschau gelb markieren – nur in der
-  // Suche (Zeilen werden wiederverwendet: sonst alte Markierungen entfernen)
-  markSearchHits(win, row) {
+  // Suche (Zeilen werden wiederverwendet: sonst alte Markierungen entfernen).
+  // Passt der Begriff auf die Adresse einer Person in der Karte, steht die
+  // Adresse dort aber nicht: wie Apple Mail deren angezeigten Namen ganz
+  // markieren (eine Person: der ganze Text, sonst ihr Name bzw. Label)
+  markSearchHits(win, row, hdr = null, outgoing = false) {
     const term = this.isSearchFolder(win.gFolder) ? this.mailSearchTerm : "";
-    for (const el of [row.querySelector(".sender"), row.querySelector(".subject"), row.querySelector(".mc-preview")]) {
+    const sender = row.querySelector(".sender");
+    for (const el of [sender, row.querySelector(".subject"), row.querySelector(".mc-preview")]) {
       if (el && (term || el.querySelector("mark.mc-hit"))) {
-        markHits(el, term);
+        markHits(el, term, el == sender ? this.addressHitNames(el, hdr, outgoing, term) : []);
       }
     }
+  }
+
+  addressHitNames(el, hdr, outgoing, term) {
+    const needle = (term || "").trim().toLowerCase();
+    if (!hdr || needle.length < 2) {
+      return [];
+    }
+    const persons = personsFor(hdr, outgoing);
+    const hits = persons.filter(p => p.email && p.email.includes(needle));
+    if (!hits.length) {
+      return [];
+    }
+    if (persons.length == 1) {
+      return [el.textContent];
+    }
+    return hits.flatMap(p => [p.name, senderLabel(p.name, p.email)]).filter(Boolean);
   }
 
   // Lokale Ordner nur zusammenklappen, wenn darin nichts Eigenes liegt
@@ -379,11 +399,15 @@ class EnhancerMailkarten {
   // Datum aussieht („12.10“), Mails von diesem Tag; ohne body nur die
   // Kopfzeilen (stehen in der Ordner-Datenbank, der Text muss je Mail von der
   // Platte gelesen werden)
-  searchTerms(session, text, body = true) {
+  // Eingrenzungen aus dem Vorschlagsmenü (Kapseln im Suchfeld,
+  // suchvorschlag.js) müssen zusätzlich alle zutreffen. Thunderbird wertet
+  // die Bedingungen der Reihe nach aus, ((a ODER b) UND c): darum zuerst die
+  // ODER-Gruppe des freien Texts, danach die Eingrenzungen mit UND
+  searchTerms(session, text, body = true, filters = this.mailSearchFilters) {
     const A = Ci.nsMsgSearchAttrib;
     const O = Ci.nsMsgSearchOp;
     const terms = [];
-    const add = (attrib, op, fill) => {
+    const add = (attrib, op, fill, and = false) => {
       const term = session.createTerm();
       term.attrib = attrib;
       term.op = op;
@@ -391,15 +415,20 @@ class EnhancerMailkarten {
       value.attrib = attrib;
       fill(value);
       term.value = value;
-      term.booleanAnd = false;
+      term.booleanAnd = and;
       terms.push(term);
     };
-    for (const attrib of body ? [A.Subject, A.Sender, A.ToOrCC, A.Body] : [A.Subject, A.Sender, A.ToOrCC]) {
-      add(attrib, O.Contains, v => (v.str = text));
+    if (text) {
+      for (const attrib of body ? [A.Subject, A.Sender, A.ToOrCC, A.Body] : [A.Subject, A.Sender, A.ToOrCC]) {
+        add(attrib, O.Contains, v => (v.str = text));
+      }
+      const date = searchDate(text);
+      if (date) {
+        add(A.Date, O.Is, v => (v.date = date.getTime() * 1000));
+      }
     }
-    const date = searchDate(text);
-    if (date) {
-      add(A.Date, O.Is, v => (v.date = date.getTime() * 1000));
+    for (const spec of searchFilterSpecs(filters)) {
+      add(A[spec.attrib], O.Contains, v => (v.str = spec.value), true);
     }
     return terms;
   }
@@ -413,8 +442,11 @@ class EnhancerMailkarten {
     }
     const term = (text || "").trim();
     let folder = this.searchFolder(false);
-    if (!term) {
+    // Eingrenzungen (Kapseln im Suchfeld) allein sind auch eine Suche
+    const filters = searchFilterSpecs(this.mailSearchFilters);
+    if (!term && !filters.length) {
       this.mailSearchTerm = "";
+      this.mailSearchFilters = [];
       this.searchAllMailboxes = false;
       this.searchRun = null;
       a3.document.documentElement.removeAttribute("mc-search-stage");
@@ -443,7 +475,8 @@ class EnhancerMailkarten {
     this.searchRun = run;
     const html = a3.document.documentElement;
     html.removeAttribute("mc-search-gloda");
-    if (!this.glodaEnabled() || term.length < GLODA_MIN_CHARS) {
+    // (mit Eingrenzungen ohne den Index: seine Treffer gelten nur dem freien Text)
+    if (!this.glodaEnabled() || term.length < GLODA_MIN_CHARS || filters.length) {
       this.startMailSearch(top, a3, folder, run, null);
     } else {
       html.setAttribute("mc-search-stage", "index");
@@ -468,11 +501,14 @@ class EnhancerMailkarten {
       return false;
     }
     tm.switchToTab(mailTab);
+    this.mailSearchFilters = [];
     this.searchAllMailboxes = true;
     // nach dem Tabwechsel: der Wechsel setzt das Suchfeld auf den Begriff des
     // Bereichs zurück (syncSearchForTab)
     top.setTimeout(() => {
       this.searchAllMailboxes = true;
+      this.mailSearchFilters = [];
+      this.renderSearchCaps(top);
       top.document.querySelector("#unifiedToolbarContent global-search-bar")?.overrideSearchTerm?.(term);
       this.mailSearch(top, term);
       top.__mcSearchPlaceholder?.();
@@ -508,10 +544,13 @@ class EnhancerMailkarten {
       // (neu, Postfach mitten in der Erstindizierung), erscheinen dann erst,
       // wenn die Textsuche ihr Postfach erreicht (die Begriffe gelten für
       // alle Postfächer des Suchordners gemeinsam)
-      wrapper.searchTerms = this.searchTerms(wrapper.searchTermsSession, term, seeded > 0);
+      // ohne freien Text oder mit „Message contains“ gibt es keine schnelle
+      // erste Stufe nur über die Kopfzeilen
+      const body = seeded > 0 || !term || searchFilterSpecs(this.mailSearchFilters).some(s => s.attrib == "Body");
+      wrapper.searchTerms = this.searchTerms(wrapper.searchTermsSession, term, body);
       wrapper.onlineSearch = false;
       MailServices.accounts.saveVirtualFolders();
-      run.stage = seeded > 0 ? "body" : "headers";
+      run.stage = body ? "body" : "headers";
       run.start = Date.now();
       debugLog("search: gloda", hits ? `${seeded} hits` : "off", "after", run.start - run.created, "ms");
       a3.document.documentElement.setAttribute("mc-search-stage", run.stage);
@@ -1078,6 +1117,7 @@ class EnhancerMailkarten {
           pending = false;
           run();
           shorten();
+          this.keepDateInMeta(doc);
         }, 0);
       }
     });
@@ -1090,6 +1130,7 @@ class EnhancerMailkarten {
     this.addWinRestorer(win, () => {
       mo.disconnect();
       delete doc.__mcHdrAvatar;
+      delete doc.__mcDateMoves;
       // Datum zurück an seinen Platz, eigene Elemente entfernen
       const meta = doc.getElementById("mcHdrMeta");
       const date = doc.getElementById("dateLabel");
@@ -1341,6 +1382,28 @@ class EnhancerMailkarten {
     });
   }
 
+  // Uhrzeit zurück neben den Ordner, wenn sie jemand aus #mcHdrMeta genommen
+  // hat (GitHub #52: Add-ons, die den Mailkopf umbauen, setzen das Datum an
+  // seinen alten Platz – dort lag es oben rechts genau über dem Ordner).
+  // Höchstens fünfmal kurz hintereinander, damit kein Wechselspiel mit einem
+  // Add-on entsteht, das sie sofort wieder zurücksetzt; dann steht die Uhrzeit
+  // dort, wohin das Add-on sie setzt (userChrome.css: dann ohne feste Lage),
+  // bis sie zwei Sekunden lang niemand mehr versetzt hat
+  keepDateInMeta(doc) {
+    const meta = doc.getElementById("mcHdrMeta");
+    const date = doc.getElementById("dateLabel");
+    if (!meta || !date || date.parentNode == meta) {
+      return;
+    }
+    const now = Date.now();
+    const moves = doc.__mcDateMoves && now - doc.__mcDateMoves.t < 2000 ? doc.__mcDateMoves : { n: 0 };
+    if (moves.n >= 5) {
+      return;
+    }
+    doc.__mcDateMoves = { n: moves.n + 1, t: now };
+    meta.append(date);
+  }
+
   // Mailkopf wie Apple Mail: oben rechts Ordner und Uhrzeit, darüber bei
   // Verteilern ein Hinweis mit „Abmelden“ (statt List-ID-Zeile)
   decorateHeader(doc, hdr) {
@@ -1361,6 +1424,7 @@ class EnhancerMailkarten {
       meta.append(folder, date);
       header.append(meta);
     }
+    this.keepDateInMeta(doc);
     const folderEl = meta.querySelector(".mc-hdr-folder");
     let title = "";
     try {
@@ -1811,7 +1875,8 @@ class EnhancerMailkarten {
         try {
           const hdr = this.hdrForRow(row);
           preview.textContent = cleanPreview(hdr?.getStringProperty("preview"));
-          this.markSearchHits(win, row);
+          // mit Mail, sonst verliert der Name seine Markierung bei Adress-Treffern
+          this.markSearchHits(win, row, hdr, hdr ? this.isOutgoingView(win, row) : false);
         } catch {} // Kandidat fürs Protokoll: Vorschau einer Zeile nicht gesetzt (Zeile schon weg ist gewollt)
       }
     }

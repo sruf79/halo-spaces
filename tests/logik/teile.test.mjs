@@ -22,6 +22,7 @@ export const TEILE = {
   "halofenster.js": ["EnhancerHaloFenster"],
   "mailliste.js": ["EnhancerMailliste"],
   "mailkarten.js": ["EnhancerMailkarten"],
+  "suchvorschlag.js": ["EnhancerSuchvorschlag", "searchSuggestRows"],
 };
 
 // Teile von CardEnhancer: Klasse im Teil → einige ihrer Methoden
@@ -31,6 +32,7 @@ export const CARD_TEILE = {
   EnhancerHaloFenster: ["sendFeedback", "openHaloWindow", "wireHaloWindow"],
   EnhancerMailliste: ["hookConversation", "hookViewChoice", "patch", "decorateFolders"],
   EnhancerMailkarten: ["cardStyle", "mailSearch", "decorateHeader", "refreshPreviewsNow"],
+  EnhancerSuchvorschlag: ["hookSearchSuggest", "renderSearchCaps", "rememberSearch"],
 };
 
 const quelle = name => readFileSync(fileURLToPath(new URL(`../../extension/api/${name}`, import.meta.url)), "utf8");

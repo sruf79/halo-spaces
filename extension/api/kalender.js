@@ -424,8 +424,16 @@ function hookMultiweekScroll(mv, win, B) {
       }
     }
     const start = pos, t0 = win.performance.now(), ms = motionMs(dur);
+    let first = true;
     const step = now => {
-      const k = ms ? Math.min(1, (now - t0) / ms) : 1;
+      // Zeitstempel des Bildes: unter Windows der des letzten Bildschirmtakts, er kann vor t0 liegen; ohne
+      // Untergrenze wäre k dann negativ und die Kurve liefe im ersten Bild ein Stück zurück (Zucken gegen die
+      // Richtung). Abstand des ersten Bildes zum Start für die Prüfung
+      if (first) {
+        first = false;
+        mv.__mcSnapLead = now - t0;
+      }
+      const k = ms ? Math.max(0, Math.min(1, (now - t0) / ms)) : 1;
       pos = start + (target - start) * curve(k);
       if (k < 1) {
         paint();
@@ -587,6 +595,7 @@ function hookMultiweekScroll(mv, win, B) {
     mv.style.removeProperty("--mc-mw-row");
     delete mv.__mcScrollApply;
     delete mv.__mcScrollPos;
+    delete mv.__mcSnapLead;
     delete mv.__mcPark;
     delete mv.__mcScrollReset;
     delete mv.__mcScrollShifts;

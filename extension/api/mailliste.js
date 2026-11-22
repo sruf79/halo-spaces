@@ -1100,7 +1100,7 @@ class EnhancerMailliste {
     // anderen Ordner gewählt, während gesucht wurde: wie Apple Mail dort
     // weitersuchen (Sammelordner: wieder in allen Postfächern)
     const leave = () => {
-      if (self.mailSearchTerm && win.gFolder && !self.isSearchFolder(win.gFolder)) {
+      if ((self.mailSearchTerm || self.mailSearchFilters?.length) && win.gFolder && !self.isSearchFolder(win.gFolder)) {
         self.searchAllMailboxes = false; // Suche aus dem Kontakt: jetzt im gewählten Ordner
         self.searchPrevURI = win.gFolder.URI;
         self.mailSearch(top, self.mailSearchTerm);

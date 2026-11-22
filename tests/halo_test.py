@@ -13,6 +13,7 @@ Ergebnis: eine Zeile je Prüfung (OK/FEHLER), Rückgabewert 0 nur wenn alles OK 
 """
 
 import argparse
+import base64
 import glob
 import json
 import os
@@ -1467,6 +1468,90 @@ def maillist_checks(m, results):
               and same_color(b["sep"], n["sep"]) and b["selected"] == n["selected"])
         return ok, f"{res}"
     check("Bedienungshilfen: bei „Kontrast erhöhen“ kräftigere Linien und Texte, Auswahl mit Rand; sonst unverändert", increased_contrast, results)
+
+    def folder_unread_count():
+        # Ungelesen-Zahl rechts am Ordner wie in der Vorlage (Entscheidung Variante A, 20.11.2026): 11 px, halbfett (600),
+        # Grau der Vorlage (hell rgba(60, 60, 67, 0.6), dunkel rgba(235, 235, 245, 0.4)); bei „Kontrast erhöhen“ im
+        # kräftigeren Grau der Sekundärtexte; in der schwebenden Seitenleiste gleich. Mit HALO_SHOTS Bilder der Ordnerliste
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        read = r"""
+          const a3 = tm.currentAbout3Pane, ad = a3.document;
+          const row = w.__haloCountRow, cnt = row?.querySelector(":scope > .container .unread-count");
+          const v = name => { const e = ad.createElement("div"); e.style.color = `var(${name})`; ad.documentElement.append(e); const c = a3.getComputedStyle(e).color; e.remove(); return c; };
+          const cs = cnt && a3.getComputedStyle(cnt), r = cnt?.getBoundingClientRect();
+          const out = { text: cnt?.textContent, color: cs?.color, weight: cs?.fontWeight, size: cs?.fontSize, shown: !!r && r.width > 0,
+            secondary: v("--mt-text-secondary"), dark: w.matchMedia("(prefers-color-scheme: dark)").matches,
+            more: w.matchMedia("(prefers-contrast: more)").matches, float: ad.getElementById("folderPane").classList.contains("mc-float-pane") };
+          if (SHOT) {
+            const p = ad.getElementById("folderPane").getBoundingClientRect();
+            const bm = await a3.browsingContext.currentWindowGlobal.drawSnapshot(new a3.DOMRect(p.left, p.top, p.width, Math.min(p.height, 360)), 2, "white");
+            const cv = ad.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+            cv.getContext("2d").drawImage(bm, 0, 0); out.png = cv.toDataURL("image/png").split(",")[1];
+          }
+          return out;"""
+        shot = "true" if os.environ.get("HALO_SHOTS") else "false"
+        out = {}
+        m.js(r"""const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+          // (derselbe Posteingang wie in „Ordnerliste: im neuen Profil …“, damit es eine gewöhnliche Ordnerzeile gibt)
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Inbox")) { root.createSubfolder("Inbox", null); }
+          const a3 = await toMail(); await ruhig(500); const ad = a3.document;
+          const named = () => [...ad.querySelectorAll('#folderTree li[is="folder-tree-row"]')].filter(l => l.querySelector(":scope > .container .name")?.clientWidth);
+          await bis(() => named().length, "Ordnerzeilen", 5000);
+          // eine gewöhnliche Ordnerzeile (nicht die Kontozeile): zugeklapptes Konto aufklappen
+          const sub = () => named().filter(l => l.parentElement?.closest("li[is='folder-tree-row']"));
+          if (!sub().length) { named().find(l => l.classList.contains("collapsed"))?.querySelector(":scope > .container .twisty")?.click();
+            try { await bis(() => sub().length, "Unterordner", 3000); } catch {} }
+          const rows = sub().length ? sub() : named();
+          const row = rows.find(l => /Junk|Trash/.test(l.querySelector(":scope > .container .name").textContent)) || rows[0];
+          w.__haloCountRow = row; w.__haloCountOld = row?.unreadCount; if (row) row.unreadCount = 13; await ruhig(300); return 1;""")
+        try:
+            out["normal"] = m.js(f"const SHOT = {shot};" + read)
+            m.js("""Services.prefs.setIntPref("ui.useAccessibilityTheme", 1); await bis(() => w.matchMedia("(prefers-contrast: more)").matches, "Kontrast erhöhen aktiv", 3000); await ruhig(600); return 1;""")
+            try:
+                out["more"] = m.js(f"const SHOT = {shot};" + read)
+            finally:
+                m.js("""Services.prefs.clearUserPref("ui.useAccessibilityTheme"); await bis(() => !w.matchMedia("(prefers-contrast: more)").matches, "Kontrast wieder normal", 3000); await ruhig(600); return 1;""")
+            # schwebend: Seitenleiste ausblenden, Zeiger an den linken Rand
+            m.js("""const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
+              if (!w.gSpacesToolbar.isHidden) d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+              await ruhig(600); return 1;""")
+            to(400); to(1)
+            m.js('try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(400); return 1;')
+            out["float"] = m.js(f"const SHOT = {shot};" + read)
+            to(900)
+            m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
+        finally:
+            m.js("""await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
+              await ruhig(400); const row = w.__haloCountRow; if (row) row.unreadCount = w.__haloCountOld ?? 0;
+              delete w.__haloCountRow; delete w.__haloCountOld; return 1;""")
+        if os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            for name in ("normal", "more", "float"):
+                if (out.get(name) or {}).get("png"):
+                    path = os.path.join(os.environ["HALO_SHOTS"], f"ordnerliste-ungelesen-{name}-{'dunkel' if out[name].get('dark') else 'hell'}.png")
+                    open(path, "wb").write(base64.b64decode(out[name].pop("png")))
+                    print(f"Bild {path}", flush=True)
+        for v in out.values():
+            v.pop("png", None)
+        n, mo, f = out.get("normal") or {}, out.get("more") or {}, out.get("float") or {}
+        want = "rgba(235, 235, 245, 0.4)" if n.get("dark") else "rgba(60, 60, 67, 0.6)"
+        # (Thunderbird skaliert die Schrift minimal, z. B. 11.05px)
+        size_ok = round(float((n.get("size") or "0px")[:-2])) == 11 if sys.platform == "darwin" else bool(n.get("size"))
+        ok = (n.get("text") == "13" and n.get("shown") and n.get("weight") == "600" and size_ok and same_color(n.get("color"), want)
+              and mo.get("more") and mo.get("weight") == "600" and same_color(mo.get("color"), mo.get("secondary"))
+              and not same_color(mo.get("color"), n.get("color")) and rgba_alpha(mo.get("color")) == 1.0
+              and f.get("float") and f.get("shown") and f.get("weight") == "600" and f.get("size") == n.get("size") and same_color(f.get("color"), want))
+        return ok, f"{out}"
+    check("Ordnerliste: Ungelesen-Zahl 11 px halbfett im Grau der Vorlage, bei „Kontrast erhöhen“ kräftiger, schwebend gleich (GitHub #65)", folder_unread_count, results)
 
     def view_choice_menu():
         # Ansicht und Layout als eine Auswahl: Kartenansicht (immer vertikal), Tabelle klassisch – im Drei-Punkte-Menü
@@ -8864,18 +8949,18 @@ def calendar_checks(m, results):
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
             const target = mv.monthbody.querySelector("calendar-month-day-box");
             const first = mv.rangeStartDate.clone(); const l0 = label(); const s0 = mv.__mcScrollShifts;
-            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – acht Zehntelpixel im
-            // Abstand von 16 ms (feste Pausen wie ein Trackpad, länger als das Messfenster des Schwungs von 100 ms), so
-            // rastet die Ansicht ohne Schwung ein
-            const halt = async el => { for (let i = 0; i < 8; i++) { await new Promise(r => w.setTimeout(r, 16));
-              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); } };
+            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – 13 Zehntelpixel
+            // gleich nach der letzten schnellen Bewegung, ohne Pause dazwischen (halo.spaces misst die Geschwindigkeit an den
+            // letzten 13 Bewegungen, danach zählen nur noch die langsamen, Einrasten ohne Schwung nach 160 ms). Vorher kamen
+            // die Brems-Bewegungen erst ein Bild plus 16 ms später: unter Linux mit Bildern zu rund 57 ms lag das über den
+            // 70 ms, nach denen ein schneller Wischer als losgelassen gilt – Schwung, Woche n+1 (CI 20./21.11.2026)
+            const halt = el => { for (let i = 0; i < 13; i++)
+              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); };
             // eine Woche in drei Bildern scrollen, dann warten, bis sie eingerastet ist (Überschrift folgt)
             let n = 0;
-            const week1 = async () => { n++; for (let i = 0; i < 3; i++) { target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); await new Promise(r => w.requestAnimationFrame(r)); }
-              await halt(target);
-              // (Diagnose: gelegentlich Zeitüberschreitung unter Linux beta und Windows, CI 15.–18.11.; die Meldung nennt
-              // jetzt die erreichte Woche – mehr als n hieße Schwung durch eine Pause von über 70 ms zwischen den
-              // Brems-Bewegungen, weniger als n ein Zurückschnappen; die Bedingung bleibt unverändert)
+            const week1 = async () => { n++; for (let i = 0; i < 3; i++) { if (i) await new Promise(r => w.requestAnimationFrame(r)); target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); }
+              halt(target);
+              // (die Meldung nennt die erreichte Woche: mehr als n hieße Schwung, weniger als n ein Zurückschnappen)
               try { await bis(() => wk(mv.rangeStartDate, first) == n, "eingerastet in Woche " + n, 3000); }
               catch (e) { throw new Error(`${e.message} (erreicht: Woche ${wk(mv.rangeStartDate, first)}, Lage ${Math.round(mv.__mcScrollPos?.() ?? NaN)})`); }
               await ruhig(300); };
@@ -8906,7 +8991,9 @@ def calendar_checks(m, results):
         # Mehrwochen-Ansicht scrollen 5/6 (seit 6/6 immer an, ohne Einstellung): nach einem schnellen Wischer
         # (Pixel-Bewegungen) läuft die Ansicht mit Schwung aus, ohne Zucken (nie zurück), und kommt genau auf einer
         # Wochengrenze zur Ruhe, mindestens zwei Wochen weiter als der Wischer selbst (ohne Schwung: nächste Woche zum
-        # gewischten Weg); Mausrad (Zeilen) rastet ohne Schwung ein
+        # gewischten Weg); Mausrad (Zeilen) rastet ohne Schwung ein. lead: Abstand des ersten Bildes des Einrastens zu
+        # seinem Start in ms. late: derselbe Wischer mit Bild-Zeitstempeln 20 ms in der Vergangenheit, wie unter Windows
+        # möglich (dort Zeitstempel des letzten Bildschirmtakts; vermutete Ursache des Flackerns 20.11.2026 mit back=True)
         res = m.js(CAL_CHECK_JS + r"""
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
@@ -8918,19 +9005,24 @@ def calendar_checks(m, results):
             const sleep = ms => new Promise(r => w.setTimeout(r, ms));
             // feste Pause: Wischer mit echtem Zeitabstand (die Geschwindigkeit kommt aus den Zeitstempeln)
             const swipe = async (n, dy, mode) => { for (let i = 0; i < n; i++) { box().dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: dy, deltaMode: mode })); await sleep(16); } };
-            const run = async (mode, dy) => {
+            const run = async (mode, dy, late = 0) => {
               const first = mv.rangeStartDate.clone(); first.isDate = true;
-              await swipe(10, dy, mode);
+              const raf = w.requestAnimationFrame;
+              if (late) w.requestAnimationFrame = cb => raf.call(w, t => cb(t - late));
               const track = []; let still = 0;
-              const t0 = w.performance.now();
-              while (w.performance.now() - t0 < 4000 && still < 12) {
-                await new Promise(r => w.requestAnimationFrame(r));
-                const p = mv.__mcScrollPos(); track.push(p);
-                still = track.length > 1 && track[track.length - 2] === p ? still + 1 : 0;
-              }
+              try {
+                await swipe(10, dy, mode);
+                const t0 = w.performance.now();
+                while (w.performance.now() - t0 < 4000 && still < 12) {
+                  await new Promise(r => raf.call(w, r));
+                  const p = mv.__mcScrollPos(); track.push(p);
+                  still = track.length > 1 && track[track.length - 2] === p ? still + 1 : 0;
+                }
+              } finally { if (late) w.requestAnimationFrame = raf; }
               await ruhig(900);
               const now = mv.rangeStartDate.clone(); now.isDate = true;
               return { weeks: Math.round((now.nativeTime - first.nativeTime) / 6048e8), aligned: Math.round(top(now) - head()),
+                       lead: Math.round((mv.__mcSnapLead ?? NaN) * 10) / 10,
                        back: track.slice(0, track.indexOf(Math.max(...track)) + 1).some((p, i, a) => i && p < a[i - 1] - 0.5), frames: track.length };
             };
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
@@ -8938,14 +9030,17 @@ def calendar_checks(m, results):
             out.plain = Math.round(10 * 40 / rowH);
             out.on = await run(0, 40);
             out.wheel = await run(1, 1);
+            out.late = await run(0, 40, 20);
           } finally {
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
-        on, wh = (res.get(k) or {} for k in ("on", "wheel"))
+        on, wh, lt = (res.get(k) or {} for k in ("on", "wheel", "late"))
         ok = (isinstance(res.get("plain"), int) and abs(on.get("aligned", 9)) <= 1 and abs(wh.get("aligned", 9)) <= 1
               and on.get("weeks", 0) >= res["plain"] + 2 and not on.get("back") and on.get("frames", 0) >= 12
-              and wh.get("weeks", 9) <= 1)
+              and wh.get("weeks", 9) <= 1
+              and abs(lt.get("aligned", 9)) <= 1 and lt.get("weeks", 0) >= res["plain"] + 2 and not lt.get("back")
+              and lt.get("frames", 0) >= 12 and lt.get("lead", 0) < 0)
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (immer an), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
 
@@ -10588,6 +10683,78 @@ def calendar_checks(m, results):
         ok = all(res.get(k) and res[k]["n"] >= 4 and not res[k]["bad"] and not res[k]["hdrBad"] for k in ("max", "1366", "1280", "extra1366", "extra1280"))
         return ok, f"{res}"
     check("Mail: mit gewählter Mail und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf, Ordner und Uhrzeit im Mailkopf nicht (maximiert, kleiner Bildschirm)", mail_no_overlap, results)
+
+    def mail_own_layout_fits():
+        # Eigene Belegung der Mail-Toolbar ohne Abstandhalter vorn (GitHub #52: Nutzer mit vielen Knöpfen von Add-ons):
+        # die Platzprüfung maß am ersten Abstandhalter der Leiste statt am Abstandhalter vorn – war das ein
+        # ausgeblendeter eines anderen Bereichs, wichen alle Knöpfe ins Menü „»“, obwohl Platz war (gemessen: 411 px
+        # frei, 16 Knöpfe weg); war es einer mitten in der Leiste, wich keiner, und die Knöpfe liefen rechts aus der
+        # Leiste. Mit Platz (Today-Pane zu) bleibt jeder Knopf sichtbar; mit Today-Pane ragt keiner aus der Leiste
+        # oder über einen anderen, was weicht, steht im Menü; danach kommen alle zurück. Die Breite mit Platz wird
+        # gesucht (ab 1500 px in Schritten von 100 px bis zur Bildschirmbreite): unter Linux ist die Mailliste breiter
+        # als am Mac, dort fehlten bei 1500 px wirklich 48 px. Mit Today-Pane wird das Fenster so weit verengt, bis
+        # Knöpfe weichen müssen (bis 1100 px). Beide Fehler bleiben rot: mit dem falschen Abstandhalter kommt bei
+        # keiner Breite jeder Knopf zurück, oder es weicht bei keiner Breite einer
+        res = m.js(r"""
+          const out = {};
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const savedState = getState(), tpWas = !!w.TodayPane?.isVisible;
+          const c = () => d.getElementById("unifiedToolbarContent");
+          const shownLis = () => [...c().children].filter(l => !l.hidden && l.getAttribute("item-id") && l.getAttribute("item-id") != "spacer");
+          const squeezed = () => shownLis().filter(l => l.hasAttribute("mc-squeezed")).map(l => l.getAttribute("item-id"));
+          const hits = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+          const snap = () => {
+            const cr = c().getBoundingClientRect(), right = cr.right - (parseFloat(w.getComputedStyle(c()).paddingInlineEnd) || 0);
+            const tog = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+            const bx = [...c().children].filter(l => l.getAttribute("item-id") != "spacer").map(l => [l.getAttribute("item-id") || l.id, l.getBoundingClientRect()]).filter(([, b]) => b.width > 0);
+            const bad = [];
+            bx.forEach(([n1, r1], k) => bx.slice(k + 1).forEach(([n2, r2]) => { if (hits(r1, r2)) bad.push(`${n1} ${Math.round(r1.left)}–${Math.round(r1.right)} × ${n2} ${Math.round(r2.left)}–${Math.round(r2.right)}`); }));
+            for (const [n, b] of bx) {
+              if (b.right > right + 1.5) bad.push(`${n} ${Math.round(b.left)}–${Math.round(b.right)} ragt über die Leiste ${Math.round(right)}`);
+              if (tog?.width && b.right > tog.left + 1) bad.push(`${n} ${Math.round(b.left)}–${Math.round(b.right)} rechts vom Today-Knopf ${Math.round(tog.left)}`);
+            }
+            const ov = d.getElementById("mcToolbarOverflow");
+            return { iw: w.innerWidth, tp: !!w.TodayPane?.isVisible, noLead: c().hasAttribute("mc-no-lead"), squeezed: squeezed(), bad, right: Math.round(right),
+                     ov: !!ov && !ov.hasAttribute("mc-squeezed") && ov.getBoundingClientRect().width > 0,
+                     keep: ["write-message", "get-messages"].every(id => c().querySelector(`:scope > li[item-id="${id}"]`)?.getBoundingClientRect().width > 0),
+                     lis: bx.map(([n, b]) => n + ":" + Math.round(b.left) + "-" + Math.round(b.right)) };
+          };
+          const pane = async on => { if (!!w.TodayPane?.isVisible != on) { d.getElementById("mcTodayToggle").click(); await until(() => !!w.TodayPane?.isVisible == on, 3000); await ruhig(1200); } };
+          try {
+            const size = async px => { w.resizeTo(px, 900); await until(() => w.outerWidth == px, 3000); await ruhig(600); };
+            await pane(false);
+            await size(1500);
+            storeState({ ...savedState, mail: ["write-message", "get-messages", "reply", "delete", "forward-inline", "archive", "junk", "spacer", "quick-filter-bar", "search-bar", "print", "tag-message", "address-book"] });
+            await until(() => c().hasAttribute("mc-no-lead") && shownLis().length == 12, 5000);
+            await ruhig(800);
+            const maxW = Math.min(1920, w.screen.availWidth);
+            let breitW = 1500;
+            while (!(await until(() => !squeezed().length, 2000)) && breitW < maxW) {
+              breitW = Math.min(maxW, breitW + 100); await size(breitW);
+            }
+            out.breit = snap(); out.breitW = breitW;
+            await pane(true);
+            let engW = breitW;
+            while (!(await until(() => squeezed().length, 1500)) && engW > 1100) {
+              engW = Math.max(1100, engW - 100); await size(engW);
+            }
+            out.eng = snap(); out.engW = engW;
+            await pane(false);
+            await size(breitW);
+            await until(() => !squeezed().length, 4000);
+            out.zurueck = snap();
+          } finally {
+            storeState(savedState); await ruhig(500);
+            w.resizeTo(1500, 900); await ruhig(600);
+            await pane(tpWas);
+          }
+          return out;""")
+        b, e, z = (res.get(k) or {} for k in ("breit", "eng", "zurueck"))
+        ok = (all(x.get("noLead") and x.get("keep") and x.get("bad") == [] for x in (b, e, z))
+              and b.get("squeezed") == [] and z.get("squeezed") == []
+              and e.get("tp") is True and e.get("squeezed") and e.get("ov"))
+        return ok, f"{res}"
+    check("Mail: eigene Toolbar-Belegung ohne Abstandhalter vorn – mit Platz bleibt jeder Knopf sichtbar, mit Today-Pane ragt keiner aus der Leiste, was weicht, steht im Menü „»“ und kommt zurück", mail_own_layout_fits, results)
 
     def ab_sidebar_frames():
         # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
@@ -12556,9 +12723,10 @@ def run_checks(m, version, profile, results):
                  "unterhaltung.js": ["ConversationCards", "foldQuotedHistory", "CONVERSATION_PREF"],
                  "oberflaeche.js": ["EnhancerOberflaeche"], "kalenderfenster.js": ["EnhancerKalender"],
                  "halofenster.js": ["EnhancerHaloFenster"], "mailliste.js": ["EnhancerMailliste"],
-                 "mailkarten.js": ["EnhancerMailkarten"]}
+                 "mailkarten.js": ["EnhancerMailkarten"], "suchvorschlag.js": ["EnhancerSuchvorschlag", "searchSuggestRows"]}
         # Methoden aus den CardEnhancer-Teilen am laufenden enhancer
-        methoden = ["styleSearch", "openQuickCreate", "openHaloWindow", "hookConversation", "decorateHeader", "refreshPreviewsNow"]
+        methoden = ["styleSearch", "openQuickCreate", "openHaloWindow", "hookConversation", "decorateHeader", "refreshPreviewsNow",
+                    "hookSearchSuggest"]
         res = m.js(r"""
           const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
           const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
@@ -14272,6 +14440,45 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def header_date_moved():
+        # GitHub #52 (Windows, viele Add-ons): ein Add-on, das den Mailkopf umbaut, setzt die Uhrzeit an ihren alten
+        # Platz zurück; dort lag sie oben rechts genau über dem Ordner. Erwartet: sie kommt neben den Ordner zurück;
+        # setzt ein Add-on sie immer wieder zurück, gibt halo.spaces nach wenigen Versuchen nach, und die Uhrzeit
+        # bleibt dort, wo das Add-on sie hinsetzt, ohne den Ordner zu überdecken
+        res = m.js(MESSAGE_JS + '''
+          const md = a3.messageBrowser.contentDocument;
+          const meta = await until(() => md.getElementById("mcHdrMeta")), date = md.getElementById("dateLabel");
+          const home = md.getElementById("expandedtoRow");
+          const hits = (a, b) => a.width > 0 && b.width > 0 && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+          const snap = () => { const f = meta.querySelector(".mc-hdr-folder").getBoundingClientRect(), t = date.getBoundingClientRect();
+                               return { inMeta: date.parentNode == meta, hit: hits(f, t), f: [Math.round(f.left), Math.round(f.right), Math.round(f.top)], t: [Math.round(t.left), Math.round(t.right), Math.round(t.top)] }; };
+          const out = { before: snap() };
+          // einmal versetzt (wie beim Aufbau eines Add-ons)
+          home.append(date);
+          await bis(() => date.parentNode == meta, "Uhrzeit zurück neben dem Ordner", 3000); await ruhig(200);
+          out.once = snap();
+          // ein Add-on, das sie immer wieder zurücksetzt
+          const mo = new md.defaultView.MutationObserver(() => { if (date.parentNode != home) home.append(date); });
+          mo.observe(md.getElementById("messageHeader"), { childList: true, subtree: true });
+          try {
+            home.append(date);
+            await ruhig(1500);
+            out.fight = snap();
+            out.fight.pos = md.defaultView.getComputedStyle(date).position;
+          } finally { mo.disconnect(); }
+          // das Wechselspiel ist vorbei (über zwei Sekunden ohne Versetzen, feste Pause gewollt): ein neues Versetzen
+          // wird wieder korrigiert
+          await new Promise(r => md.defaultView.setTimeout(r, 2200));
+          home.append(date);
+          await bis(() => date.parentNode == meta, "Uhrzeit nach dem Wechselspiel wieder neben dem Ordner", 3000); await ruhig(200);
+          out.after = snap();
+          return out;''')
+        ok = (res["before"]["inMeta"] and not res["before"]["hit"] and res["once"]["inMeta"] and not res["once"]["hit"]
+              and not res["fight"]["inMeta"] and not res["fight"]["hit"] and res["fight"]["pos"] == "static"
+              and res["after"]["inMeta"] and not res["after"]["hit"])
+        return ok, f"{res}"
+    check("Mailkopf: setzt ein Add-on die Uhrzeit an ihren alten Platz, liegt sie nie über dem Ordner (GitHub #52)", header_date_moved, results)
+
     def avatars_plastic():
         # Absenderkreise plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026): Mailliste, Mailkopf und
         # Adressbuch mit Verlauf in drei Stufen, Schatten außen und Auflage (::after) mit Lichtkante oben, Unterkante
@@ -15854,13 +16061,24 @@ def run_checks(m, version, profile, results):
             for (const x of [w, a3, mb, mb?.getMessagePaneBrowser?.()?.contentWindow]) { try { n += x?.windowUtils?.framesReflowed ?? 0; } catch {} } return n; };
           // bt: Zeit des Bildes, wie sie Thunderbird der Animation übergibt (gleicher Wert für alle Abläufe eines Bildes) –
           // aus ihr rechnet die Animation ihren Fortschritt; rf: Stand des Zählers der Neuanordnung
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], bt = [], rf = []; let bild = performance.now(); const t0 = performance.now(); while (performance.now() - t0 < 600) { rf.push(reflows()); bt.push(bild); const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          // Diagnose (nur beobachten, ändert weder Zustand noch Grenzen; Board: lange Bilder unter Linux, Ursache offen):
+          // je Bild Rechenzeit des Hauptprozesses (cp) und Zahl der Neuanordnungen (rf). Langsames Bild mit wenig
+          // Rechenzeit = Rechner/xvfb ließ Thunderbird warten; mit viel Rechenzeit und vielen Neuanordnungen = Arbeit in
+          // Thunderbird. Dazu Speicherbereinigungen im Messfenster (gc) und Rechenzeit der übrigen Prozesse (proc)
+          const cpuNow = () => { try { const v = ChromeUtils.cpuTimeSinceProcessStart; return typeof v == "number" ? v : null; } catch (e) { return null; } };
+          const gcLog = []; let tRec = 0;
+          const gcObs = { observe: (_s, topic, data) => { let j = {}; try { j = JSON.parse(data); } catch (e) {}
+            gcLog.push([topic.startsWith("garbage") ? "gc" : "cc", Math.round(performance.now() - tRec), Math.round(j.max_pause ?? j.max_slice_pause ?? -1), Math.round(j.total_time ?? j.duration ?? -1)]); } };
+          const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
+          const procCpu = async () => { try { const i = await ChromeUtils.requestProcInfo(); const o = { main: i.cpuTime };
+            for (const c of i.children || []) o[c.type] = (o[c.type] || 0) + c.cpuTime; return o; } catch (e) { return null; } };
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], bt = [], rf = [], cp = []; let bild = performance.now(); const t0 = performance.now(); while (performance.now() - t0 < 600) { rf.push(reflows()); bt.push(bild); const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now()); cp.push(cpuNow());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            bild = await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, bt, rf }; };
+            bild = await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, bt, rf, cp }; };
           // Bewegungskurve und Dauer der Animation (animateTodayPane: 250 ms, cubic-bezier(0.25, 0.1, 0.25, 1)): der weiteste
           // Weg (Anteil der Breite), den die Pane in einer Zeitspanne zurücklegen darf – an der steilsten Stelle der Kurve
           const kurve = (() => { const X = s => 3 * (1 - s) * (1 - s) * s * 0.25 + 3 * (1 - s) * s * s * 0.25 + s * s * s, Y = s => 3 * (1 - s) * (1 - s) * s * 0.1 + 3 * (1 - s) * s * s + s * s * s;
@@ -15874,6 +16092,8 @@ def run_checks(m, version, profile, results):
           const cons = []; const listener = { observe: m => { if (m instanceof Ci.nsIScriptError && /implementation\\.js/.test(m.sourceName)) cons.push(m.errorMessage.slice(0, 200) + " @" + m.lineNumber); } };
           Services.console.registerListener(listener);
           out.errs = errs; out.cons = cons; out.visibility = d.visibilityState;
+          Services.prefs.setBoolPref(gcPref, true);
+          Services.obs.addObserver(gcObs, "garbage-collection-statistics"); Services.obs.addObserver(gcObs, "cycle-collection-statistics");
           // Bildtakt ohne Animation als Maßstab (60 oder 120 Hz)
           const idle = []; const tIdle = performance.now(); let tPrev = tIdle;
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
@@ -15891,7 +16111,8 @@ def run_checks(m, version, profile, results):
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, bt, rf } = await record(); await ruhig(300);
+            const proc0 = await procCpu(); gcLog.length = 0; tRec = performance.now();
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, bt, rf, cp } = await record(); const gcIn = gcLog.splice(0), proc1 = await procCpu(); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -15920,6 +16141,14 @@ def run_checks(m, version, profile, results):
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), zuWeit, reflowMedian: rfs[rfs.length >> 1] ?? 0, maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+            // Diagnose: Bilder über 25 ms während der Bewegung als [ms seit Klick, Echtzeit ms, Rechenzeit ms, Neuanordnungen],
+            // dazu Summen über alle Bilder der Bewegung (Echtzeit, Rechenzeit) und Rechenzeit je Prozessart im Messfenster
+            const lang = [], sum = [0, 0];
+            ts.forEach((t, i) => { if (!i || !moving[i]) return; const dt = t - ts[i - 1], dc = cp[i] != null && cp[i - 1] != null ? cp[i] - cp[i - 1] : null;
+              sum[0] += dt; if (dc != null) sum[1] += dc;
+              if (dt > 25) lang.push([Math.round(t - tRec), Math.round(dt), dc == null ? null : Math.round(dc), rf[i] != null && rf[i - 1] != null ? rf[i] - rf[i - 1] : null]); });
+            out[phase].diag = { lang, wallCpu: sum.map(Math.round), gc: gcIn,
+              proc: proc0 && proc1 ? Object.fromEntries(Object.keys(proc1).map(k => [k, Math.round(((proc1[k] - (proc0[k] || 0)) / 1e6))])) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
@@ -15941,6 +16170,8 @@ def run_checks(m, version, profile, results):
           w.resizeTo(ow, w.outerHeight); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
+          Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
+          Services.prefs.setBoolPref(gcPref, gcPrefVorher);
           return out;''')
         if res.get("skipped"):
             return True, "Today-Pane zu – übersprungen"
@@ -16472,6 +16703,28 @@ def run_checks(m, version, profile, results):
                                 for k, v in a["ende"].items():
                                     if passt(k) and max(x[1] for x in v) > 1.5:
                                         bad.append(f"{lage}: {k} nach dem Ende noch {max(x[1] for x in v)} px")
+                                # Mail: Abstand von „Verfassen“ zu „Antworten“ im letzten Bild der Bewegung schon am Endwert – die
+                                # Vorabrechnung des Endzustands sagte im schmalen Fenster 49 statt 69 px voraus (ein Durchgang statt
+                                # zwei), die Knöpfe liefen der Seitenleiste voraus und sprangen am Ende 20 px zurück.
+                                # Das letzte Bild mit laufender Animation liegt noch vor dem Ende der Kurve: der Abstand darf dort um
+                                # denselben Anteil fehlen wie der Seitenleistenkante (unter Linux mit Bildern zu ~57 ms stand die Kante
+                                # im vorletzten Bild noch 5 % vor dem Ziel, der Abstand damit 4 px – kein Sprung, sondern Gleiten)
+                                if modus == "mail":
+                                    def _abstand(f):
+                                        wr = next((v for kk, v in f["e"].items() if "[write-message]" in kk), None)
+                                        rp = next((v for kk, v in f["e"].items() if kk.startswith("top:[reply]@")), None)
+                                        return rp[0] - wr[0] if wr and rp and wr[4] and rp[4] else None
+                                    _kante = lambda f: f["kern"][0] + f["kern"][1] if f.get("kern") else None
+                                    bewegt = [f for f in fr if "M" in f.get("flags", "")]
+                                    f_anf = fr[a["i0"] - 1]
+                                    a_anf, a_letzt, a_ende = _abstand(f_anf), (_abstand(bewegt[-1]) if bewegt else None), _abstand(fr[-1])
+                                    k_anf, k_letzt, k_ende = _kante(f_anf), (_kante(bewegt[-1]) if bewegt else None), _kante(fr[-1])
+                                    if None not in (a_anf, a_letzt, a_ende, k_anf, k_letzt, k_ende) and abs(k_ende - k_anf) >= 1:
+                                        rest = (k_ende - k_letzt) / (k_ende - k_anf)
+                                        a_soll = a_ende - (a_ende - a_anf) * rest
+                                        if abs(a_letzt - a_soll) > 3:
+                                            bad.append(f"{lage}: Abstand Verfassen–Antworten im letzten Bild {a_letzt:.0f} px, nach der Kante erwartet"
+                                                       f" {a_soll:.0f} px (Anfang {a_anf:.0f}, Ende {a_ende:.0f}, Kante noch {rest * 100:.0f} % vor dem Ziel)")
                                 # Ampel-Fläche: durchgehend an derselben Stelle (auch beim Zeilenanfang 84 ↔ 0)
                                 if mac:
                                     box = [f["e"][k] for f in fr for k in f["e"] if "titlebar-buttonbox." in k]
@@ -17984,9 +18237,21 @@ Neu
         # Thunderbird fokussiert sein (bei uns ausgeblendetes) Suchfeld über der Liste,
         # etwa beim Abbrechen eines neuen Kontakts: der Fokus landet in der
         # Kontaktliste statt im Nichts (Pfeiltasten wirken ohne Klick)
-        res = m.js(OPEN_BOOKS_JS + r"""
+        # Eingerichtet wird sie mit der Kopfzeile, sobald Thunderbird die Seite fertig meldet: vorher nur über einen
+        # Zeitgeber nach dem Tabwechsel (~330 ms) – war die Seite dann noch nicht aufgebaut (CI unter Linux, 19. und 20.11.,
+        # Läufe 44431090252 und 44828805100), kam sie nie, der Fokus ging ins Leere
+        res = m.js(r"""
+          tm.openTab("addressBookTab", {});
+          const abTab = tm.currentTabInfo;
+          // gleich nach der Fertig-Meldung (zwei Takte für die Erweiterung, kein fester Zeitgeber): schon eingerichtet?
+          const readyHook = await Promise.race([new Promise(res => abTab.browser.addEventListener("about-addressbook-ready", async () => {
+              for (let i = 0; i < 2; i++) await new Promise(r => w.setTimeout(r, 0));
+              res(!!abTab.browser.contentWindow?.__mcHeaderHook);
+            }, { capture: true, once: true })), wait(8000).then(() => "nicht gemeldet")]);
+          const cw = abTab.browser.contentWindow;
+          await bis(() => cw.cardsPane?.cardsList && cw.__mcHeaderHook, "Kopfzeile und Fokus-Umleitung im Adressbuch eingerichtet", 8000);
+          await until(() => cw?.detailsPane?.__mcLastContact, 3000);
           const ad = cw.document, body = cw.cardsPane.cardsList.table.body;
-          await until(() => cw.__mcHeaderHook, 5000);
           const header = ad.getElementById("cardsPaneHeader");
           const hidden = !header.getClientRects().length;
           const where = () => ad.activeElement == body ? "list" : (ad.activeElement?.id || ad.activeElement?.localName || "none");
@@ -18000,8 +18265,8 @@ Neu
           cw.cardsPane.searchInput.focus(); await ruhig(100);
           const direct = where();
           tm.closeTab(abTab); await toMail();
-          return { hidden, afterCancel, direct };""")
-        return res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
+          return { readyHook, hidden, afterCancel, direct };""")
+        return res["readyHook"] is True and res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
     check("Adressbuch: Fokus auf das ausgeblendete Suchfeld über der Liste landet in der Kontaktliste (Abbrechen eines neuen Kontakts)", ab_focus_hidden_search, results)
 
     def ab_dedupe_selection():
@@ -21118,6 +21383,51 @@ Neu
         return ok, f"{res}"
     check("Suche: alle Postfächer, Datum, Trefferzahl, Markierung, zurück zum Ordner", mail_search, results)
 
+    def mail_search_address():
+        # Suche nach einer Adresse, die in der Karte nicht steht: wie Apple Mail ist der angezeigte Name des Absenders
+        # ganz gelb, Wort für Wort (die Lücke bleibt frei); ein Wort aus dem Betreff markiert weiter nur das Wort
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Adresssuche")) { root.createSubfolder("Adresssuche", null); await bis(() => root.containsChildNamed("Adresssuche"), "Ordner Adresssuche angelegt", 3000); await ruhig(800); }
+          const f = root.getChildNamed("Adresssuche"); const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+          if (!f.getTotalMessages(false)) {
+            lf.addMessage("From: =?UTF-8?Q?Christian_Brandst=C3=A4tter?= <christian.brandstaetter@imba.example.invalid>\r\nTo: Halo <h@example.invalid>\r\nSubject: Projektplan Quartal\r\nDate: Wed, 14 Oct 2026 10:00:00 +0200\r\nMessage-ID: <halo-adresssuche-1@example.invalid>\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nBis bald.\r\n");
+            await bis(() => f.getTotalMessages(false) >= 1, "Testmail in Adresssuche gespeichert", 4000); await ruhig(1000);
+          }
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 1, "Ordner Adresssuche angezeigt", 5000); await ruhig(800);
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const fire = (type, text) => bar.dispatchEvent(new CustomEvent(type, { detail: text, cancelable: true }));
+          const card = () => [...a3.document.querySelectorAll('#threadTree tr[is="thread-card"]')].find(r => /Projektplan/.test(r.querySelector(".subject")?.textContent || ""));
+          const marks = sel => [...(card()?.querySelectorAll(sel + " mark.mc-hit") || [])].map(e => e.textContent);
+          const out = {};
+          for (const [key, term] of [["full", "christian.brandstaetter@imba.example.invalid"], ["part", "imba.example"], ["subject", "projektplan"]]) {
+            fire("search", term);
+            await until(() => a3.gDBView?.rowCount == 1 && card() && !a3.document.documentElement.hasAttribute("mc-search-stage"), 8000); await ruhig(600);
+            out[key] = { rows: a3.gDBView?.rowCount, sender: card()?.querySelector(".sender")?.textContent, senderMarks: marks(".sender"), subjectMarks: marks(".subject") };
+            if (key == "full") {
+              // Vorschau kommt erst nach dem Zeichnen der Karte (erste Suche nach neuer Mail, unter Linux die Regel):
+              // der Nachtrag der Vorschau markiert neu und darf den Namen nicht verlieren
+              const pv = card()?.querySelector(".mc-preview"); if (pv) { pv.textContent = ""; }
+              const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+              Cu.evalInSandbox("enhancer.refreshPreviewsNow()", ExtensionParent.GlobalManager.getExtension("__ADDON__").experimentAPIManager.global);
+              out.late = { preview: card()?.querySelector(".mc-preview")?.textContent, senderMarks: marks(".sender") };
+            }
+          }
+          fire("autocomplete", ""); await bis(() => !a3.document.documentElement.hasAttribute("mc-search-stage") && a3.gFolder?.name == "Adresssuche", "zurück im Ordner Adresssuche", 5000); await ruhig(800);
+          const hs = [...f.messages]; if (hs.length) f.deleteMessages(hs, null, true, false, null, false);
+          out.visibility = d.visibilityState;
+          return out;""".replace("__ADDON__", ADDON_ID))
+        if res["visibility"] != "visible":
+            return True, f"Testfenster verdeckt – Markierung braucht gezeichnete Karten, übersprungen {res}"
+        name = ["Christian", "Brandst\u00e4tter"]
+        ok = (res["full"]["senderMarks"] == name and res["late"]["senderMarks"] == name and res["late"]["preview"] and res["part"]["senderMarks"] == name
+              and res["subject"]["senderMarks"] == [] and res["subject"]["subjectMarks"] == ["Projektplan"]
+              and res["full"]["subjectMarks"] == [])
+        return ok, f"{res}"
+    check("Suche: Adresse markiert den angezeigten Namen des Absenders ganz, Wort für Wort", mail_search_address, results)
+
     def calendar_search():
         # Suchfeld oben im Kalender sucht Termine statt Mails (GitHub #53), Treffer wie bei Apple Kalender im rechten
         # Bereich neben der Ansicht (240 px, Terminliste unten bleibt zu): nach Tagen gruppiert mit „Today“ (rot, auch
@@ -21469,6 +21779,134 @@ Neu
                                                   and set(res.get("typedSmart") or []) == set(res.get("inSmart") or []))))
         return ok, f"{res}"
     check("Suche: im gewählten Ordner nur dort, in Sammelordnern global, keine Mails ohne den Begriff, Platzhalter je Ordner, Ordnerwechsel sucht weiter", search_scope, results)
+
+    def search_suggest():
+        # Mail-Suche: beim Tippen ein Vorschlagsmenü unter dem Suchfeld zum Eingrenzen (Personen aus dem Adressbuch,
+        # „Subject contains“, „Message contains“, frühere Suchen); ↓ ↑ wählen, ↩ übernimmt die Wahl als graue Kapsel
+        # ins Feld, ⎋ schließt nur das Menü, ⌫ am Feldanfang und das × entfernen Kapseln; Klick auf die Kapsel wechselt
+        # den Bereich (Subject/Message bzw. From/To/Any). Kapseln und freier Text müssen gemeinsam zutreffen
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("SucheV")) { root.createSubfolder("SucheV", null); }
+          const V = root.getChildNamed("SucheV"); await ruhig(800);
+          const anna = "Vera Suchfeld <vera@suche.example.invalid>", bert = "Bert Vogel <bert@vogel.example.invalid>";
+          const mail = (subject, id, o = {}) => unescape(encodeURIComponent([`From: ${o.from || anna}`,
+            `To: ${o.to || "Halo Test <halo@example.invalid>"}`, `Subject: ${subject}`, "Date: Mon, 19 Oct 2026 10:00:00 +0200", `Message-ID: <${id}@example.invalid>`,
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", o.body || "Nichts Besonderes.", ""].join("\r\n")));
+          if (!V.getTotalMessages(false)) {
+            const lv = V.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lv.addMessage(mail("Halo Kolibri Rechnung", "sv-1"));
+            lv.addMessage(mail("Halo anderes", "sv-2", { body: "Der Kolibri fliegt." }));
+            lv.addMessage(mail("Halo Kolibri Angebot", "sv-3", { from: bert, to: anna }));
+            lv.addMessage(mail("Halo Gruss", "sv-4", { to: bert }));
+            await bis(() => V.getTotalMessages(false) >= 4, "Testmails gespeichert", 4000); await ruhig(1000);
+          }
+          const a3 = await toMail(); const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const input = bar.shadowRoot.querySelector("input"), html = a3.document.documentElement;
+          const panel = await bis(() => d.getElementById("mcSearchSuggest"), "Vorschlagsmenü angelegt");
+          const fertig = async was => { await bis(() => !html.hasAttribute("mc-search-stage") && !a3.gViewWrapper?.searching, "Suche fertig: " + was, 10000); await ruhig(1500); };
+          const hits = () => a3.gFolder?.name == "SucheV" ? "kein Suchordner" : [...Array(a3.gDBView?.rowCount || 0).keys()].map(i => a3.gDBView.getMsgHdrAt(i)?.messageId?.split("@")[0]).filter(Boolean).sort().join();
+          const type = text => { input.value = text; input.dispatchEvent(new w.Event("input", { bubbles: true, composed: true })); };
+          const key = k => { const e = new w.KeyboardEvent("keydown", { key: k, bubbles: true, composed: true, cancelable: true }); input.dispatchEvent(e); return e.defaultPrevented; };
+          const rows = () => [...panel.querySelectorAll(".mc-sg-row")].map(r => r.dataset.kind + ":" + r.textContent);
+          const caps = () => [...bar.shadowRoot.querySelectorAll("#mc-caps .mc-cap")].map(c => c.querySelector(".mc-cap-k").textContent + "|" + c.querySelector(".mc-cap-v").textContent);
+          const open = (n, was) => bis(() => panel.state == "open" && panel.querySelectorAll(".mc-sg-row").length >= n, was, 6000);
+          const choose = async label => { bar.shadowRoot.querySelector("#mc-caps .mc-cap").click();
+            const menu = await bis(() => (p => p?.state == "open" && p)(d.getElementById("mcSearchCapMenu")), "Menü der Kapsel offen: " + label);
+            const labels = [...menu.children].map(i => i.label + (i.getAttribute("checked") == "true" ? "*" : ""));
+            menu.activateItem([...menu.children].find(i => i.label == label)); await bis(() => menu.state == "closed", "Menü der Kapsel zu"); return labels.join(); };
+          const out = {};
+          // eigener Kontakt für die Personenzeile (am Ende wieder gelöscht: andere Prüfungen zählen die Kontakte)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+          card.setProperty("FirstName", "Vera"); card.setProperty("LastName", "Suchfeld"); card.displayName = "Vera Suchfeld"; card.primaryEmail = "vera@suche.example.invalid";
+          card = book.addCard(card);
+          Services.prefs.clearUserPref("extensions.mailcards.searchRecent");
+          try {
+            a3.displayFolder(V.URI); await bis(() => a3.gFolder?.URI == V.URI && a3.gDBView?.rowCount >= 4, "SucheV offen"); await ruhig(600);
+            // 0. Fokus schon im Feld, das Feld aber nur die Lupe (unter Linux in der CI: kein focusin, das es öffnet) – Tippen
+            // öffnet es trotzdem, sonst tippt man in 40 px, und die Kapsel steht außerhalb des Felds
+            const li = bar.closest("li"), content = d.getElementById("unifiedToolbarContent");
+            input.focus(); await ruhig(300); li.removeAttribute("mc-search-open");
+            // (gesperrt wie lockSearch() bei weichenden Pillen; die Fensterbreite, ab der das geschieht, hängt von Plattform und
+            // vorigen Prüfungen ab)
+            content.setAttribute("mc-search-lupe", ""); li.style.setProperty("--mc-search-lock", "40px"); await ruhig(800);
+            out.lupe = { gesperrt: content.hasAttribute("mc-search-lupe"), fokus: bar.shadowRoot.activeElement == input, breit: Math.round(bar.getBoundingClientRect().width) };
+            // 1. Tippen: Menü mit „Subject contains“ und „Message contains“, so breit wie das volle Feld, bündig mit dem Feldende
+            type("kolibri"); await open(2, "Vorschlagsmenü offen"); await ruhig(600);
+            out.rows = rows(); out.focus = bar.shadowRoot.activeElement == input; out.lupe.offen = li.hasAttribute("mc-search-open");
+            const list = panel.querySelector(".mc-sg-list"), row = panel.querySelector(".mc-sg-row"), icon = row.querySelector(".mc-sg-icon"), term = row.querySelector(".mc-sg-term");
+            const pr = panel.getOuterScreenRect(), br = bar.getBoundingClientRect(), lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
+            out.geo = { width: Math.round(lr.width), field: Math.round(br.width), room: Math.round(br.right - 8), end: Math.round(w.mozInnerScreenX + br.right - (pr.x + pr.width)),
+              below: Math.round(pr.y - (w.mozInnerScreenY + br.bottom)), rowH: Math.round(rr.height), rowIn: Math.round(rr.left - lr.left),
+              icon: Math.round(icon.getBoundingClientRect().left - lr.left), iconW: Math.round(icon.getBoundingClientRect().width),
+              text: Math.round(row.querySelector(".mc-sg-label").getBoundingClientRect().left - lr.left) };
+            out.grey = w.getComputedStyle(row).color != w.getComputedStyle(term).color;
+            // 2. ⎋ schließt nur das Menü, der Text bleibt
+            out.escStop = key("Escape"); await bis(() => panel.state == "closed", "Menü nach Escape zu"); out.escText = input.value;
+            // 3. ↓ wählt die erste Zeile, ↓↓↓ landet wieder ohne Wahl, ↑ auf der letzten; ↩ übernimmt als Kapsel
+            type("kolibri"); await open(2, "Menü wieder offen"); await ruhig(500);
+            key("ArrowDown"); out.sel1 = [...panel.querySelectorAll(".mc-sg-row")].findIndex(r => r.hasAttribute("selected"));
+            out.selColor = w.getComputedStyle(row).color == w.getComputedStyle(term).color;
+            key("ArrowDown"); key("ArrowDown"); out.selNone = panel.querySelectorAll(".mc-sg-row[selected]").length;
+            key("ArrowUp"); out.selLast = [...panel.querySelectorAll(".mc-sg-row")].findIndex(r => r.hasAttribute("selected"));
+            key("ArrowUp"); out.enterStop = key("Enter");
+            await bis(() => caps().length == 1, "Kapsel nach Enter"); await fertig("Betreff-Kapsel");
+            out.cap1 = caps(); out.textAfter = input.value; out.closed = panel.state; out.subject = hits();
+            const cap = bar.shadowRoot.querySelector("#mc-caps .mc-cap"), cr = cap.getBoundingClientRect(), b2 = bar.getBoundingClientRect(), cs = w.getComputedStyle(cap);
+            out.capGeo = { h: Math.round(cr.height), radius: cs.borderTopLeftRadius, inside: cr.left >= b2.left + 24 && cr.right <= b2.right - 24,
+              pad: Math.round(parseFloat(w.getComputedStyle(input).paddingInlineStart) - (cr.right - b2.left)), ph: w.getComputedStyle(bar.shadowRoot.querySelector("div")).display };
+            // 4. freier Text dazu: beides muss zutreffen; ↩ ohne Wahl sucht normal und merkt sich den Begriff
+            type("rechnung"); await open(2, "Menü mit Kapsel offen"); bar.dispatchEvent(new w.CustomEvent("search", { detail: "rechnung", bubbles: true, composed: true }));
+            await fertig("Kapsel und Text"); out.both = hits();
+            input.value = ""; bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await fertig("nur Kapsel"); out.capOnly = hits();
+            // 5. Klick auf die Kapsel: Bereich wechseln (Message: nur der Text der Mail)
+            out.menu1 = await choose("Message"); await fertig("Message-Kapsel"); out.cap2 = caps(); out.body = hits();
+            // 6. ⌫ am Feldanfang entfernt die Kapsel, die Suche endet
+            input.setSelectionRange(0, 0); out.bsStop = key("Backspace");
+            await bis(() => a3.gFolder?.URI == V.URI, "zurück im Ordner nach ⌫", 6000); await ruhig(600); out.capsAfterBs = caps().length; out.attrAfterBs = bar.hasAttribute("mc-caps");
+            // 7. Person aus dem Adressbuch: nur der Name, als Kapsel „From“; To und Any über das Menü der Kapsel
+            type("vera"); await bis(() => panel.state == "open" && rows().some(r => r.startsWith("person:")), "Personenzeile", 6000); await ruhig(400);
+            out.rowsAnna = rows(); key("ArrowDown"); key("Enter");
+            await bis(() => caps().length == 1, "Personen-Kapsel"); await fertig("From"); out.capFrom = caps(); out.from = hits();
+            out.menu2 = await choose("To"); await fertig("To"); out.capTo = caps(); out.to = hits();
+            await choose("Any"); await fertig("Any"); out.any = hits();
+            await choose("From"); await fertig("From 2");
+            // Person und freier Text: (Betreff, Absender, Empfänger oder Text) und zugleich die Person
+            type("kolibri"); bar.dispatchEvent(new w.CustomEvent("search", { detail: "kolibri", bubbles: true, composed: true })); await fertig("From und Text"); out.fromText = hits();
+            // frühere Suche („rechnung“ aus Schritt 4) als Zeile mit Lupe
+            type("rech"); await bis(() => panel.state == "open" && rows().some(r => r.startsWith("recent:")), "frühere Suche", 6000); out.rowsRecent = rows();
+            // 8. × des Felds: Text und Kapseln weg, die Suche endet
+            const x = bar.shadowRoot.getElementById("mc-caps-clear"); out.xShown = w.getComputedStyle(x).display; x.click();
+            await bis(() => a3.gFolder?.URI == V.URI, "zurück im Ordner nach ×", 6000); await ruhig(600);
+            out.end = { caps: caps().length, text: input.value, panel: panel.state, attr: bar.hasAttribute("mc-caps") };
+          } finally {
+            try { book.deleteCards([card]); } catch {}
+            Services.prefs.clearUserPref("extensions.mailcards.searchRecent");
+            try { d.getElementById("mcSearchCapMenu")?.hidePopup(); panel.hidePopup(); } catch {}
+            input.value = ""; bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await ruhig(600);
+          }
+          return out;""")
+        g, c = res.get("geo") or {}, res.get("capGeo") or {}
+        lp = res.get("lupe") or {}
+        ok = (lp.get("gesperrt") and lp.get("fokus") and lp.get("breit", 99) <= 42 and lp.get("offen")
+              and res.get("rows") == ["subject:Subject contains:kolibri", "body:Message contains:kolibri"] and res.get("focus")
+              and g.get("width", 0) == max(g.get("field", 9999), min(333, g.get("room", 0))) and abs(g.get("end", 99)) <= 2
+              and 0 <= g.get("below", -1) <= 8 and g.get("rowH") == 22 and g.get("rowIn") == 5 and g.get("icon") == 15 and g.get("iconW") == 16 and g.get("text") == 39
+              and res.get("grey") and res.get("escStop") and res.get("escText") == "kolibri"
+              and res.get("sel1") == 0 and res.get("selColor") and res.get("selNone") == 0 and res.get("selLast") == 1 and res.get("enterStop")
+              and res.get("cap1") == ["Subject|kolibri"] and res.get("textAfter") == "" and res.get("closed") == "closed" and res.get("subject") == "sv-1,sv-3"
+              and c.get("h") == 20 and c.get("radius") == "10px" and c.get("inside") and 0 <= c.get("pad", -1) <= 8 and c.get("ph") == "none"
+              and res.get("both") == "sv-1" and res.get("capOnly") == "sv-1,sv-3"
+              and res.get("menu1") == "Subject*,Message" and res.get("cap2") == ["Message|kolibri"] and res.get("body") == "sv-2"
+              and res.get("bsStop") and res.get("capsAfterBs") == 0 and res.get("attrAfterBs") is False
+              and (res.get("rowsAnna") or [""])[0] == "person:Vera Suchfeld" and res.get("capFrom") == ["From|Vera Suchfeld"] and res.get("from") == "sv-1,sv-2,sv-4"
+              and res.get("menu2") == "From*,To,Any" and res.get("capTo") == ["To|Vera Suchfeld"] and res.get("to") == "sv-3" and res.get("any") == "sv-1,sv-2,sv-3,sv-4"
+              and res.get("fromText") == "sv-1,sv-2" and "recent:rechnung" in (res.get("rowsRecent") or [])
+              and res.get("xShown") == "block" and res.get("end") == {"caps": 0, "text": "", "panel": "closed", "attr": False})
+        return ok, f"{res}"
+    check("Mail-Suche: Vorschlagsmenü zum Eingrenzen (Personen, Betreff, Text, frühere Suchen), Wahl als Kapsel im Feld, Kapseln und Text treffen gemeinsam zu", search_suggest, results)
 
     def contact_search():
         # „Search“ am geöffneten Kontakt: Thunderbird öffnete eine eigene Suchansicht ohne Ordnerliste;
@@ -23794,7 +24232,7 @@ Neu
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
     def spaces_current_fill():
-        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche hell 54 % seit Variante C 17.11.2026, dunkel 36 %, als
+        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche hell 54 % seit Variante C 17.11.2026, dunkel 42 % seit Variante A 20.11.2026, als
         # Farbe, damit der Wechsel weich überblendet, darüber Lichtkante und Restverlauf; Werte am Bild in sidebar_tile_d2h), Kante innen, kurzer Schatten und Lichthof rechts, kein Chevron;
         # inaktive Kacheln 8 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
         res = m.js(r"""
@@ -23821,8 +24259,8 @@ Neu
         dark = res.pop("dark", False)
         icons = {"mail": "envelope-fill", "calendar": "calendar-fill", "addressbook": "contacts-fill", "settings": "settings-fill"}
         # Schatten kurz (2 px 4 px – nicht bis in die Nachbarkachel), feine Kante innen, Lichthof 6 px nach rechts
-        # (hell Variante C, 17.11.2026: 54 %, ohne weißen Glanz, also nur der Restverlauf)
-        ok = all(v["bg"] == (36 if dark else 54) and v["grad"] == (2 if dark else 1) and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
+        # (hell Variante C, 17.11.2026: 54 %; seit Variante A, 20.11.2026, hell und dunkel mit Verlauf und Restverlauf, dunkel 42 %)
+        ok = all(v["bg"] == (42 if dark else 54) and v["grad"] == 2 and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
                  and v["icon"] == icons[k] and v["fill"] and not v["chevron"] and v["tile"] == 48
                  and v["other"]["bg"] == v["other"]["hover"] == 8 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
         return ok, f"{res}"
@@ -25654,6 +26092,18 @@ Neu
           const row = d.getElementById("unifiedToolbarContainer");
           const out = { visibility: d.visibilityState, reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches };
           const still = () => !w.__mcSpacesAnimating && !tm.currentAbout3Pane?.__mcAnimating && !d.getElementById("calSidebar")?.__mcAnimating;
+          // Diagnose (nur beobachten, ändert weder Zustand noch Grenzen; Board: flackert unter Linux, beide Fehlversuche
+          // Kalender/Einblenden, ganze Bewegung zwischen zwei Bildern): je Bild Echtzeit, Rechenzeit des Hauptprozesses
+          // und Zahl der Neuanordnungen, dazu Speicherbereinigungen – langes Bild mit wenig Rechenzeit = Rechner/xvfb ließ
+          // Thunderbird warten, mit viel Rechenzeit und vielen Neuanordnungen = Arbeit in Thunderbird
+          const cpuNow = () => { try { const v = ChromeUtils.cpuTimeSinceProcessStart; return typeof v == "number" ? v : null; } catch (e) { return null; } };
+          const rfNow = () => { try { return w.windowUtils.framesReflowed; } catch (e) { return null; } };
+          const gcLog = []; let tRec = 0;
+          const gcObs = { observe: (_s, topic, data) => { let j = {}; try { j = JSON.parse(data); } catch (e) {}
+            gcLog.push([topic.startsWith("garbage") ? "gc" : "cc", Math.round(performance.now() - tRec), Math.round(j.max_pause ?? j.max_slice_pause ?? -1), Math.round(j.total_time ?? j.duration ?? -1)]); } };
+          const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
+          Services.prefs.setBoolPref(gcPref, true);
+          Services.obs.addObserver(gcObs, "garbage-collection-statistics"); Services.obs.addObserver(gcObs, "cycle-collection-statistics");
           try {
             await toMail(); await ruhig(600);
             if (w.gSpacesToolbar.isHidden || tm.currentAbout3Pane?.paneLayout?.folderPaneSplitter?.isCollapsed) {
@@ -25677,11 +26127,20 @@ Neu
               };
               for (const phase of ["aus", "ein"]) {
                 const frames = [sample()];
+                gcLog.length = 0; tRec = performance.now();
+                const ts = [tRec], cp = [cpuNow()], rf = [rfNow()];
                 btn.click();
                 const t0 = performance.now();
-                while (performance.now() - t0 < 700) { await new Promise(r => w.requestAnimationFrame(r)); frames.push(sample()); }
+                while (performance.now() - t0 < 700) { await new Promise(r => w.requestAnimationFrame(r)); frames.push(sample()); ts.push(performance.now()); cp.push(cpuNow()); rf.push(rfNow()); }
+                const gcIn = gcLog.splice(0);
                 await bis(still, "Animation fertig", 3000); await ruhig(400);
                 frames.push(sample());
+                // Diagnose: Bilder über 25 ms als [ms seit Klick, Echtzeit ms, Rechenzeit ms, Neuanordnungen] (das erste
+                // enthält den Klick selbst), Zahl der Bilder im Messfenster
+                const lang = [];
+                ts.forEach((t, i) => { if (!i || t - ts[i - 1] <= 25) return;
+                  lang.push([Math.round(t - tRec), Math.round(t - ts[i - 1]), cp[i] != null && cp[i - 1] != null ? Math.round(cp[i] - cp[i - 1]) : null,
+                    rf[i] != null && rf[i - 1] != null ? rf[i] - rf[i - 1] : null]); });
                 const colSteps = frames.map((f, i) => i ? Math.abs(f.col - frames[i - 1].col) : 0);
                 const maxCol = Math.max(...colSteps);
                 const moved = frames.filter((f, i) => i && Math.abs(f.edge - frames[i - 1].edge) > 0.5).length;
@@ -25691,10 +26150,12 @@ Neu
                 out[`${space}/${phase}`] = { moved, off: Math.round(off * 10) / 10, btnStep: Math.round(btnStep * 10) / 10,
                   maxCol: Math.round(maxCol * 10) / 10, first: frames[0], end: frames[frames.length - 1],
                   frames: frames.filter((f, i) => !i || f.col != frames[i - 1].col || f.edge != frames[i - 1].edge || f.btn != frames[i - 1].btn)
-                    .map(f => `${f.col}/${f.edge}/${f.btn}`).join(" ") };
+                    .map(f => `${f.col}/${f.edge}/${f.btn}`).join(" "), diag: { n: ts.length - 1, lang, gc: gcIn } };
               }
             }
           } finally {
+            Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
+            Services.prefs.setBoolPref(gcPref, gcPrefVorher);
             if (w.gSpacesToolbar.isHidden) { w.__mcColumnMigrate(false, false); }
             await toMail(); await ruhig(600);
           }
@@ -25839,6 +26300,81 @@ Neu
           "nichts verschiebt sich, knapp daneben bleibt sie, weiter weg/Esc/Klick daneben weg, Kontextmenü und Ziehen halten sie offen, "
           "Zustand bleibt ausgeblendet", sidebar_column_float, results)
 
+    def sidebar_float_hop():
+        # Schwebende Seitenleiste: ein Klick auf eine andere Kachel darin wechselt den Bereich, die Leiste bleibt offen
+        # und zeigt gleich die linke Leiste des neuen Bereichs (Kalenderliste, Adressbücher), ohne weg- und wieder
+        # hereinzugleiten; erst der Zeiger weit rechts schließt sie wie bisher; ein Wechsel, der nicht aus der Leiste
+        # kommt (anderer Tab), schließt sie weiter sofort. Echte Klicks (Marionette) auf die Kacheln
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": int(x), "y": int(y), "origin": "viewport", "duration": 30}])
+        def state(want, ms=2000):
+            return m.js(f'try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", {ms}); }} catch {{}} await wait(20); return w.__mcSideFloatState?.();')
+        def tile(tid):
+            r = m.js(f'const r = d.getElementById("{tid}").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width];')
+            # (Bewegung und Klick in einer Folge: nach ReleaseActions stünde der Zeiger wieder bei 0,0 – im Auslösestreifen)
+            act([{"type": "pointerMove", "x": int(r[0]), "y": int(r[1]), "origin": "viewport", "duration": 30},
+                 {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            return r
+        # Zustände je Bild seit dem Klick (kein „out“/„off“ zwischendurch = nicht weggeglitten)
+        watch = """w.__mcHopSeen = new Set(); const seen = w.__mcHopSeen;
+          const tick = () => { if (w.__mcHopSeen != seen) return; seen.add(w.__mcSideFloatState?.()); w.requestAnimationFrame(tick); }; tick(); return 1;"""
+        info = r"""const tab = tm.currentTabInfo, mode = tab.mode.name;
+          const pane = mode == "calendar" ? d.getElementById("calSidebar") : mode == "addressBookTab" ? tab.browser?.contentDocument?.getElementById("booksPane")
+            : tm.currentAbout3Pane?.document.getElementById("folderPane");
+          const r = pane?.getBoundingClientRect();
+          return { mode, state: w.__mcSideFloatState(), float: !!pane?.classList.contains("mc-float-pane"), w: Math.round(r?.width || 0),
+            seen: [...(w.__mcHopSeen || [])].sort(), hidden: w.gSpacesToolbar.isHidden,
+            right: Math.round(d.getElementById("mcSideCatch")?.getBoundingClientRect().left ?? -1) };"""
+        out = {}
+        m.js("""w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
+          const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
+          if (w.gSpacesToolbar.isHidden || sp.isCollapsed) { w.__mcColumnMigrate(false, false); await ruhig(600); }
+          d.getElementById("spacesPinnedButton").click();
+          await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+          await ruhig(600); return 1;""")
+        try:
+            to(400)
+            to(1)
+            out["on"] = state("on")
+            m.js(watch)
+            out["calTile"] = tile("calendarButton")
+            out["cal"] = m.js("""try { await bis(() => tm.currentTabInfo.mode.name == "calendar" && d.getElementById("calSidebar").classList.contains("mc-float-pane"), "Kalender schwebt", 2000); } catch {}
+              await wait(300);""" + info)
+            m.js(watch)
+            out["abTile"] = tile("addressBookButton")
+            out["ab"] = m.js("""try { await bis(() => tm.currentTabInfo.mode.name == "addressBookTab" && tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane")?.classList.contains("mc-float-pane"), "Adressbuch schwebt", 4000); } catch {}
+              await wait(300);""" + info)
+            right = (out["ab"] or {}).get("right", 0)
+            to(right + 30)
+            out["near"] = m.js("await wait(300); return w.__mcSideFloatState();")
+            to(right + 150)
+            out["away"] = state("off")
+            out["after"] = m.js(info)
+            # Wechsel nicht aus der Leiste (anderer Tab, hier vom Kalender zur Mail): schließt sofort
+            m.js("await toCalendar(); await ruhig(600); return 1;")
+            to(400)
+            to(1)
+            out["on2"] = state("on")
+            out["tab"] = m.js("tm.switchToTab(0); await wait(100); return [tm.currentTabInfo.mode.name, w.__mcSideFloatState()];")
+        finally:
+            m.js("""w.__mcHopSeen = null; await toMail(); await ruhig(300);
+              for (const t of [...tm.tabInfo]) { if (t.mode.name == "addressBookTab") tm.closeTab(t); }
+              if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
+              await ruhig(400); return 1;""")
+        cal, ab, af = out.get("cal") or {}, out.get("ab") or {}, out.get("after") or {}
+        stay = lambda v: v.get("state") == "on" and v.get("float") and v.get("w", 0) >= 160 and v.get("seen") == ["on"] and v.get("hidden") is True
+        ok = (out.get("on") == "on" and cal.get("mode") == "calendar" and stay(cal) and ab.get("mode") == "addressBookTab" and stay(ab)
+              and out.get("near") == "on" and out.get("away") == "off" and af.get("float") is False and af.get("hidden") is True
+              and out.get("on2") == "on" and out.get("tab") == ["mail3PaneTab", "off"])
+        return ok, f"{out}"
+    check("Seitenleiste schwebend: Klick auf eine andere Kachel wechselt den Bereich, die Leiste bleibt offen mit der linken Leiste "
+          "des neuen Bereichs (Kalender, Adressbuch), schließt erst mit dem Zeiger weit weg; ein Tab-Wechsel schließt sie sofort",
+          sidebar_float_hop, results)
+
     # Messung des Lichtscheins am Bild (sidebar_glow, sidebar_glow_switch)
     glow_measure = r"""
       const bar = d.getElementById("spacesToolbar"), tab = tm.currentTabInfo;
@@ -25952,6 +26488,32 @@ Neu
     check("Seitenleiste: Lichtschein und gefärbte Trennlinie in der Spacefarbe auf Höhe der aktiven Kachel (Mail, Adressbuch, Kalender, Aufgaben, Chat, "
           "auch schwebend), Einstellungen mit Mehrfarb-Hauch (auch schwebend), in Mail kein Abbruch an der Oberkante der Ordnerliste", sidebar_glow, results)
 
+    def settings_side_gray_early():
+        # Grau der Toolbar-Zeile und der Statusleiste über und unter der Seitenleiste der Einstellungen steht im selben
+        # (spätestens im nächsten) Bild wie die Seitenleiste selbst. Vorher richtete die Erweiterung nur beim Tabwechsel
+        # und nach 300 bzw. 1200 ms aus: war die Seite auf einem langsamen Rechner erst nach 300 ms aufgebaut, blieben
+        # beide Streifen bis 1,2 s weiß (CI unter Linux, 20./21.11.2026, Prüfung „Lichtschein …“ Unterkante). Drei
+        # Durchgänge, je Bild gemessen
+        out = []
+        for _ in range(3):
+            out.append(m.js("""await toMail(); await ruhig(500); d.getElementById("chatButton").click(); await ruhig(600);
+              const status = d.getElementById("status-bar"), t0 = performance.now(); let n = 0, ready = null, gray = null;
+              const px = (el, v) => parseFloat([el, ...d.querySelectorAll("[style*='" + v + "']")].map(e => e?.style.getPropertyValue(v)).find(x => x)) || 0;
+              d.getElementById("settingsButton").click();
+              while (performance.now() - t0 < 2000 && gray == null) { await new Promise(r => w.requestAnimationFrame(r)); n++;
+                const tab = tm.currentTabInfo, box = tab.browser?.contentDocument?.getElementById("pref-category-box");
+                // Außenkante der Seitenleiste im Fenster, bezogen auf Toolbar-Zeile bzw. Statusleiste (wie die Erweiterung misst)
+                const br = box?.getBoundingClientRect(), right = br?.width ? tab.browser.getBoundingClientRect().left + br.right : 0;
+                if (right && ready == null) ready = n;
+                if (right && px(null, "--mc-side-right") >= right - d.getElementById("unifiedToolbarContainer").getBoundingClientRect().left - 2
+                    && px(status, "--mc-status-side") >= right - status.getBoundingClientRect().left - 2) gray = n; }
+              while (tm.tabInfo.length > 1) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
+              await toMail(); return { ready, gray, ms: Math.round(performance.now() - t0) };"""))
+        ok = all(r.get("ready") and r.get("gray") is not None and r["gray"] - r["ready"] <= 1 for r in out)
+        return ok, str(out)
+    check("Einstellungen: Toolbar-Zeile und Statusleiste über und unter der Seitenleiste im Seitenleisten-Grau, sobald die "
+          "Seitenleiste aufgebaut ist (kein weißer Streifen bis zum nächsten Zeitgeber)", settings_side_gray_early, results)
+
     def sidebar_glow_switch():
         # Schalter „Light glow in the sidebar“ in den halo.spaces-Einstellungen (Maintainer 13.11.2026: „ja aus schaltet auch
         # die gefärbte trennlinie ab“): aus kein Schein in der Seitenleiste und Trennlinie neutral (Mail, Kalender), die
@@ -26031,8 +26593,23 @@ Neu
       const cy = tr.top + tr.height * 0.55, oy = orr.top + orr.height * 0.55;
       return { id: tile.id, float: bar.hasAttribute("mc-float"), c: hex(tile), oc: hex(other),
         bg: px(tr.left - 10, oy), obg: px(orr.left - 10, oy), ringL: px(tr.left - 3, cy), ringT: px(tr.left + tr.width / 2, tr.top - 2),
-        faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
+        faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), faceT: px(tr.left + 6, tr.top + 5), faceB: px(tr.left + 6, tr.bottom - 5), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
         halo: px(tr.right + 3, cy), idle: px(orr.left + 6, oy) };"""
+
+    # mit HALO_SHOTS: Ausschnitt der Leiste mit der aktiven Kachel (Faktor 2) für Vorher-/Nachher-Bilder des Designers
+    tile_shot = r"""
+      const bar = d.getElementById("spacesToolbar"), r = bar.getBoundingClientRect();
+      const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width + 90, Math.min(r.height, 400)), 2, "white");
+      const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+      cv.getContext("2d").drawImage(bm, 0, 0); return cv.toDataURL("image/png");"""
+
+    def tile_shot_save(name, dark):
+        folder = os.environ.get("HALO_SHOTS")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+            data = m.js(tile_shot).split(",", 1)[1]
+            with open(os.path.join(folder, f"kachel-{name}-{'dunkel' if dark else 'hell'}.png"), "wb") as f:
+                f.write(base64.b64decode(data))
 
     def sidebar_tile_d2h():
         # Aktive Kachel als Lichtquelle (Zielbild d2h, Maintainer 14.11.2026: „d2h ist jetzt zielbild.“), gemessen am Bild
@@ -26056,6 +26633,7 @@ Neu
                 out[tile] = m.js(f"""d.getElementById("{tile}").click();
                   await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000);
                   await ruhig(900); await takt(2);""" + tile_measure)
+                tile_shot_save(tile, out["dark"])
             m.js("""await toMail(); d.getElementById("spacesPinnedButton").click();
               await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
               await ruhig(600); return 1;""")
@@ -26064,6 +26642,7 @@ Neu
                   await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000); await ruhig(700); return 1;""")
                 to(400); to(1)
                 out[f"float-{tile}"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + tile_measure)
+                tile_shot_save(f"float-{tile}", out["dark"])
                 to(700)
                 m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
         finally:
@@ -26080,32 +26659,38 @@ Neu
         for k, r in out.items():
             if not r:
                 bad.append(k); continue
-            a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "edgeL", "edgeR")}
+            a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "faceT", "faceB", "edgeL", "edgeR")}
             a["idle"] = alpha(r["idle"], r["obg"], r["oc"])
             werte[k] = a
-            want_l, want_r = (0.37, 0.43) if dark else (0.54, 0.54)
+            # (Variante A, 20.11.2026: dunkel 42 % links bis rund 49 % rechts, gemessen ~42 / ~47 %; hell 54 %, mit Verlauf in der Mitte ~56 %)
+            want_l, want_r = (0.42, 0.47) if dark else (0.56, 0.56)
             if not (abs(a["faceL"] - want_l) <= 0.05 and abs(a["faceR"] - want_r) <= 0.05):
                 bad.append(f"{k}-Fläche")
             if not (a["edgeR"] >= a["edgeL"] + 0.1 and a["edgeL"] >= a["faceL"] + 0.05):
                 bad.append(f"{k}-Kante")
+            # Körper (Variante A, Maintainer 20.11.2026: „Variante A bitte auf die liste“): hell oben heller, unten satter in der
+            # Spacefarbe (gemessen oben ~46 %, unten ~65 %); dunkel oben heller, unten dunkler (Deckkraft oben über unten)
+            if (a["faceB"] - a["faceT"] if not dark else a["faceT"] - a["faceB"]) < 0.08:
+                bad.append(f"{k}-Verlauf")
             if abs(a["idle"] - 0.08) > 0.03:
                 bad.append(f"{k}-inaktiv")
             # Lichthof rechts: neben der Kachel zur Spacefarbe hin getönt, links (Grund) nicht
             if not (dist(r["halo"], r["bg"]) >= 4 and dist(r["halo"], r["c"]) < dist(r["bg"], r["c"])):
                 bad.append(f"{k}-Lichthof")
-            # hell (Variante C, 17.11.2026): farbiger Hof rundum, links und oben neben der Kachel zur Spacefarbe hin getönt;
+            # farbiger Hof rundum, links und oben neben der Kachel zur Spacefarbe hin getönt: hell seit Variante C (17.11.2026),
+            # dunkel seit Variante A (20.11.2026) leiser mit 28 %
             ring = [dist(r[n], r["bg"]) >= 4 and dist(r[n], r["c"]) < dist(r["bg"], r["c"]) for n in ("ringL", "ringT")]
-            if not dark and not all(ring):
+            if not all(ring):
                 bad.append(f"{k}-Hof rundum")
             if k.startswith("float-") and r.get("float") is not True:
                 bad.append(f"{k}-nicht schwebend")
         for tile in tiles:
             e, f = werte.get(tile), werte.get(f"float-{tile}")
-            if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "idle")):
+            if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "faceT", "faceB", "idle")):
                 bad.append(f"{tile}-schwebend anders")
         return not bad, f"abweichend: {bad} dunkel={dark} {werte}"
-    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 54 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, hell farbiger Hof rundum, inaktive Kacheln 8 %, "
-          "alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
+    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 54 % (dunkel 42 bis 49 %) mit Verlauf von oben nach unten, Kante rechts kräftiger, Lichthof rechts, "
+          "farbiger Hof rundum (dunkel leiser), inaktive Kacheln 8 %, alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
 
     def sidebar_glow_switch_line():
         # Schalter für den Lichtschein aus (Maintainer 14.11.2026: „wenn wir via settings den lichtkegel deaktivieren muss natürlich

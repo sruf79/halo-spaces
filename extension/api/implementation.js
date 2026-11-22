@@ -8830,6 +8830,33 @@ class CardEnhancer {
       status?.style.removeProperty("--mc-status-min");
       status?.style.removeProperty("--mc-status-side");
     });
+    // je Bild prüfen, ob die Seitenleiste der Seite Breite hat, dann einmal
+    // ausrichten; endet beim Tabwechsel, wenn die Seite fertig geladen ist und
+    // keine Seitenleiste hat, spätestens nach 5 s
+    const awaitSidebar = tab => {
+      if (tab.__mcSideWait) {
+        return;
+      }
+      tab.__mcSideWait = true;
+      const t0 = Date.now();
+      const poll = () => {
+        const done = () => delete tab.__mcSideWait;
+        if (w.closed || w.document.getElementById("tabmail")?.currentTabInfo != tab || Date.now() - t0 > 5000) {
+          return done();
+        }
+        const el = SIDEBARS[tab.mode?.name]?.(tab);
+        if (el && rectOf(el)?.width) {
+          done();
+          return updateSideEdge();
+        }
+        const doc = tab.browser?.contentDocument;
+        if (!el && doc?.readyState == "complete" && doc.documentURI != "about:blank") {
+          return done();
+        }
+        w.requestAnimationFrame(poll);
+      };
+      w.requestAnimationFrame(poll);
+    };
     const updateSideEdgeLayout = () => {
       // während die Bereiche-Leiste animiert, nichts ans Fenster schreiben –
       // jede Variable dort kostet ein komplettes Neuberechnen (25–40 ms);
@@ -8850,6 +8877,12 @@ class CardEnhancer {
       }
       const el = SIDEBARS[tab?.mode?.name]?.(tab);
       const row = d.getElementById("unifiedToolbarContainer");
+      // Seite im eigenen Browser (Einstellungen, Adressbuch …) noch nicht
+      // aufgebaut: nachmessen, sobald ihre Seitenleiste steht – sonst fehlte das
+      // Grau über und unter ihr bis zum nächsten Zeitgeber (bis 1,2 s weiß)
+      if (tab?.browser && ["preferencesTab", "addressBookTab", "contentTab"].includes(tab.mode?.name) && (!el || !rectOf(el)?.width)) {
+        awaitSidebar(tab);
+      }
       if (!el || !row) {
         barTarget(d).style.removeProperty("--mc-side-right");
         d.getElementById("status-bar")?.style.removeProperty("--mc-status-side");
@@ -9273,7 +9306,8 @@ class CardEnhancer {
       }
       // (erst nach dem Fokuswechsel: innerhalb des Felds wandert er nur)
       w.setTimeout(() => {
-        if (!li.hasAttribute("mc-search-open") || li.matches(":focus-within") || searchInput(li)?.value?.trim()) {
+        if (!li.hasAttribute("mc-search-open") || li.matches(":focus-within") || searchInput(li)?.value?.trim() ||
+            li.querySelector("global-search-bar[mc-caps]")) {
           return;
         }
         li.removeAttribute("mc-search-open");
@@ -9282,10 +9316,15 @@ class CardEnhancer {
     };
     w.document.addEventListener("click", openSearch, true);
     w.document.addEventListener("focusin", openSearch, true);
+    // (auch beim Tippen: lag der Fokus schon im Feld, als es zur Lupe wurde,
+    // oder kam kein focusin, tippte man sonst in 40 px, und eine Kapsel der
+    // Vorschläge stünde außerhalb des Felds)
+    w.document.addEventListener("input", openSearch, true);
     w.document.addEventListener("focusout", closeSearch, true);
     this.restorers.push(() => {
       w.document.removeEventListener("click", openSearch, true);
       w.document.removeEventListener("focusin", openSearch, true);
+      w.document.removeEventListener("input", openSearch, true);
       w.document.removeEventListener("focusout", closeSearch, true);
       w.document.querySelector("#unifiedToolbarContent > li[mc-search-open]")?.removeAttribute("mc-search-open");
     });
@@ -11301,6 +11340,12 @@ class CardEnhancer {
       // des Slots) bliebe unsichtbar. Erst nachdem styleSearch Thunderbirds
       // Text abgekoppelt hat (sonst bleibt dessen Übersetzung stehen).
       setPlaceholder(mode);
+      // Kapseln der Mail-Suche nur im Mail-Space zeigen; beim Wechsel das
+      // Vorschlagsmenü schließen (nicht im Sekundentakt von markTab ohne Wechsel)
+      if (!sameTab) {
+        this.closeSearchSuggest(w);
+      }
+      this.renderSearchCaps(w);
       if (target && !sameTab) {
         const term = target.input(currentTarget()?.cw)?.value || "";
         bar.overrideSearchTerm?.(term);
@@ -11323,6 +11368,10 @@ class CardEnhancer {
           const text = event.type == "search" ? event.detail ?? event.target.value : event.detail;
           w.clearTimeout(w.__mcMailSearchTimer);
           const run = () => this.mailSearch(w, text || "");
+          // ↩: Begriff für die Vorschläge merken (frühere Suchen)
+          if (event.type == "search" && text) {
+            this.rememberSearch(text);
+          }
           // Eingabetaste oder leeres Feld sofort, beim Tippen kurz warten
           if (event.type == "search" || !text) {
             run();
@@ -11822,6 +11871,7 @@ class CardEnhancer {
     const markTab = () => {
       hookSearchForwarding();
       hookSuggestWidth();
+      this.hookSearchSuggest(w);
       hookHelpMenu();
       hookPreviewMenu();
       hookLightMessage();
@@ -12022,8 +12072,20 @@ class CardEnhancer {
               w.__mcSpacesJump(show ? 1 : 0);
             }
             ab.__mcJump(1);
-            w.document.documentElement.getBoundingClientRect();
-            this.offsetUpdaters?.forEach(fn => fn());
+            // Endzustand wie nach der Bewegung: Thunderbird verteilt dort mehrmals neu (Größenänderungen der Zeile), der
+            // Abstand nach „Verfassen“ wächst je Durchgang nur um den Platz, den das Suchfeld gerade übrig lässt – erst
+            // im zweiten steht er bei seinem Endwert. Mit nur einem Durchgang lag er im schmalen Fenster ohne Today-Pane
+            // 20 px zu klein (49 statt 69 px): die Knöpfe rechts von „Verfassen“ liefen der Seitenleiste voraus und
+            // sprangen im letzten Bild zurück
+            for (let i = 0, vorher = NaN; i < 4; i++) {
+              w.document.documentElement.getBoundingClientRect();
+              this.offsetUpdaters?.forEach(fn => fn());
+              const jetzt = gapNow();
+              if (Math.abs(jetzt - vorher) < 1) {
+                break;
+              }
+              vorher = jetzt;
+            }
             gapEnd = gapNow();
             midEnd = mid ? mid.getBoundingClientRect().width : NaN;
             leadEnd = leadNow();
@@ -12398,7 +12460,18 @@ class CardEnhancer {
     let floatTimer = null;
     const floatPaneHidden = (tab, el) => (tab?.mode?.name == "mail3PaneTab"
       ? el.classList.contains("collapsed-by-splitter") : el.classList.contains("mc-side-hidden"));
-    const floatCleanup = () => {
+    // Bereiche-Leiste wieder ausblenden – nur, wenn die Seitenleiste noch
+    // ausgeblendet ist (sonst hat sie der Knopf inzwischen eingeblendet)
+    const floatBarOff = bar => {
+      if (w.gSpacesToolbar?.isHidden) {
+        bar.hidden = true;
+      }
+      bar.removeAttribute("mc-float");
+      ["--mc-float-w", "--mc-float-top", "--mc-float-bottom"].forEach(p => bar.style.removeProperty(p));
+    };
+    // keepBar: nur für den Bereichswechsel aus der schwebenden Leiste (floatSwitch) – die Bereiche-Leiste bleibt
+    // stehen, gleich danach schwebt die Leiste des neuen Bereichs ohne Bewegung ein
+    const floatCleanup = (keepBar = false) => {
       const f = float;
       float = null;
       if (!f) {
@@ -12411,13 +12484,9 @@ class CardEnhancer {
       });
       f.off.forEach(fn => fn());
       f.catcher.remove();
-      // Bereiche-Leiste wieder ausblenden – nur, wenn die Seitenleiste noch
-      // ausgeblendet ist (sonst hat sie der Knopf inzwischen eingeblendet)
-      if (w.gSpacesToolbar?.isHidden) {
-        f.bar.hidden = true;
+      if (!keepBar) {
+        floatBarOff(f.bar);
       }
-      f.bar.removeAttribute("mc-float");
-      ["--mc-float-w", "--mc-float-top", "--mc-float-bottom"].forEach(p => f.bar.style.removeProperty(p));
       if (f.el) {
         f.el.classList.remove("mc-float-pane");
         FLOAT_VARS.forEach(p => f.el.style.removeProperty(p));
@@ -12466,7 +12535,63 @@ class CardEnhancer {
       }
     };
     const floatPopups = () => float?.popups.size > 0;
-    const floatShow = (drag = false) => {
+    // Bereichswechsel aus der schwebenden Leiste (Maintainer 20.11.2026, Gespräch mit dem Designer: „wäre es nicht
+    // besser der space würde wechseln und die schwebende sidebar bleibt so lange sichtbar bis man mit der maus aus dem
+    // bereich der sidebar weg fährt gemäß der existierenden logik?“): ein Klick auf eine Kachel der schwebenden Leiste
+    // merkt sich die Zeit (hop); kommt der neue Tab kurz danach, schwebt sofort die linke Leiste des neuen Bereichs,
+    // ohne weg- und wieder hereinzugleiten. Jeder andere Wechsel (Tastenkürzel, Tab, Mail im neuen Tab) schließt sie
+    // wie bisher sofort
+    const FLOAT_HOP = 600;
+    const floatHop = () => !!float && float.state != "out" && Date.now() - float.hop < FLOAT_HOP;
+    let floatRetry = null;
+    const floatSwitch = () => {
+      const f = float;
+      const tabmail = w.document.getElementById("tabmail");
+      const tab = tabmail?.currentTabInfo;
+      if (!f || !tab || !columnHidden()) {
+        floatEnd(false);
+        return;
+      }
+      if (f.tab == tab) {
+        // gleicher Tab: nur nachholen, wenn die linke Leiste des Bereichs beim Wechsel noch nicht bereit war
+        // (Adressbuch, Einstellungen bauen sie erst später auf; Thunderbird blendet sie erst danach aus)
+        if (f.el || !f.wantPane) {
+          return;
+        }
+        const [el, , win] = sidebarFor(tab);
+        if (!el || !win || el.__mcAnimating || win.__mcAnimating || !floatPaneHidden(tab, el)) {
+          return;
+        }
+      }
+      const hop = f.hop;
+      floatCleanup(true);
+      floatShow(false, true);
+      if (!float) {
+        // (Ziehen, Animation: geht gerade nicht – dann wie bisher weg)
+        floatBarOff(f.bar);
+        return;
+      }
+      // (Thunderbird meldet beim Öffnen eines Bereichs den Tab mitunter zweimal – der Klick gilt für die neue Leiste
+      // weiter, bis FLOAT_HOP abgelaufen ist)
+      float.hop = hop;
+      float.wantPane = !float.el;
+      if (float.wantPane) {
+        w.clearTimeout(floatRetry);
+        const g = float;
+        let n = 0;
+        const retry = () => {
+          if (float != g || g.el || ++n > 15) {
+            return;
+          }
+          floatSwitch();
+          if (float == g) {
+            floatRetry = w.setTimeout(retry, 100);
+          }
+        };
+        floatRetry = w.setTimeout(retry, 50);
+      }
+    };
+    const floatShow = (drag = false, instant = false) => {
       w.clearTimeout(floatTimer);
       if (float) {
         float.drag ||= drag;
@@ -12532,7 +12657,7 @@ class CardEnhancer {
       catcher.setAttribute("aria-hidden", "true");
       catcher.style.cssText = `position: fixed; z-index: 29; left: ${right}px; top: 0; right: 0; bottom: 0;`;
       d.documentElement.append(catcher);
-      float = { state: "in", el, win, bar, tab, right, catcher, drag, anims: [], token: 0, off: [], popups: new Set() };
+      float = { state: "in", el, win, bar, tab, right, catcher, drag, anims: [], token: 0, off: [], popups: new Set(), hop: 0 };
       const f = float;
       // Einstellungen mit eingebetteter Seite (Add-ons, Kontoeinstellungen):
       // deren Browser liegt im Hauptfenster über dem Einstellungs-Dokument und
@@ -12593,7 +12718,15 @@ class CardEnhancer {
           floatEnd(false);
         }
       };
-      const onTab = () => floatEnd(false);
+      const onTab = () => (floatHop() ? floatSwitch() : floatEnd(false));
+      // Klick auf eine Kachel der schwebenden Leiste (vor Thunderbirds eigenem Klick, der den Bereich wechselt)
+      const onTile = e => {
+        if (float == f && e.button == 0 && e.target.closest?.("#spacesToolbar button, #spacesToolbar .spaces-toolbar-button")) {
+          f.hop = Date.now();
+        }
+      };
+      bar.addEventListener("click", onTile, true);
+      f.off.push(() => bar.removeEventListener("click", onTile, true));
       for (const target of new Set([w, win].filter(Boolean))) {
         target.addEventListener("popupshown", onPopup, true);
         target.addEventListener("popuphidden", onPopup, true);
@@ -12612,7 +12745,11 @@ class CardEnhancer {
         w.removeEventListener("resize", onResize);
         tabmail.tabContainer?.removeEventListener("TabSelect", onTab);
       });
-      floatAnimate(true);
+      if (instant) {
+        f.state = "on";
+      } else {
+        floatAnimate(true);
+      }
     };
     // Auslösestreifen am linken Fensterrand (über allen Inhalten); Drücken
     // darin zieht die Leiste wie bisher an der Greifzone heraus
@@ -12707,7 +12844,13 @@ class CardEnhancer {
           hot.style.display = on ? "block" : "none";
         }
         if (float && (!columnHidden() || float.tab != w.document.getElementById("tabmail")?.currentTabInfo)) {
-          floatEnd(false);
+          if (columnHidden() && floatHop()) {
+            floatSwitch();
+          } else {
+            floatEnd(false);
+          }
+        } else if (float?.wantPane && !float.el) {
+          floatSwitch();
         }
       };
       sideFloat.place();
@@ -15219,7 +15362,8 @@ loadPart("kalenderfenster.js");
 loadPart("halofenster.js");
 loadPart("mailliste.js");
 loadPart("mailkarten.js");
-for (const teil of [EnhancerOberflaeche, EnhancerKalender, EnhancerHaloFenster, EnhancerMailliste, EnhancerMailkarten]) {
+loadPart("suchvorschlag.js");
+for (const teil of [EnhancerOberflaeche, EnhancerKalender, EnhancerHaloFenster, EnhancerMailliste, EnhancerMailkarten, EnhancerSuchvorschlag]) {
   for (const [name, desc] of Object.entries(Object.getOwnPropertyDescriptors(teil.prototype))) {
     if (name == "constructor") {
       continue;

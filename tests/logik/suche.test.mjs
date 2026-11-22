@@ -44,3 +44,70 @@ test("Suchtreffer: Positionen im Originaltext, auch wenn die Kleinschreibung lä
   assert.equal(hitRanges("abc", "").length, 0);
   assert.equal(hitRanges("abc", "x").length, 0);
 });
+
+test("Suchtreffer: Name ganz, Wort für Wort, wenn der Begriff nur auf die Adresse passt", () => {
+  const { markRanges } = lade();
+  const teile = (text, needle, wholes) => Array.from(markRanges(text, needle, wholes), ([a, b]) => text.slice(a, b));
+  // Adresse nicht in der Karte: der Name ganz, die Lücke bleibt frei
+  assert.deepEqual(teile("Christian Brandstätter", "brandstaetter@imba", ["Christian Brandstätter"]),
+    ["Christian", "Brandstätter"]);
+  // mehrere Empfänger: nur der passende Name
+  assert.deepEqual(teile("Anna Berg, Christian Brandstätter", "imba.oeaw", ["Christian Brandstätter"]),
+    ["Christian", "Brandstätter"]);
+  // wörtlicher Treffer und Name überlappen: zusammengelegt, nicht doppelt
+  assert.deepEqual(teile("Christian Brandstätter", "christian", ["Christian Brandstätter"]), ["Christian", "Brandstätter"]);
+  // ohne Namen wie bisher nur die Fundstellen
+  assert.deepEqual(teile("Ihre Rechnung", "rechnung", []), ["Rechnung"]);
+  assert.deepEqual(teile("Ihre Rechnung", "rechnung", ["", null]), ["Rechnung"]);
+  assert.deepEqual(teile("Anna Berg", "x@y", ["Nicht da"]), []);
+});
+
+// Vorschlagsmenü der Mail-Suche (api/suchvorschlag.js)
+test("Suchvorschläge: Personen zuerst (jede Adresse einmal, höchstens drei), dann Betreff und Text, zuletzt frühere Suchen", () => {
+  const { searchSuggestRows } = lade();
+  const personen = [{ name: "Anna Beispiel", address: "anna@example.invalid" }, { name: "Beispiel, Anna", address: "ANNA@example.invalid" },
+    { name: "", address: "bert@example.invalid" }, { name: "Liste", address: "Liste" }, { name: "Cleo", address: "cleo@example.invalid" },
+    { name: "Dora", address: "dora@example.invalid" }];
+  const zeilen = Array.from(searchSuggestRows(" an ", personen, ["Anna Rechnung", "an", "Plan", "anderes", "Kanne", "wand", "x"]), z => ({ ...z }));
+  assert.deepEqual(zeilen.slice(0, 5), [
+    { kind: "person", value: "anna@example.invalid", name: "Anna Beispiel" },
+    { kind: "person", value: "bert@example.invalid", name: "bert@example.invalid" },
+    { kind: "person", value: "cleo@example.invalid", name: "Cleo" },
+    { kind: "subject", value: "an" },
+    { kind: "body", value: "an" },
+  ]);
+  // frühere Suchen: nur was den Text enthält, nicht der Text selbst, insgesamt höchstens acht Zeilen
+  assert.deepEqual(zeilen.slice(5).map(z => [z.kind, z.value]), [["recent", "Anna Rechnung"], ["recent", "Plan"], ["recent", "anderes"]]);
+  assert.equal(zeilen.length, 8);
+});
+
+test("Suchvorschläge: leerer Text ohne Zeilen, ohne Personen nur Betreff und Text", () => {
+  const { searchSuggestRows } = lade();
+  assert.equal(searchSuggestRows("  ", [{ name: "A", address: "a@example.invalid" }], ["alt"]).length, 0);
+  assert.deepEqual(Array.from(searchSuggestRows("zebra"), z => z.kind), ["subject", "body"]);
+});
+
+test("Frühere Suchen: neueste zuerst, jede einmal, höchstens zehn, Einzelzeichen nicht", () => {
+  const { searchRecentAdd } = lade();
+  assert.deepEqual([...searchRecentAdd(["alt", "Zebra"], " zebra ")], ["zebra", "alt"]);
+  assert.deepEqual([...searchRecentAdd(["alt"], "x")], ["alt"]);
+  assert.deepEqual([...searchRecentAdd("kaputt", "neu")], ["neu"]);
+  const viele = Array.from({ length: 12 }, (_, i) => `suche ${i}`);
+  const liste = [...searchRecentAdd(viele, "neu")];
+  assert.equal(liste.length, 10);
+  assert.equal(liste[0], "neu");
+});
+
+test("Eingrenzungen: Suchfelder je Kapsel, Person nach Wahl From, To oder Any; Leeres fällt weg", () => {
+  const { searchFilterSpecs, searchCapText } = lade();
+  const filter = [{ kind: "person", field: "from", value: "anna@example.invalid", name: "Anna" }, { kind: "person", field: "to", value: "b@example.invalid" },
+    { kind: "person", field: "any", value: "c@example.invalid" }, { kind: "person", value: "d@example.invalid" },
+    { kind: "subject", value: " rechnung " }, { kind: "body", value: "text" }, { kind: "subject", value: " " }, { kind: "unbekannt", value: "x" }];
+  assert.deepEqual(Array.from(searchFilterSpecs(filter), s => [s.attrib, s.value]), [["Sender", "anna@example.invalid"], ["ToOrCC", "b@example.invalid"],
+    ["AllAddresses", "c@example.invalid"], ["Sender", "d@example.invalid"], ["Subject", "rechnung"], ["Body", "text"]]);
+  assert.equal(searchFilterSpecs(null).length, 0);
+  assert.deepEqual({ ...searchCapText(filter[0]) }, { label: "From", value: "Anna" });
+  assert.deepEqual({ ...searchCapText(filter[1]) }, { label: "To", value: "b@example.invalid" });
+  assert.deepEqual({ ...searchCapText(filter[4]) }, { label: "Subject", value: " rechnung " });
+  assert.deepEqual({ ...searchCapText(filter[5]) }, { label: "Message", value: "text" });
+});

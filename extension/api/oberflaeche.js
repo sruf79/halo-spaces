@@ -73,8 +73,10 @@ class EnhancerOberflaeche {
       const ctx = canvas.getContext("2d");
       ctx.font = w.getComputedStyle(placeholder).font;
       const dots = ctx.measureText("…").width;
-      // 30 px links (Lupe), 14 px rechts
-      const fit = `${Math.ceil(30 + full + 14)}px`;
+      // 30 px links (Lupe), 14 px rechts; mit Kapseln der Mail-Suche
+      // (renderSearchCaps) kommen deren Breite und Platz zum Tippen dazu
+      const caps = bar.__mcCapsWidth || 0;
+      const fit = `${Math.ceil(caps ? 32 + caps + Math.max(full, 90) + 28 : 30 + full + 14)}px`;
       if (li && li.style.getPropertyValue("--mc-search-fit") != fit) {
         li.style.setProperty("--mc-search-fit", fit);
       }
@@ -89,7 +91,9 @@ class EnhancerOberflaeche {
     const mo = placeholder ? new w.MutationObserver(fitPlaceholder) : null;
     mo?.observe(placeholder, { childList: true, characterData: true, subtree: true });
     fitPlaceholder();
+    bar.__mcFit = fitPlaceholder;
     this.restorers.push(() => {
+      delete bar.__mcFit;
       ro?.disconnect();
       mo?.disconnect();
       li?.style.removeProperty("--mc-search-fit");
@@ -444,7 +448,19 @@ class EnhancerOberflaeche {
     const box = d.getElementById("mcListHeader");
     const tab = d.getElementById("tabmail")?.currentTabInfo;
     if (box && tab?.mode?.name == "addressBookTab") {
-      this.updateAbHeader(box, tab.browser?.contentWindow);
+      const cw = tab.browser?.contentWindow;
+      this.updateAbHeader(box, cw);
+      // Seite beim Tabwechsel noch nicht aufgebaut (langsamer Rechner, frisch geöffnetes Adressbuch): Titel, Anzahl
+      // und Fokus-Umleitung erst, wenn Thunderbird sie fertig meldet – sonst blieben sie aus, bis man den Tab wechselt
+      // (Pfeiltasten wirkten nach „Abbrechen“ eines neuen Kontakts nicht, die Kopfzeile zeigte die der Mailliste)
+      const browser = tab.browser;
+      if (browser && !cw?.__mcHeaderHook && !browser.__mcAbWait) {
+        browser.__mcAbWait = true;
+        browser.addEventListener("about-addressbook-ready", () => {
+          delete browser.__mcAbWait;
+          w.setTimeout(() => this.updateListHeader(w), 0);
+        }, { capture: true, once: true });
+      }
       return;
     }
     if (box && tab?.mode?.name == "tasks") {
@@ -1153,7 +1169,6 @@ class EnhancerOberflaeche {
       const animating = !top.__mcDry && (top.__mcSpacesAnimating || win.__mcAnimating ||
         top.document.getElementById("today-pane-panel")?.__mcAnimating);
       const row = top.document.getElementById("unifiedToolbarContainer");
-      const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
       // Während einer Ein-/Ausblend-Bewegung alles, was die Kanten weiter unten brauchen, schon hier messen – vor dem
       // ersten Schreiben an die Toolbar-Zeile. Jede Variable dort lässt Thunderbird alle rund 150 Elemente der Zeile
       // neu berechnen, sobald danach wieder gemessen wird; mit Messen und Schreiben im Wechsel waren das in der Mail
@@ -1167,7 +1182,7 @@ class EnhancerOberflaeche {
         const offsetBefore = parseFloat(barTarget(top.document).style.getPropertyValue("--mc-toolbar-offset"));
         vorab = {
           rowLeft: rectOf(row).left,
-          leadExact: !!lead && lead == firstSpacer && Math.abs(rectOf(lead).right - (start + offsetBefore)) < 0.75,
+          leadExact: !!lead && Math.abs(rectOf(lead).right - (start + offsetBefore)) < 0.75,
         };
       }
       // Today-Pane gleitet ein: Der Einzug steht seit Beginn der Bewegung am Endmaß (gemessen, solange die Pane im
@@ -1196,10 +1211,32 @@ class EnhancerOberflaeche {
         const slack = writeLi && rectOf(writeLi).width
           ? Math.max(0, (parseFloat(top.getComputedStyle(writeLi).marginInlineEnd) || 0) - 12)
           : 0;
-        squeezeToolbar(top.document, () => {
+        // Gemessen wird am Abstandhalter vorn (lead), nicht am ersten
+        // Abstandhalter der Leiste: bei eigener Belegung ohne Abstandhalter
+        // vorn ist der erste ein ausgeblendeter eines anderen Bereichs (Kante
+        // 0 – dann wichen alle Knöpfe, obwohl Platz war) oder einer mitten in
+        // der Leiste (passt immer – dann wich keiner, und die Knöpfe liefen
+        // rechts unter den Today-Knopf, GitHub #52). Ohne Abstandhalter vorn
+        // passt es, solange kein Knopf rechts über die Leiste hinausragt
+        const fitsRow = () => {
           const lack = searchLackOf(content, search);
-          return lack <= slack && (!firstSpacer || rectOf(firstSpacer).right + slack - lack >= start + offset - 2);
-        });
+          if (lack > slack) {
+            return false;
+          }
+          if (lead) {
+            return rectOf(lead).right + slack - lack >= start + offset - 2;
+          }
+          const right = rectOf(content).right - (parseFloat(top.getComputedStyle(content).paddingInlineEnd) || 0) + 1;
+          let over = 0;
+          for (const li of content.children) {
+            const r = li.getAttribute("item-id") == "spacer" ? null : rectOf(li);
+            if (r?.width) {
+              over = Math.max(over, r.right - right);
+            }
+          }
+          return over + lack <= slack;
+        };
+        squeezeToolbar(top.document, fitsRow);
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail, bzw. so
       // breit wie sein Platzhalter): fehlt dafür Platz, wird zuerst der Abstand
@@ -1260,7 +1297,10 @@ class EnhancerOberflaeche {
         // rechte Kante der Mailliste für die Trennlinie in der Toolbar-Zeile
         // Ist das Fenster für alle Knöpfe zu schmal, schrumpft der Einzug davor –
         // die Kopfzeile über der Liste endet dann vor dem ersten Knopf
-        const buttonsStart = vorab?.leadExact ? start + offset : firstSpacer ? rectOf(firstSpacer).right : paneRight;
+        // (ohne Abstandhalter vorn: linke Kante des ersten sichtbaren Knopfs)
+        const firstShown = lead ? null : [...content.children].find(li => !li.hidden && rectOf(li)?.width);
+        const buttonsStart = vorab?.leadExact ? start + offset
+          : lead ? rectOf(lead).right : firstShown ? rectOf(firstShown).left : paneRight;
         const rowLeft = vorab ? vorab.rowLeft : rectOf(row).left;
         // Trennlinie an der echten Kante der Mailliste; reicht der Platz nicht
         // und die Knöpfe beginnen schon links davon, entfällt sie in der

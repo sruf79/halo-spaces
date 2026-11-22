@@ -12102,6 +12102,8 @@ datepicker[mc-inline] > menulist {
     --mt-text-secondary: #3C3C43;
     --mt-text-tertiary: #545458;
     --mt-text-quaternary: #8E8E93;
+    /* Ungelesen-Zahl der Ordnerliste: im kräftigeren Grau der Sekundärtexte */
+    --mt-folder-count: var(--mt-text-secondary);
     --mt-separator: rgba(0, 0, 0, 0.30);
     --mt-pane-line: rgba(0, 0, 0, 0.40);
     --mt-sidebar-border: rgba(0, 0, 0, 0.35);

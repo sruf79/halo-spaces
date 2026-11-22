@@ -16438,7 +16438,11 @@ def run_checks(m, version, profile, results):
         # Breit mit gewählter Mail (1500 px): Mailliste gibt mit Pane nach, Abstand nach „Verfassen“ ändert sich – dort
         # sprangen die Knöpfe rechts davon am Ende des Ausblendens um 13 px (im vollen Lauf, wenn eine frühere Prüfung
         # eine Mail gewählt ließ); schmal (1100 px) in der Kontoübersicht wie im Einzellauf (steht die Mail an ihrer Mindestbreite, hält das Fenster seine Breite)
+        # Am Ende kommt das Fenster auf seine Breite von vor der Prüfung zurück (w0), nicht auf 1500 px: sonst liefen die
+        # folgenden Prüfungen in einer anderen Lage (CI 22.11., Lauf 45014199971: „Seitenleiste (Mail): Ein-/Ausblenden
+        # ohne Ruck“ fand die Mailliste 39 px gestaucht vor und wurde rot)
         res = m.js(MESSAGE_JS + '''
+          const w0 = w.outerWidth;
           w.resizeTo(1500, w.outerHeight); await until(() => w.outerWidth == 1500, 3000); await ruhig(1500);
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
           const title = d.getElementById("mcTodayTitle");
@@ -16597,7 +16601,7 @@ def run_checks(m, version, profile, results):
             }
             if (verworfen.length) out[phase].verworfen = verworfen;
           }
-          w.resizeTo(ow, w.outerHeight); await ruhig(800);
+          w.resizeTo(w0, w.outerHeight); await until(() => w.outerWidth == w0, 3000); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
           Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");

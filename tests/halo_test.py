@@ -5258,6 +5258,111 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Suchfelder in Dialogen und Einstellungen: Saved Logins, Cookies und „Files & Attachments“ als graue 30-px-Kapsel mit Lupe, ohne Rand und Hover, Fokusring erst beim Fokus", search_dialogs, results)
 
+    def pref_subdialogs():
+        # Unterdialoge der Einstellungen nach einem gemeinsamen Muster (Variante A des Designers): Panel Radius 18 mit
+        # 20 px Rand, Überschrift links 17 px halbfett, Schrift 13 px, Listen und Tabellen als graue Karte ohne Rahmen
+        # (Kopf 30 px, 11,5 px grau halbfett, Zeilen 28 px, Auswahl grau), Häkchen- und Optionsgruppen als graue Karte,
+        # Hilfetext grau, je Dialog ein Hauptknopf, Größengriff unsichtbar (Ziehen an der Ecke bleibt). Vorher: Titel
+        # mittig 12 px, Schrift 11/12 px, Listen weiß mit Rahmen und Spaltenlinien, blaue Auswahl, sichtbarer Griff
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300);
+          w.openPreferencesTab("paneGeneral");
+          await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("preferencesContainer") && tm.currentTabInfo.browser.contentWindow.gPrivacyPane, "Einstellungen-Tab geladen", 10000);
+          const tab = tm.currentTabInfo, cw = tab.browser.contentWindow, cd = cw.document, out = {};
+          const px = v => Math.round(parseFloat(v) * 10) / 10;
+          const open = async (fn, probe) => { fn();
+            const fr = await bis(() => [...cd.querySelectorAll(".dialogFrame")].find(f => f.contentDocument?.readyState == "complete" && f.contentDocument.documentElement.hasAttribute("mc-pref-dialog") && f.contentDocument.getElementById(probe)?.getBoundingClientRect().height), probe + " offen mit Muster", 8000);
+            await ruhig(500); return fr; };
+          const zu = async () => { cw.gSubDialog._topDialog?.close(); await bis(() => ![...cd.querySelectorAll(".dialogFrame")].some(f => f.getBoundingClientRect().height > 30), "Dialog zu", 3000); await ruhig(300); };
+          const frameOf = fr => { const box = fr.closest(".dialogBox"), t = box.querySelector(".dialogTitle"), b = box.getBoundingClientRect(), fd = fr.contentDocument;
+            return { radius: csOf(box).borderTopLeftRadius, resize: csOf(box).resize, title: [csOf(t).textAlign, px(csOf(t).fontSize), csOf(t).fontWeight, Math.round(t.getBoundingClientRect().left - b.left)],
+              inset: Math.round(fr.getBoundingClientRect().left - b.left), font: px(csOf(fd.querySelector("dialog") || fd.querySelector(":root > vbox, :root > body > vbox") || fd.documentElement).fontSize),
+              secondary: colorOf(fd, "var(--mt-text-secondary)"), control: colorOf(fd, "var(--mt-control)", "backgroundColor"), selected: colorOf(fd, "var(--mt-selected-unfocused)", "backgroundColor"),
+              accent: colorOf(fd, "var(--mt-accent)", "backgroundColor") }; };
+          const card = e => { const s = csOf(e); return [s.borderTopWidth, px(s.borderTopLeftRadius), s.backgroundColor]; };
+          try {
+            cw.gotoPref("panePrivacy"); await ruhig(800);
+            // Gespeicherte Passwörter: Tabelle, Hilfetext über dem Suchfeld, Close als Hauptknopf, Größengriff
+            let fr = await open(() => cw.gPrivacyPane.showPasswords(), "signonsTree");
+            let fd = fr.contentDocument, tree = fd.getElementById("signonsTree"), col = tree.querySelector("treecol");
+            out.pw = frameOf(fr);
+            out.pw.tree = [...card(tree), Math.round(tree.querySelector("treecols").getBoundingClientRect().height), px(csOf(col).fontSize), csOf(col).fontWeight, csOf(col).color, csOf(col).borderInlineEndWidth, tree.rowHeight];
+            const intro = fd.getElementById("signonsIntro");
+            out.pw.intro = [csOf(intro).color, intro.getBoundingClientRect().bottom <= fd.getElementById("filter").getBoundingClientRect().top];
+            out.pw.close = csOf(fd.getElementById("closeButton")).backgroundColor;
+            // Größengriff: mit dem Agent-Stilblatt unsichtbar – ohne es sähe die Ecke anders aus (der Griff wäre da)
+            const box = fr.closest(".dialogBox"), corner = async () => { const r = box.getBoundingClientRect();
+              const bm = await cw.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(r.right - 16, r.bottom - 16, 16, 16), 2, "white");
+              const cv = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height; const cx = cv.getContext("2d"); cx.drawImage(bm, 0, 0);
+              return [...cx.getImageData(0, 0, cv.width, cv.height).data]; };
+            const sheet = "data:text/css,.dialogBox%20resizer%7Bopacity:0%20!important%7D";
+            const hidden = await corner();
+            cw.windowUtils.removeSheetUsingURIString(sheet, cw.windowUtils.AGENT_SHEET); await ruhig(200);
+            // (der Griff erscheint erst mit dem nächsten Zeichnen: einige Bilder lang auf ihn warten)
+            let shown = await corner();
+            for (let i = 0; i < 20 && shown.every((v, k) => Math.abs(v - hidden[k]) < 10); i++) { await wait(100); shown = await corner(); }
+            cw.windowUtils.loadSheetUsingURIString(sheet, cw.windowUtils.AGENT_SHEET); await ruhig(200);
+            // (dunkel ist der Griff nur schwach sichtbar: größte Abweichung eines Farbwerts)
+            out.pw.grip = Math.max(...hidden.map((v, i) => Math.abs(v - shown[i])));
+            await zu();
+            // Zertifikate (größenveränderlich): Inhalt passt ganz in den Rahmen, der Hauptknopf ist nicht unten abgeschnitten
+            fr = await open(() => cw.gPrivacyPane.showCertificates(), "certmanagertabs"); fd = fr.contentDocument;
+            out.certs = [fd.documentElement.scrollHeight, fd.documentElement.clientHeight, Math.round(fd.querySelector("dialog").getButton("accept").getBoundingClientRect().bottom)];
+            await zu();
+            // Ausnahmen: nur „Save Changes“ ist Hauptknopf, „Allow“ ein Textknopf
+            fr = await open(() => cw.gPrivacyPane.showRemoteContentExceptions(), "permissionsTree"); fd = fr.contentDocument;
+            out.perm = [csOf(fd.getElementById("btnApplyChanges")).backgroundColor, csOf(fd.getElementById("btnAllow")).backgroundColor, frameOf(fr).accent, csOf(fd.getElementById("permissionsText")).color];
+            await zu();
+            // Benachrichtigung: zwei Häkchen-Gruppen als graue Karten, Zwischenüberschrift grau halbfett
+            cw.gotoPref("paneGeneral"); await ruhig(800);
+            fr = await open(() => cw.gGeneralPane.customizeMailAlert(), "previewText"); fd = fr.contentDocument;
+            out.alert = frameOf(fr);
+            out.alert.boxes = ["subject", "sender", "previewText"].map(id => { const s = csOf(fd.getElementById(id)); return [s.backgroundColor, px(s.borderTopLeftRadius), px(s.borderBottomLeftRadius), Math.round(fd.getElementById(id).getBoundingClientRect().height)]; });
+            const head = fd.getElementById("enabledActionsDescription");
+            out.alert.head = [px(csOf(head).fontSize), csOf(head).fontWeight, csOf(head).color];
+            out.alert.actions = [...fd.querySelectorAll("#enabledActions > checkbox")].map(c => csOf(c).backgroundColor);
+            await zu();
+            // Sprachen: Liste als graue Karte, Auswahl grau statt blau
+            fr = await open(() => cw.gGeneralPane.showMessengerLanguagesSubDialog({ search: false }), "selectedLocales"); fd = fr.contentDocument;
+            const list = fd.getElementById("selectedLocales"); list.selectedIndex = 0; await ruhig(200);
+            out.lang = [...card(list), csOf(list.selectedItem).backgroundColor, csOf(list.selectedItem).color, colorOf(fd, "var(--mt-text)")];
+            out.langFrame = frameOf(fr);
+            await zu();
+            // Kategorie (Dialog mit 100vh): Knöpfe ganz sichtbar; Offline: Optionsgruppen als gleich breite Kartenzeilen
+            fr = await open(() => cw.gSubDialog.open("chrome://calendar/content/preferences/editCategory.xhtml", { features: "resizable=no" }, { title: "New Category", category: "", color: null }), "categoryName"); fd = fr.contentDocument;
+            const okb = fd.querySelector("dialog").getButton("accept");
+            out.cat = [Math.round(okb.getBoundingClientRect().bottom), fd.documentElement.clientHeight];
+            await zu();
+            fr = await open(() => cw.gGeneralPane.showOffline(), "whengoingOnlinestate"); fd = fr.contentDocument;
+            out.offline = [...fd.querySelectorAll("#whengoingOnlinestate radio, #whenStartingUp radio:not([hidden])")].map(r => [Math.round(r.getBoundingClientRect().width), csOf(r).backgroundColor]);
+            out.offlineControl = colorOf(fd, "var(--mt-control)", "backgroundColor");
+            await zu();
+          } finally { tm.closeTab(tab); await ruhig(300); }
+          return out;""")
+        def frame_ok(f):
+            return (f["radius"] == "18px" and f["title"][0] in ("start", "left") and f["title"][1] == 17
+                    and f["title"][2] == "600" and abs(f["title"][3] - 20) <= 1 and f["inset"] == 16 and f["font"] == 13)
+        pw, al, la = res["pw"], res["alert"], res["langFrame"]
+        # (Benachrichtigung ist nicht größenveränderlich; Passwörter und Sprachen behalten das Ziehen an der Ecke)
+        ok = frame_ok(pw) and frame_ok(al) and frame_ok(la) and pw["resize"] == la["resize"] == "both"
+        t = pw["tree"]
+        ok = ok and t[0] == "0px" and t[1] == 12 and same_color(t[2], pw["control"]) and t[3] == 30 and t[4] == 11.5 and t[5] == "600" \
+            and same_color(t[6], pw["secondary"]) and t[7] == "0px" and t[8] == 28
+        ok = ok and same_color(pw["intro"][0], pw["secondary"]) and pw["intro"][1] and same_color(pw["close"], pw["accent"]) and pw["grip"] >= 10
+        p = res["perm"]
+        ok = ok and same_color(p[0], p[2]) and not same_color(p[1], p[2]) and same_color(p[3], pw["secondary"])
+        b = al["boxes"]
+        ok = ok and all(same_color(x[0], al["control"]) and x[3] >= 38 for x in b) and b[0][1] == 12 and b[0][2] == 0 \
+            and b[1][1] == 0 and b[1][2] == 0 and b[2][1] == 0 and b[2][2] == 12
+        ok = ok and al["head"][:2] == [12, "600"] and same_color(al["head"][2], al["secondary"]) and al["actions"] and all(same_color(c, al["control"]) for c in al["actions"])
+        lg = res["lang"]
+        ok = ok and lg[0] == "0px" and lg[1] == 12 and same_color(lg[2], la["control"]) and same_color(lg[3], la["selected"]) and same_color(lg[4], lg[5])
+        ok = ok and res["cat"][0] <= res["cat"][1] - 2 and res["certs"][0] <= res["certs"][1] + 1 and res["certs"][2] <= res["certs"][1] - 2
+        ow = [x[0] for x in res["offline"]]
+        ok = ok and len(ow) >= 5 and max(ow) - min(ow) <= 1 and all(same_color(x[1], res["offlineControl"]) for x in res["offline"])
+        return ok, f"{res}"
+    check("Einstellungen: Unterdialoge nach einem Muster – Panel Radius 18 mit 20 px Rand, Überschrift links 17 px halbfett, Schrift 13 px, Listen und Tabellen als graue Karte (Kopf 30 px grau, Zeilen 28 px, Auswahl grau), Häkchen-Gruppen als Karte, Hilfetext grau, ein Hauptknopf, kein sichtbarer Größengriff", pref_subdialogs, results)
+
     def support_page():
         # Fehlerbehebungsseite (about:support): Knöpfe als 28-px-Kapsel mit der üblichen Knopffläche statt eckigem Toolkit-Grau
         res = m.js(COMPOSE_CHECK_JS + r"""
@@ -23577,8 +23682,9 @@ Neu
           const cb = cd.getElementById("cookieExceptions"); cb.scrollIntoView({ block: "center" }); cb.click();
           fr = await until(() => [...cd.querySelectorAll(".dialogFrame")].find(f => f.contentDocument?.readyState == "complete" && f.contentDocument.querySelector("tree")), 8000);
           if (fr) { await ruhig(800); const dd = fr.contentDocument; const t = dd.querySelector("tree");
-            const probe = dd.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.color = "var(--mt-pane-line)"; dd.documentElement.append(probe);
-            out.tree = [cs(t).borderTopLeftRadius, parseFloat(cs(t).borderTopWidth) <= 1, cs(t).borderTopColor == cs(probe).color];
+            // (seit dem gemeinsamen Muster der Unterdialoge: graue Karte Radius 12 ohne Rahmen statt Haarlinie mit 8 px)
+            const probe = dd.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-control)"; dd.documentElement.append(probe);
+            out.tree = [cs(t).borderTopLeftRadius, parseFloat(cs(t).borderTopWidth) == 0, cs(t).backgroundColor == cs(probe).backgroundColor];
             probe.remove(); cw.gSubDialog._topDialog?.close(); await ruhig(600); }
           cw.gotoPref("paneCalendar"); await ruhig(1500);
           const fs = vis("#paneDeck fieldset"); const dp = cd.getElementById("datePrefsBox");
@@ -23593,12 +23699,13 @@ Neu
         side_ok = res["side"][1:3] == ["13px", "13px"] and (res["side"][0] or sys.platform != "darwin")
         ok = (res["font"] == ["13px", "13px", "12px"] and side_ok
               and res["lists"] == [["8px", True, True]] * 2 and res["handlers"] == [True, "auto"]
-              and res.get("offline") and res["offline"][0] is True and res["offline"][1] <= 30
+              # Optionen untereinander als Zeilen der grauen Karte (38 px wie die Häkchen-Gruppen der Unterdialoge)
+              and res.get("offline") and res["offline"][0] is True and 38 <= res["offline"][1] <= 40
               and res["doh"] and res["doh"][0] and res["doh"][1] == "rgba(0, 0, 0, 0)" and res["doh"][2]
               and res["dohBox"] == ["12px", True, "10px", True, True] and res["pwSep"] == "none"
               and res["dohStatus"][1:3] == ["none", 0] and res["dohStatus"][3] > 0
               and res["legendsPrivacy"] == ["13px"] and res["ocsp"][0] <= 30 and res["ocsp"][1] == [True, True]
-              and res.get("tree") == ["8px", True, True]
+              and res.get("tree") == ["12px", True, True]
               and res["cal"][:2] == ["separator", "none"] and res["cal"][2] <= 20
               and res["qr"] == ["none", "12px", True, "11px", "none"])
         return ok, f"{res}"

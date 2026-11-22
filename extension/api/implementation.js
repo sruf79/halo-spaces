@@ -8348,6 +8348,21 @@ class CardEnhancer {
             ThemeSheet.apply(doc.defaultView);
           }
           dialogEdgeReset(doc.defaultView, url);
+          // Unterdialoge der Einstellungen (Schriften, Passwörter, Cookies, …):
+          // Kennzeichen für das gemeinsame Muster in spaces.css; ihr eigenes
+          // Dokument weiß sonst nicht, dass es in den Einstellungen steckt
+          // (dieselben Seiten öffnen auch als eigenes Fenster)
+          try {
+            const fe = doc.defaultView?.frameElement;
+            if (fe?.classList?.contains("dialogFrame") && fe.ownerDocument?.documentURI?.startsWith("about:preferences")) {
+              doc.documentElement?.setAttribute("mc-pref-dialog", "true");
+            }
+            // ihr Größengriff unsichtbar, Ziehen an der Ecke bleibt; der Griff
+            // ist ein anonymes Element, das nur ein Agent-Stilblatt erreicht
+            if (url.startsWith("about:preferences") && doc.defaultView) {
+              doc.defaultView.windowUtils.loadSheetUsingURIString("data:text/css,.dialogBox%20resizer%7Bopacity:0%20!important%7D", doc.defaultView.windowUtils.AGENT_SHEET);
+            }
+          } catch {}
           // Termin-Details: Fenster so groß, dass alles sichtbar ist
           if (url.startsWith("chrome://calendar/content/calendar-summary-dialog.xhtml") && doc.defaultView) {
             const dlg = doc.defaultView;

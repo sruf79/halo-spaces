@@ -1041,7 +1041,7 @@ class EnhancerOberflaeche {
       // über Ansicht → Layout geht weiter
       const collapseWidth = msgSplitter.getAttribute("collapse-width");
       msgSplitter.removeAttribute("collapse-width");
-      this.restorers.push(() => {
+      this.addWinRestorer(win, () => {
         msgSplitter._updateSize = origUpdate;
         if (collapseWidth) {
           msgSplitter.setAttribute("collapse-width", collapseWidth);
@@ -1130,7 +1130,7 @@ class EnhancerOberflaeche {
       };
       msgSplitter.addEventListener("splitter-resizing", onResizing);
       msgSplitter.addEventListener("splitter-resized", onResized);
-      this.restorers.push(() => {
+      this.addWinRestorer(win, () => {
         msgSplitter.removeEventListener("splitter-resizing", onResizing);
         msgSplitter.removeEventListener("splitter-resized", onResized);
         delete msgSplitter.__mcListWatch;
@@ -1409,7 +1409,7 @@ class EnhancerOberflaeche {
     for (const type of ["splitter-collapsed", "splitter-expanded", "splitter-resized"]) {
       splitterEl?.addEventListener(type, onSplitter);
     }
-    this.restorers.push(() => {
+    this.addWinRestorer(win, () => {
       for (const type of ["splitter-collapsed", "splitter-expanded", "splitter-resized"]) {
         splitterEl?.removeEventListener(type, onSplitter);
       }
@@ -1428,8 +1428,15 @@ class EnhancerOberflaeche {
     if (toolbarContent) {
       rowRo?.observe(toolbarContent);
     }
+    // Tab mit dieser Mailansicht geschlossen: Beobachter am Hauptfenster und Eintrag in der gemeinsamen Liste lösen –
+    // beide hielten sonst die geschlossene Mailansicht samt Dokument im Speicher (je Ordner-Tab rund 11 MB)
+    win.addEventListener("unload", () => {
+      ro.disconnect();
+      rowRo?.disconnect();
+      this.offsetUpdaters?.delete(update);
+    }, { once: true });
     update();
-    this.restorers.push(() => {
+    this.addWinRestorer(win, () => {
       ro.disconnect();
       rowRo?.disconnect();
       this.offsetUpdaters?.delete(update);

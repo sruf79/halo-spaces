@@ -480,6 +480,55 @@ unified-toolbar,
   }
 }
 
+/* Menüleiste unter Windows und Linux (mit Alt oder dauerhaft eingeblendet): eine
+   Zeile über die volle Fensterbreite ganz oben, wie man sie vom System kennt;
+   alles darunter (Bereiche-Leiste, Toolbar-Zeile, Inhalt) rückt gleichmäßig um
+   ihre Höhe nach unten. Thunderbird stellt sie unter die Toolbar-Zeile und
+   neben die Bereiche-Leiste: dort stand sie nur über der Ordnerliste, und die
+   Bereiche-Leiste rückte nicht mit. Die Höhe ist fest (--mt-menubar-h), damit
+   Bereiche-Leiste (fest positioniert) und Inhalt um genau denselben Wert rücken */
+@media not (-moz-platform: macos) {
+  :root {
+    --mt-menubar-h: 22px;
+  }
+
+  #titlebar > #toolbar-menubar:not([inactive="true"]) {
+    order: -1 !important;
+    block-size: var(--mt-menubar-h) !important;
+    min-block-size: var(--mt-menubar-h) !important;
+    padding-block: 0 !important;
+    padding-inline: 4px !important;
+    align-items: center !important;
+    background: var(--mt-window) !important;
+  }
+
+  /* über die Bereiche-Leiste bis an den linken Fensterrand (die Toolbar-Zeile
+     beginnt rechts der Leiste, Thunderbird rückt #titlebar um ihre Breite ein) */
+  #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #titlebar > #toolbar-menubar:not([inactive="true"]) {
+    margin-inline-start: calc(-1 * var(--spaces-total-width)) !important;
+  }
+
+  /* (Unterkante der Menüleiste auf den ganzen Bildpunkt: Thunderbird setzt die
+     Leiste unter Windows 0,5 px tiefer, dann lag der Schein der Seitenleiste in
+     der Zeile unter der Toolbar doppelt, eine helle Linie) */
+  #spacesToolbar:has(~ #navigation-toolbox #toolbar-menubar:not([inactive="true"])) {
+    top: var(--mt-menubar-h) !important;
+    margin-block-start: 0 !important;
+  }
+
+  #spacesToolbar[mc-float]:has(~ #navigation-toolbox #toolbar-menubar:not([inactive="true"])) {
+    top: calc(var(--mt-float-inset) + var(--mt-menubar-h)) !important;
+  }
+}
+
+/* Windows mit eigener Titelleiste im Fenstermodus: 1 px Fensterrand oben, die
+   Menüleiste beginnt darunter */
+@media (-moz-platform: windows) {
+  :root[sizemode="normal"][customtitlebar] #spacesToolbar:not([mc-float]):has(~ #navigation-toolbox #toolbar-menubar:not([inactive="true"])) {
+    top: calc(var(--mt-menubar-h) + 1px) !important;
+  }
+}
+
 /* Toolbar-Knöpfe als Kapseln */
 unified-toolbar button,
 .unified-toolbar-button,

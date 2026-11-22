@@ -6816,6 +6816,51 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: Ansicht → „Show Status Bar“ unter der Today-Pane blendet die Statusleiste aus und wieder ein, Häkchen nach dem Zustand", menubar_status_bar, results)
 
+    def menubar_full_width():
+        # Windows/Linux: die eingeblendete Menüleiste ist eine Zeile über die volle Fensterbreite ganz oben (auch über
+        # der Bereiche-Leiste), Bereiche-Leiste, Toolbar-Zeile und Inhalt rücken um genau ihre Höhe nach unten; vorher
+        # stand sie unter der Toolbar-Zeile nur über der Ordnerliste, die Bereiche-Leiste rückte nicht mit (Befund
+        # Windows-Rundgang 18.11.2026). Eingeblendet wie mit Alt: Thunderbird nimmt bei Alt (DOMMenuBarActive) nur
+        # „inactive“ weg (messenger-customization.js AutoHideMenubar), dasselbe Ereignis hier. macOS: native Leiste.
+        res = m.js(r"""
+          const out = { mac: Services.appinfo.OS == "Darwin" };
+          if (out.mac) return out;
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm.getAttribute("inactive");
+          const R = id => { const e = d.getElementById(id), b = e?.getBoundingClientRect(); return b ? [Math.round(b.left * 10) / 10, Math.round(b.top * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; };
+          const lage = () => ({ bar: R("spacesToolbar"), row: R("unifiedToolbarContainer"), body: R("messengerBody"), today: R("today-pane-panel") });
+          try {
+            await toMail();
+            out.spaces = !d.getElementById("spacesToolbar").hidden;
+            await stabil(lage);
+            out.vorher = lage();
+            tbm.dispatchEvent(new w.Event("DOMMenuBarActive"));
+            await bis(() => tbm.getAttribute("inactive") != "true", "Menüleiste eingeblendet", 2000);
+            await stabil(lage);
+            out.an = lage(); out.mb = R("toolbar-menubar"); out.file = R("menu_File"); out.breite = w.innerWidth;
+            out.farbe = getComputedStyle(tbm).backgroundColor; out.fenster = getComputedStyle(d.getElementById("navigation-toolbox")).backgroundColor;
+          } finally {
+            if (inactive != null) tbm.setAttribute("inactive", inactive); else tbm.removeAttribute("inactive");
+          }
+          await stabil(lage);
+          out.danach = lage();
+          return out;""")
+        if res.get("mac"):
+            return True, "macOS: native Menüleiste, nicht im Fenster"
+        mb, v, a = res.get("mb"), res.get("vorher", {}), res.get("an", {})
+        h = mb[3] if mb else 0
+        # (Today Pane nur, wenn sie zu sehen ist)
+        ruecken = {k: round(a[k][1] - v[k][1], 1) for k in ("row", "body", "today") if a.get(k) and v.get(k) and a[k][2] > 0 and v[k][2] > 0}
+        # Bereiche-Leiste: beginnt genau an der Unterkante der Menüleiste (Windows setzt sie sonst 0,5 px tiefer, ein
+        # halber Bildpunkt verdoppelte den Schein der Seitenleiste in einer Zeile)
+        unten = round(mb[1] + mb[3], 1) if mb else None
+        ok = (bool(mb) and res.get("spaces") and abs(mb[0]) <= 0.5 and mb[1] <= 1 and abs(mb[2] - res["breite"]) <= 1 and 18 <= h <= 26
+              and {"row", "body"} <= set(ruecken) and all(abs(d - h) <= 0.5 for d in ruecken.values())
+              and a.get("bar") and abs(a["bar"][1] - unten) <= 0.1
+              and res["file"][0] < v["bar"][2] and res["farbe"] == res["fenster"]
+              and res.get("danach") == v)
+        return ok, f"Leiste {mb}, Fenster {res.get('breite')} px, gerückt {ruecken}, Bereiche-Leiste oben {a.get('bar', [0, 0])[1]} (Menüleiste unten {unten}), File {res.get('file')}, Farbe {res.get('farbe')}/{res.get('fenster')}, danach wie vorher {res.get('danach') == v}"
+    check("Menüleiste (Windows/Linux): eingeblendet wie mit Alt eine Zeile über die volle Fensterbreite ganz oben, Bereiche-Leiste, Toolbar-Zeile, Inhalt und Today Pane rücken um ihre Höhe, danach wie vorher", menubar_full_width, results)
+
     def menubar_customize_toolbar():
         # Ansicht → „Customize Toolbar…“ in der Gruppe der Leisten (nach „Show Status Bar“): öffnet Thunderbirds
         # Anpassung der Symbolleiste (vorher nur über das Kontextmenü der Symbolleiste, das Untermenü „Toolbars“ fehlt);

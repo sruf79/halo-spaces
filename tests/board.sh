@@ -233,8 +233,13 @@ case $befehl in
     typeset typ=$1 titel=$2 text=$3 st=${4:-todo} id
     typ_option $typ >/dev/null && [[ -n $titel ]] || fehler "Aufruf: board.sh neu <bug|feature> <Titel> <Text> [<Status>]"
     status_option $st >/dev/null || fehler "Status unbekannt: $st"
-    board | jq -e --arg t $titel '.items[] | select(.status != "Done" and .title == $t)' >/dev/null \
-      && fehler "offener Eintrag mit gleichem Titel existiert schon – ergänzen statt neu"
+    # Gleicher Titel: auch neben einem pausierten Eintrag keinen zweiten anlegen (sonst passt ein Muster auf zwei
+    # Einträge, und die Pause des Maintainers würde umgangen); die Meldung nennt dann id und Status „Pausiert“
+    typeset gleich
+    gleich=$(board | jq -r --arg t $titel 'first(.items[] | select(.status != "Done" and .title == $t) | "\(.id) \(.status // "")")')
+    [[ $gleich == *\ Pausiert ]] \
+      && fehler "Eintrag mit gleichem Titel steht auf Pausiert (${gleich%% *}) – nichts angelegt; dort mit „notiz“ ergänzen, die Pause hebt nur der Maintainer auf"
+    [[ -n $gleich ]] && fehler "offener Eintrag mit gleichem Titel existiert schon – ergänzen statt neu"
     id=$(gh_wdh project item-create 1 --owner sruf79 --title "$titel" --body "$text" --format json --jq .id) \
       || fehler "Eintrag ließ sich nicht anlegen"
     setze $id $FELD_TYP $(typ_option $typ) && setze $id $FELD_STATUS $(status_option $st) \

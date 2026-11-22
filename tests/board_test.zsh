@@ -210,4 +210,12 @@ pruefe "export: jüngerer Leitstand-Stand zählt, keine Abfrage" '[[ $(jq -r ".i
 touch -t 202001010000 $T/alter.json $T/leitstand.json
 : > $T/aufrufe; B export > $T/aus 2>&1; rc=$?
 pruefe "export: alter Stand → Abfrage; liefert sie nichts, bleibt der alte Stand" '(( rc == 0 )) && grep -q "api graphql --paginate" $T/aufrufe && [[ $(jq -r ".items[] | select(.id == \"PVTI_b\") | .createdAt" $T/aus) == "2026-11-05T10:00:00Z" ]]'
+
+# 8. neu mit Titel eines pausierten Eintrags (22.11.2026): nichts angelegt, Meldung nennt id und „Pausiert“
+rm -f $T/zw.json $T/w.txt
+print -r -- '{"items":[{"id":"PVTI_p","title":"Kalender: Ruht","status":"Pausiert","typ":"Feature","content":{"id":"DI_p","body":"x"}},{"id":"PVTI_o","title":"Mail: Offen","status":"Todo","typ":"Bug","content":{"id":"DI_o","body":"y"}}]}' > $T/board.json
+: > $T/aufrufe; B neu feature "Kalender: Ruht" "z" ok > $T/aus 2>&1; rc=$?
+pruefe "neu neben pausiertem Eintrag: abgelehnt, Meldung mit id und Pausiert, kein item-create" '(( rc != 0 )) && grep -q "steht auf Pausiert (PVTI_p)" $T/aus && ! grep -q "item-create" $T/aufrufe'
+: > $T/aufrufe; B neu bug "Mail: Offen" "z" > $T/aus 2>&1; rc=$?
+pruefe "neu neben offenem Eintrag: wie bisher „existiert schon“, kein item-create" '(( rc != 0 )) && grep -q "existiert schon" $T/aus && ! grep -q "item-create" $T/aufrufe'
 exit $F

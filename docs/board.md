@@ -126,7 +126,7 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 | Feld | Feld-ID | Optionen |
 |---|---|---|
 | Typ | `PVTSSF_lAHODEPpks4BoBQwzhmjN8Y` | Feature `39bb4253`, Bug `ff678ae2` |
-| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Pausiert `63db51ef` (seit 22.11.2026, grau: bewusst zurückgestellt, Grund in der Notiz; nicht planen, nicht bearbeiten, nicht schließen; `board.sh status <id> pausiert`), Done `98236657` |
+| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Pausiert `63db51ef` (seit 22.11.2026, grau: bewusst zurückgestellt, Grund in der Notiz; nicht planen, nicht bearbeiten, nicht schließen; `board.sh status <id> pausiert`; `board.sh neu` mit dem Titel eines pausierten Eintrags legt nichts an und nennt dessen id), Done `98236657` |
 
 **Abfragelimit von GitHub** (Wochenprüfung W46, Freigabe des Maintainers 15.11.2026: „ja“): `board.sh`,
 `ci-waechter.sh` und `ci-runde.zsh` rufen `gh` über `tests/gh-wdh.zsh` auf. Meldet GitHub ein Abfragelimit,

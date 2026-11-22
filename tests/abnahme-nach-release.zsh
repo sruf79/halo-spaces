@@ -157,7 +157,7 @@ PUSH = re.compile(r"\bgepusht(?:\s+(?:bis|als|mit|auf))?\s*\(?\s*([0-9a-f]{7,40}
 PICK = re.compile(r"\bcherry[- ]pick(?:ed)?(?:\s+(?:von|from|aus))?\s*\(?\s*([0-9a-f]{7,40})(?![0-9A-Za-z])", re.I)
 for it in items:
     st = it.get("status") or ""
-    if st in ("Done", "Wartet auf OK"): continue
+    if st in ("Done", "Wartet auf OK", "Pausiert"): continue   # (Pausiert, 22.11.2026: nicht vorlegen)
     iid, titel, body = it.get("id", ""), it.get("title") or "", it.get("body") or ""
     abs_ = re.split(r"\n\s*\n", body)
     za = [i for i, a in enumerate(abs_) if ABN.search(a)]

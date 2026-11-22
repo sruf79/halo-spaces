@@ -74,6 +74,7 @@ jq -n --arg S $S --arg A $A '{items: [
  {id: "PVTI_g", status: "Todo", title: "Mail: geändert", body: "vorher"},
  {id: "PVTI_abg", status: "In Progress", title: "Optik: abgenommen", body: "committet (\($A)); zur Abnahme 2026-11-18\n\nabgenommen 2026-11-20"},
  {id: "PVTI_ok", status: "Wartet auf OK", title: "Ablauf: wartet", body: "?"},
+ {id: "PVTI_pau", status: "Pausiert", title: "Ablauf: zurückgestellt", body: "?"},
  {id: "PVTI_bew", status: "Todo", title: "Ablauf: bewusst", body: "Frage\n\nWartet bewusst bis 6.12.2026 (Maintainer)"},
  {id: "PVTI_abn", status: "In Progress", title: "Optik: Abnahme offen", body: "committet (\($A)); zur Abnahme 2026-11-18"}
 ]}' > $T/board.json
@@ -124,7 +125,7 @@ heute=$(TZ=Europe/Vienna date +%F)
 aus=$(lauf --probe 1.1.0); rc=$?
 pruefe "Probe: Exitcode 0" '(( rc == 0 ))'
 pruefe "Probe: offene Einträge und Issues" 'zeile "^würde prüfen: PVTI_a \[Todo\] Mail: Fehler A" && zeile "^würde prüfen: PVTI_abg " && zeile "^würde prüfen: Issue #10 Fehler B"'
-pruefe "Probe: ohne Wartet auf OK, Wartet bewusst bis und offene Abnahme" '! zeile PVTI_ok && ! zeile PVTI_bew && ! zeile PVTI_abn'
+pruefe "Probe: ohne Wartet auf OK, Pausiert, Wartet bewusst bis und offene Abnahme" '! zeile PVTI_ok && ! zeile PVTI_pau && ! zeile PVTI_bew && ! zeile PVTI_abn'
 pruefe "Probe: Summe mit Release-Bereich" 'zeile "Probe gegen v1.0.0..v1.1.0, 9 Board-Einträge und 7 offene Issues würden geprüft"'
 pruefe "Probe: kein Claude, nichts geschrieben" '[[ ! -e $T/claude.args && ! -e $T/folge.log ]] && cmp -s $T/board.json $T/board.anfang.json && cmp -s $T/issues.json $T/issues.anfang.json'
 pruefe "Probe: nur offene Issues, ohne Pull Requests (gh issue list --state open)" 'grep -q "issue list -R sruf79/halo-spaces --state open" $T/gh.args'

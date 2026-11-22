@@ -39,6 +39,7 @@ e V3 Todo 'Adressbuch: Karten springen' 'Zusammenhang: V1'
 # „Wartet auf OK“ und Done bleiben außen vor
 e W1 'Wartet auf OK' 'Mail-Toolbar: Pillen neu zeichnen'
 e D1 Done 'Mail-Toolbar: Suchfeld breiter'
+e Z1 Pausiert 'Mail-Toolbar: Pillen flackern'   # (Pausiert, 22.11.2026: bewusst zurückgestellt)
 print -r -- "{\"items\":[${(j:,:)ZEILEN}]}" > $T/board.json
 # Verweis als Board-id: V2/V3 nennen „V1“, das Skript sucht PVTI_-Kennungen → ids umschreiben
 sed -i '' 's/"V1"/"PVTI_V1"/; s/Zusammenhang: V1/Zusammenhang: PVTI_V1/g' $T/board.json
@@ -64,7 +65,7 @@ pruefe "Schritte derselben Reihe nicht gehäuft" '[[ -z $(gruppe_von R7) && -z $
 pruefe "gleiche GitHub-Nummer verbindet über Bereiche" '[[ -n $(gruppe_von G1) && $(gruppe_von G1) == $(gruppe_von G2) ]]'
 pruefe "gemeinsame Stelle (Mehrwochenansicht) im selben Bereich verbindet" '[[ -n $(gruppe_von PVTI_V1) && $(gruppe_von PVTI_V1) == $(gruppe_von V2) ]]'
 pruefe "Verweis allein über Bereiche verbindet nicht" '[[ -z $(gruppe_von V3) ]]'
-pruefe "Wartet auf OK und Done nicht gezählt" '! grep -qE "	(W1|D1)(,|	)" $TSV && ! grep -qE "[,	](W1|D1)," $TSV'
+pruefe "Wartet auf OK, Pausiert und Done nicht gezählt" '! grep -qE "	(W1|D1|Z1)(,|	)" $TSV && ! grep -qE "[,	](W1|D1|Z1)," $TSV'
 pruefe "Zuschlag bei 2 Einträgen 0.5, aufgerundet 1" '[[ $(zeile_von $(gruppe_von G1) | cut -f3-5) == $(print "2\t0.5\t1") ]]'
 pruefe "deterministisch: zweiter Lauf gleiche Gruppen" \
   'cp $TSV $T/erst.tsv; python3 $HIER/haeufung.py --eingabe $T/board.json --aus $T --datum 2026-11-14 >/dev/null && cmp -s $TSV $T/erst.tsv'

@@ -89,7 +89,8 @@ cat > $T/d/quellen/board.json <<'EOF'
  {"id":"PVTI_bXYZ1","status":"Todo","title":"Kalender: Woche zeigt Feiertage","typ":"Feature","content":{"body":""}},
  {"id":"PVTI_cXYZ2","status":"Todo","title":"[GitHub #9] Adressbuch: Liste leer","typ":"Bug","content":{"body":""}},
  {"id":"PVTI_dXYZ3","status":"Wartet auf OK","title":"Ablauf: neue Regel","typ":"Feature","content":{"body":""}},
- {"id":"PVTI_eXYZ4","status":"Todo","title":"ohne Bereich","typ":"Bug","content":{"body":""}}]}
+ {"id":"PVTI_eXYZ4","status":"Todo","title":"ohne Bereich","typ":"Bug","content":{"body":""}},
+ {"id":"PVTI_fXYZ5","status":"Pausiert","title":"Mail: zurückgestellt","typ":"Bug","content":{"body":""}}]}
 EOF
 cat > $T/n/2026-11-19-plan.md <<'EOF'
 | Nr. | id | Titel | Nutzen |
@@ -153,7 +154,7 @@ pruefe "Schalter: Volldampf, Push-Sperre um 08:00, Rot-Zähler 14 Tage, nur akti
   '.schalter.volldampf and .schalter.push_sperre and .schalter.rot_zaehler == 1 and (.schalter.pausen | length == 1 and .[0].bis == "2026-11-19T08:30:00Z")'
 pruefe "Board: in Arbeit mit Bereich und letzter Notizzeile" '.board.in_arbeit == [{"titel":"Mail: Knopf fehlt","typ":"Bug","bereich":"Mail","notiz":"committet, wartet auf Push/CI (abc1234)"}]'
 pruefe "Board: nächste laut Plan, nur Todo, ohne Archiviertes" '[.board.naechste[] | .titel] == ["[GitHub #9] Adressbuch: Liste leer","Kalender: Woche zeigt Feiertage"] and .board.naechste[1].rang == 2'
-pruefe "Board: Zahlen und Bereiche" '.board.zahlen.bugs_offen == 3 and .board.zahlen.features_offen == 2 and .board.zahlen.erledigt_woche == 1 and ([.board.zahlen.je_bereich[] | select(.bereich == "Sonstiges")][0].bugs == 1)'
+pruefe "Board: Zahlen und Bereiche (Pausiert nicht offen)" '.board.zahlen.bugs_offen == 3 and .board.zahlen.features_offen == 2 and .board.zahlen.erledigt_woche == 1 and ([.board.zahlen.je_bereich[] | select(.bereich == "Sonstiges")][0].bugs == 1)'
 pruefe "Rückmeldungen: nur Issues ohne unsere Antwort, Bilder gezählt" '.rueckmeldungen == {"issues_warten":[{"nr":5,"titel":"Offen","seit":"2026-11-18T10:00:00Z"}],"bilder_offen":1,"issues_neu_48h":null,"issues_geschlossen_48h":null,"issues_offen":2}'
 pruefe "CI: Läufe übernommen, main läuft" '(.ci | length == 2) and .ci[0].ergebnis == "failure" and .ci[1].ergebnis == null and .ci_main == "läuft"'
 pruefe "GitHub-Limit: REST und GraphQL mit Limit, verbraucht, Rest, Reset (UTC)" \

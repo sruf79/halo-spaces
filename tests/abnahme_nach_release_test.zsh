@@ -63,6 +63,7 @@ jq -n --arg S $S --arg A $A --arg B $B --arg C $C --arg X $X '{items: [
  {id: "PVTI_abg", status: "In Progress", title: "Optik: schon abgenommen", body: "committet (\($A)); zur Abnahme 2026-11-18\n\nabgenommen vom Maintainer"},
  {id: "PVTI_alt", status: "Todo", title: "Optik: Mangel alt", body: "committet (\($A)); zur Abnahme 2026-11-18\n\nAbnahme: Mangel – Radius 6 statt 7 px"},
  {id: "PVTI_ok", status: "Wartet auf OK", title: "Optik: wartet", body: "committet (\($A)); zur Abnahme 2026-11-18"},
+ {id: "PVTI_pau", status: "Pausiert", title: "Optik: zurückgestellt", body: "committet (\($A)); zur Abnahme 2026-11-18"},
  {id: "PVTI_ohne", status: "In Progress", title: "Mail: kein Design", body: "committet (\($A)), wartet auf Push/CI"}
 ]}' > $T/board.json
 cp $T/board.json $T/board.anfang.json
@@ -88,7 +89,7 @@ aus=$(lauf --probe 1.1.0); rc=$?
 pruefe "Probe: Exitcode 0" '(( rc == 0 ))'
 pruefe "Probe: Kandidaten mit Commit im Release" 'zeile "^würde prüfen: PVTI_k1 " && zeile "^würde prüfen: PVTI_k5 "'
 pruefe "Probe: Commit aus früherem Release zählt" 'zeile "^würde prüfen: PVTI_frueh "'
-pruefe "Probe: keine Kandidaten ohne Release-Commit, abgenommen, mit Mangel, Wartet auf OK, ohne Markierung" '! zeile "PVTI_x " && ! zeile PVTI_xa && ! zeile PVTI_abg && ! zeile PVTI_alt && ! zeile PVTI_ok && ! zeile PVTI_ohne'
+pruefe "Probe: keine Kandidaten ohne Release-Commit, abgenommen, mit Mangel, Wartet auf OK, Pausiert, ohne Markierung" '! zeile "PVTI_x " && ! zeile PVTI_xa && ! zeile PVTI_abg && ! zeile PVTI_alt && ! zeile PVTI_ok && ! zeile PVTI_ohne && ! zeile PVTI_pau'
 pruefe "Probe: Summe" 'zeile "Probe, 6 Einträge würden geprüft"'
 pruefe "Probe: kein Claude, nichts geschrieben" '[[ ! -e $T/claude.args && ! -e $T/folge.log ]] && cmp -s $T/board.json $T/board.anfang.json'
 

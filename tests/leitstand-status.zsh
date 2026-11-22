@@ -527,7 +527,7 @@ def erledigt_48h():
     return sum(1 for i in a if _seit48(zeit(i)))
 def board():
     if BOARD is None: return None
-    offen = [i for i in BOARD if i.get("status") != "Done"]
+    offen = [i for i in BOARD if i.get("status") not in ("Done", "Pausiert")]   # (Pausiert, 22.11.2026: zurückgestellt, nicht offen)
     in_arbeit = [{"titel": t200(i.get("title")), "typ": typ(i), "bereich": bereich(i.get("title") or ""), "notiz": notiz(i)}
                  for i in offen if i.get("status") == "In Progress"]
     naechste = None

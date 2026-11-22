@@ -340,8 +340,9 @@ def aelteste_machbar(items, datum, n=3):
 
 
 def offen(items):
+    # „Pausiert“ (22.11.2026): bewusst zurückgestellt, nicht planen
     return [Eintrag(d) for d in items
-            if (d.get('status') or '') not in ('Done', 'Wartet auf OK')]
+            if (d.get('status') or '') not in ('Done', 'Wartet auf OK', 'Pausiert')]
 
 
 def board_lesen():

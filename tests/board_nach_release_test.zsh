@@ -48,6 +48,7 @@ jq -n --arg A $(k $A) --arg D $(k $D) --arg E $(k $E) --arg F $(k $F) --arg RB $
  {id: "PVTI_gh", status: "In Progress", title: "Kalender: Termin springt [GitHub #5]", body: "Wo: Kalender"},
  {id: "PVTI_teil", status: "In Progress", title: "Mail: Codes erkennen [GitHub #7]", body: "Wo: Mail"},
  {id: "PVTI_ok", status: "Wartet auf OK", title: "Mail: Suche", body: "committet \($E), wartet auf Push/CI"},
+ {id: "PVTI_pau", status: "Pausiert", title: "Mail: zurückgestellt", body: "committet \($A), wartet auf Push/CI"},
  {id: "PVTI_reihe", status: "In Progress", title: "Aufgaben: Umbau (2/5) – Tabelle", body: "committet, wartet auf Push/CI (\($D))"},
  {id: "PVTI_rest", status: "In Progress", title: "Mail: Suche Teil B", body: "committet \($E), wartet auf Push/CI\n\nOffen: Hervorhebung im Dunkelmodus"},
  {id: "PVTI_todo", status: "Todo", title: "Mail: Liste Teil C", body: "committet \($A), wartet auf Push/CI. Kein Fix, Status bleibt Todo"},
@@ -84,13 +85,14 @@ pruefe "GitHub #n: geschlossen" 'grep -q "^status PVTI_gh done ${B[1,7]}$" $T/fo
 pruefe "Rebase: geschlossen mit Hash aus dem Release" 'grep -q "^status PVTI_rebase done ${RM[1,7]}$" $T/folge.log'
 pruefe "Reihe: nur Notiz Schritt 2, kein Status" 'grep -q "^notiz PVTI_reihe Schritt 2 in v1.1.0 enthalten" $T/folge.log && ! grep -q "^status PVTI_reihe" $T/folge.log'
 pruefe "Wartet auf OK: unberührt" '! grep -q PVTI_ok $T/folge.log && zeile "^unberührt (Wartet auf OK): PVTI_ok "'
+pruefe "Pausiert mit Commit im Release: unberührt, kein Zweifel" '! grep -q PVTI_pau $T/folge.log && zeile "^unberührt (Pausiert): PVTI_pau " && ! zeile "^Zweifel: PVTI_pau "'
 pruefe "Teil-Fix: nicht geschlossen, Zweifel" '! grep -q PVTI_teil $T/folge.log && grep -q "| v1.1.0 | PVTI_teil | .*Teil-Fix" $T/zweifel.md'
 pruefe "offener Rest: nicht geschlossen, Zweifel" '! grep -q PVTI_rest $T/folge.log && grep -q "| PVTI_rest | .*offener Rest" $T/zweifel.md'
 pruefe "Status Todo: nicht geschlossen, Zweifel" '! grep -q PVTI_todo $T/folge.log && grep -q "| PVTI_todo | .*Status Todo" $T/zweifel.md'
 pruefe "neuere Arbeit danach: nicht geschlossen, Zweifel" '! grep -q PVTI_neuer $T/folge.log && grep -q "| PVTI_neuer | .*neuere Arbeit" $T/zweifel.md'
 pruefe "Hash nur erwähnt (ohne „committet“): unberührt" '! grep -q PVTI_nurerwaehnt $T/folge.log $T/zweifel.md'
 pruefe "Querverweis GitHub #n im Text: unberührt" '! grep -q PVTI_quer $T/folge.log $T/zweifel.md'
-pruefe "Summenzeile" 'zeile "^Board nach Release v1.1.0 (v1.0.0..v1.1.0): geschlossen 4, Reihen vermerkt 1, Zweifel 4, Wartet auf OK unberührt 1$"'
+pruefe "Summenzeile" 'zeile "^Board nach Release v1.1.0 (v1.0.0..v1.1.0): geschlossen 4, Reihen vermerkt 1, Zweifel 4, Wartet auf OK unberührt 1, Pausiert unberührt 1$"'
 pruefe "kein an_neon bei Erfolg" '! zeile "TROCKEN: an_neon"'
 
 # --- Doppellauf: nichts mehr ---
@@ -98,7 +100,7 @@ cp $T/folge.log $T/folge.vorher; cp $T/zweifel.md $T/zweifel.vorher
 aus=$(lauf 1.1.0); rc=$?
 pruefe "Doppellauf: nichts geschrieben" '(( rc == 0 )) && cmp -s $T/folge.log $T/folge.vorher'
 pruefe "Doppellauf: Zweifel nicht doppelt" 'cmp -s $T/zweifel.md $T/zweifel.vorher'
-pruefe "Doppellauf: Summe ohne Schließen" 'zeile "geschlossen 0, Reihen vermerkt 0, Zweifel 4, Wartet auf OK unberührt 1$"'
+pruefe "Doppellauf: Summe ohne Schließen" 'zeile "geschlossen 0, Reihen vermerkt 0, Zweifel 4, Wartet auf OK unberührt 1, Pausiert unberührt 1$"'
 
 # --- Notiz schon da, Status fehlte (z. B. Warteschlange): nur Status ---
 jq --arg A ${A[1,7]} '.items += [{id: "PVTI_halb", status: "In Progress", title: "Mail: halb", body: "committet \($A), wartet auf Push/CI\n\nerledigt in v1.1.0 (\($A)), automatisch geschlossen"}]' $T/board.json > $T/x && mv $T/x $T/board.json

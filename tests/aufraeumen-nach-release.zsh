@@ -141,7 +141,7 @@ ZU = re.compile(r"abgenommen|Abnahme:\s*Mangel", re.I)
 for it in json.load(open(sys.argv[1], encoding="utf-8"))["items"]:
     st = it.get("status") or ""
     body = it.get("body") or ""
-    if st in ("Done", "Wartet auf OK") or re.search(r"Wartet bewusst bis ", body): continue
+    if st in ("Done", "Wartet auf OK", "Pausiert") or re.search(r"Wartet bewusst bis ", body): continue
     abs_ = re.split(r"\n\s*\n", body)
     za = [i for i, a in enumerate(abs_) if ABN.search(a)]
     if za and not any(ZU.search(a) for a in abs_[za[-1] + 1:]): continue   # offene Abnahme: gehört abnahme-nach-release.zsh

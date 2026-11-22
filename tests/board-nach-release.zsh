@@ -19,6 +19,7 @@
 # Treffer: board.sh notiz <id> „erledigt in vX.Y.Z (<Hash>), automatisch geschlossen“, dann board.sh status <id> done <Hash>.
 # Nie geschlossen:
 #   - Status „Wartet auf OK“ (nicht angefasst, nur in der Ausgabe gezählt)
+#   - Status „Pausiert“ (22.11.2026; nicht angefasst, kein Zweifel, nur in der Ausgabe gezählt)
 #   - Reihen n/m (Titel mit n/m): nur Notiz „Schritt n in vX.Y.Z enthalten“, Status bleibt
 #   - Design-Einträge mit „zur Abnahme“ in der Notiz (Designer, beim Commit) ohne spätere Notiz „abgenommen“ (Groß-/Kleinschreibung
 #     egal): Zweifel mit Frist von 7 Tagen (ab Datum in der Notiz, sonst ab erstem Auftreten im Zweifel-Protokoll), Vorrang
@@ -214,6 +215,7 @@ for it in items:
     neu = min(treffer, key=lambda s: (im_bereich.get(s, len(im_bereich)), s))   # neuester Treffer (Release vor früher)
     kurz = neu[:7]
     if st == "Wartet auf OK": aus("okwarten", iid, kurz, titel, ""); continue
+    if st == "Pausiert": aus("pausiert", iid, kurz, titel, ""); continue   # (22.11.2026: bewusst zurückgestellt, nie schließen)
     # Design-Einträge: „zur Abnahme“ in der Notiz des Designers ohne spätere „abgenommen“ ist ein Zweifel mit Frist von
     # 7 Tagen und hat Vorrang vor jedem Hash-Treffer (Maintainer 18.11.2026); keine Regel „Abnahme vor Done“, nur die Markierung
     if za and not abgen:
@@ -247,7 +249,7 @@ for it in items:
 PY
 
 # --- Ausführen bzw. zeigen ---
-typeset -i ZU=0 REI=0 ZW=0 OKW=0 FEHL=0
+typeset -i ZU=0 REI=0 ZW=0 OKW=0 PAU=0 FEHL=0
 typeset -a FEHLTEXT
 schreibe() {   # board.sh-Aufruf; Fehler zählen (Warteschlange: Warnung, board.sh trägt später nach)
   local err
@@ -259,6 +261,7 @@ DATUM=$(TZ=Europe/Vienna date '+%F %H:%M')
 while IFS=$'\t' read -r art id hash titel extra; do
   case $art in
     okwarten) OKW+=1; print -r -- "unberührt (Wartet auf OK): $id $titel" ;;
+    pausiert) PAU+=1; print -r -- "unberührt (Pausiert): $id $titel" ;;
     zweifel)
       ZW+=1; print -r -- "Zweifel: $id $titel – $extra"
       if [[ -z $PROBE$NUR ]] && ! grep -qF "| v$VERSION | $id |" $ZWEIFEL 2>/dev/null; then
@@ -277,6 +280,7 @@ while IFS=$'\t' read -r art id hash titel extra; do
   esac
 done < $T/plan
 SUMME="Board nach ${NUR:+Abnahme, }Release v$VERSION ($VON..$BIS): ${PROBE:+Probe, }geschlossen $ZU, Reihen vermerkt $REI, Zweifel $ZW, Wartet auf OK unberührt $OKW"
+(( PAU )) && SUMME+=", Pausiert unberührt $PAU"
 (( FEHL )) && SUMME+=", nicht geschrieben $FEHL"
 print -r -- $SUMME
 log $SUMME

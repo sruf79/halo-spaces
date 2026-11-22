@@ -59,7 +59,9 @@ Reihenfolge:
       5. zuletzt Reihen (n/m); die Reihenfolge der Einträge in der Nacht legt
       seit 13.11.2026 der Director fest, Schritt 1a).
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
-   Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
+   Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen. Einträge mit
+   Status „Pausiert“ (seit 22.11.2026, Umbau-Woche) werden nicht geplant, nicht
+   bearbeitet und nicht geschlossen.
    Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:
    Doppelte zusammenlegen, Bugs, die ein Feature ohnehin behebt, an dieses
    hängen (Notiz in beiden Einträgen; Feature und Bug dann zusammen erledigen).
@@ -481,7 +483,8 @@ Reihenfolge:
         große reine Umbauten ohne Nutzernutzen (z. B. Module zerlegen) nur
         nachrangig. Unverändert gelten: Rahmenregeln (a)–(g), Schutz der
         Mail-Funktion, Apple-Mail-Maßstab, Rückfragen statt Raten (f),
-        „Wartet auf OK“ bleibt liegen, Grenze 04:30 für neue Einträge vor dem
+        „Wartet auf OK“ bleibt liegen, „Pausiert“ wird nicht geplant, nicht
+        bearbeitet und nicht geschlossen, Grenze 04:30 für neue Einträge vor dem
         Push (Schritt 3) und die Zeiten für CI und Release (Schritt 4).
       - Schritt 5 und Fortsetzungen bis 08:45 (das Skript setzt dann die
         Grenzen auf 08:45, höchstens 50 Fortsetzungen und 40 nicht gepushte

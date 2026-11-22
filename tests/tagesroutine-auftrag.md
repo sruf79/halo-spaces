@@ -20,7 +20,8 @@ von origin/main angelegt), nie in ~/halo-spaces auf main; main bleibt frei von C
 Regeln:
 1. Reihenfolge: neue bzw. nicht gepushte Commits durchsehen (im Arbeitsordner git log origin/main..HEAD und
    in ~/halo-spaces git log origin/main..main, Commits seit dem letzten Nachtlauf), dann die Liste laden, zuerst die komplexeren Bugs und Features (die sonst
-   liegen bleiben), dann der Rest. „Wartet auf OK“ bleibt liegen. Je Eintrag committen (nur eigene
+   liegen bleiben), dann der Rest. „Wartet auf OK“ bleibt liegen. Einträge mit Status „Pausiert“ (seit 22.11.2026,
+   Umbau-Woche) werden nicht geplant, nicht bearbeitet und nicht geschlossen. Je Eintrag committen (nur eigene
    Hunks, Stil nach AGENTS.md), nie pushen. Betroffene Prüfungen nur lokal mit
    python3 tests/halo_test.py --port 2850 --only "…" (hell; --dark nur bei Farben), keine Testläufe,
    solange Runner.Worker läuft (pgrep -f Runner.Worker; dann warten, nicht umgehen – HALO_LAUF

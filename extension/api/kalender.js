@@ -1827,6 +1827,11 @@ function afterInputBoxValue(picker, fn) {
 // Termin. Danach gilt sie als erledigt wie mit „Dismiss“ im Fenster – sonst
 // käme sie beim nächsten Start als verpasst wieder. Den Ton spielt weiter
 // Thunderbird (calendar.alarms.playsound).
+// Scheitert dieses Speichern (der Server lehnt die Änderung ab), meldet Thunderbird das mit einem Fehlerfenster
+// „error writing to the calendar“ – hier käme es von selbst, ohne dass jemand etwas geändert hat. Solange das eigene
+// Speichern läuft, schließt quietWriteError() dieses Fenster für diesen Kalender gleich wieder; die Erinnerung
+// führt Thunderbird danach selbst als erledigt (Liste der ignorierten Erinnerungen). Fehler bei Änderungen des
+// Nutzers zeigt Thunderbird wie bisher.
 // alerts: Mitteilungsdienst (Tests setzen einen eigenen)
 const ALARM_SHOW_PREF = "calendar.alarms.show";
 const AlarmAlerts = {
@@ -1834,6 +1839,42 @@ const AlarmAlerts = {
   observer: null,
   service: null,
   showBefore: null,
+  // Namen der Kalender, in die gerade das eigene „erledigt“ geschrieben wird (Name → Anzahl)
+  writing: new Map(),
+  // wie „Dismiss“ im Erinnerungsfenster (wiederholte Termine: nur dieses Vorkommen)
+  dismiss(item, alarm) {
+    const name = item.calendar?.name || "";
+    const done = () => {
+      const n = (this.writing.get(name) || 1) - 1;
+      n > 0 ? this.writing.set(name, n) : this.writing.delete(name);
+    };
+    this.writing.set(name, (this.writing.get(name) || 0) + 1);
+    let job = null;
+    try {
+      job = this.service.dismissAlarm(item, alarm);
+    } catch (e) {
+      log("alarm dismiss error", String(e).slice(0, 120));
+    }
+    // Kalender mit Offline-Kopie melden den Fehler erst nach der Antwort: zwei Sekunden Nachlauf
+    Promise.resolve(job).catch(e => log("alarm dismiss error", String(e).slice(0, 120))).finally(() => setTimeout(done, 2000));
+  },
+  // Thunderbirds Fehlerfenster (calendar-error-prompt) zu einem Schreibfehler, den das eigene Speichern ausgelöst
+  // hat: nach dem Laden schließen (erst dann vergisst Thunderbird die Meldung wieder und zeigt die nächste gleiche)
+  quietWriteError(win) {
+    try {
+      const args = win.arguments?.[0]?.QueryInterface(Ci.nsIDialogParamBlock);
+      if (!args || args.GetString(1) != "MODIFICATION_FAILED" || ![...this.writing.keys()].some(n => n && args.GetString(0).includes(n))) {
+        return false;
+      }
+      log("alarm dismiss failed, error window closed", args.GetString(2).slice(0, 120));
+      const close = () => win.close();
+      win.document.readyState == "complete" ? close() : win.addEventListener("load", close, { once: true });
+      return true;
+    } catch (e) {
+      log("alarm error window", String(e).slice(0, 120));
+      return false;
+    }
+  },
   start() {
     if (this.observer) {
       return;
@@ -1927,8 +1968,7 @@ const AlarmAlerts = {
         Promise.resolve().then(() => this.showWindow(item, alarm));
         return;
       }
-      // wie „Dismiss“ im Erinnerungsfenster (wiederholte Termine: nur dieses Vorkommen)
-      this.service.dismissAlarm(item, alarm)?.catch?.(e => log("alarm dismiss error", String(e).slice(0, 120)));
+      this.dismiss(item, alarm);
     } catch (e) {
       log("alarm alert error", String(e).slice(0, 160));
     }

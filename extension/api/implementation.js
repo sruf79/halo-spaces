@@ -8301,6 +8301,10 @@ class CardEnhancer {
             const dlg = doc.defaultView;
             dlg.addEventListener("load", () => dlg.setTimeout(() => this.fitAlarmDialog(dlg), 200), { once: true });
           }
+          // Schreibfehler beim eigenen Erledigen einer Erinnerung: kein Fehlerfenster von selbst (siehe AlarmAlerts)
+          if (url.startsWith("chrome://calendar/content/calendar-error-prompt.xhtml") && doc.defaultView && AlarmAlerts.quietWriteError(doc.defaultView)) {
+            return;
+          }
           if (!/^(chrome:\/\/(messenger|calendar|messenger-newsblog)\/|about:(addressbook|preferences|addons|accountsettings|accountsetup|message|3pane))/.test(url)) {
             return;
           }

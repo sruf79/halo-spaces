@@ -22665,6 +22665,74 @@ Neu
         return ok, f"{res}"
     check("Kalender: ohne Mitteilungsdienst zeigt Thunderbirds Erinnerungsfenster die Terminerinnerung, sie bleibt offen", calendar_alarm_fallback, results)
 
+    def calendar_alarm_write_error():
+        # halo.spaces speichert eine gemeldete Erinnerung selbst als erledigt. Lehnt der Kalender (Server) das Schreiben ab,
+        # öffnete Thunderbird von selbst sein Fehlerfenster „error writing to the calendar … MODIFICATION_FAILED“, obwohl
+        # niemand etwas geändert hat (nachgestellt: 34 ms nach der Erinnerung). Jetzt bleibt es dabei aus; scheitert danach
+        # eine Änderung des Nutzers am selben Kalender mit derselben Meldung, zeigt Thunderbird sein Fenster wie bisher.
+        # Eigener Kalender, dessen Schreiben scheitert wie bei einem Server, der mit 400 antwortet.
+        res = m.js(r'''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global;
+          const AA = Cu.evalInSandbox("AlarmAlerts", g);
+          const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+          const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+          c.name = "Halo Schreibfehler"; cal.manager.registerCalendar(c);
+          const raw = c.wrappedJSObject || c;
+          const e = new CalEvent(); e.title = "Halo Erinnerung Schreibfehler"; e.calendar = c;
+          // erst in 20 Minuten fällig: nur der eigene Aufruf löst aus (wie in der Prüfung der Mitteilung)
+          const s = cal.dtz.now(); s.minute += 30; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          const al = new CalAlarm(); al.related = Ci.calIAlarm.ALARM_RELATED_START; const off = cal.createDuration(); off.minutes = -10; al.offset = off; al.action = "DISPLAY"; e.addAlarm(al);
+          const shown = [];
+          const fake = { showAlertWithCallbacks: n => shown.push(n.title), showAlert: n => shown.push(n.title) };
+          const prompts = () => [...Services.wm.getEnumerator(null)].filter(x => String(x.location?.href).includes("calendar-error-prompt"));
+          const out = { calls: 0 };
+          // halo.spaces vermerkt das abgelehnte Speichern im Protokoll (absichtlich ausgelöst)
+          erwartet(/alarm dismiss failed, error window closed/);
+          // jedes Fehlerfenster ab seinem Entstehen festhalten (es darf auch nicht kurz stehen bleiben)
+          const seen = [];
+          const watch = { observe(doc) { const w = doc.defaultView; if (w && String(doc.documentURI).includes("calendar-error-prompt") && !seen.includes(w)) { seen.push(w); } } };
+          Services.obs.addObserver(watch, "document-element-inserted");
+          try {
+            const saved = await c.addItem(e);
+            raw.modifyItem = async function () {
+              out.calls++;
+              this.notifyError(Ci.calIErrors.MODIFICATION_FAILED, "Server Replied with 400");
+              throw Components.Exception("Halo: Schreiben abgelehnt", Cr.NS_ERROR_FAILURE);
+            };
+            AA.alerts = fake;
+            AA.onAlarm(saved, saved.getAlarms()[0]);
+            await bis(() => out.calls == 1 && seen.length == 1, "Erinnerung gespeichert (abgelehnt), Fehlerfenster entstanden", 5000);
+            out.shown = shown.slice();
+            // das Fenster schließt sich von selbst wieder
+            out.closedSelf = !!(await until(() => seen[0].closed && !prompts().length, 5000));
+            // der Nachlauf des eigenen Speicherns (2 s) ist vorbei
+            await bis(() => !AA.writing.size, "eigenes Speichern abgeschlossen", 6000);
+            // Änderung des Nutzers, gleiche Meldung: Thunderbirds Fenster erscheint und bleibt
+            const copy = saved.clone(); copy.title = "Halo Erinnerung Schreibfehler geändert";
+            try { await c.modifyItem(copy, saved); } catch { out.userRejected = true; }
+            const win = await until(() => seen.length == 2 && seen[1].document.readyState == "complete" && seen[1], 5000);
+            if (win) {
+              // Fenster, das stehen bleibt: nach zwei Bildern noch offen
+              await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+              out.userWindow = !win.closed; out.userCode = win.document.getElementById("error-code")?.value;
+            }
+          } finally {
+            Services.obs.removeObserver(watch, "document-element-inserted");
+            AA.alerts = null; delete raw.modifyItem;
+            seen.forEach(w => { if (!w.closed) { w.close(); } });
+            cal.manager.removeCalendar(c);
+            // das Fenstermanager-Register gibt ein Fenster erst etwas nach win.closed frei
+            await until(() => !prompts().length, 3000);
+          }
+          out.windows = seen.length; out.left = prompts().length;
+          return out;''')
+        ok = (res.get("calls") == 2 and res.get("shown") == ["Halo Erinnerung Schreibfehler"] and res.get("closedSelf")
+              and res.get("userRejected") and res.get("userWindow") and res.get("userCode") == "MODIFICATION_FAILED"
+              and res.get("windows") == 2 and res.get("left") == 0)
+        return ok, f"{res}"
+    check("Kalender: lehnt der Kalender das Speichern einer gemeldeten Erinnerung ab, kommt kein Fehlerfenster von selbst; bei einer Änderung des Nutzers zeigt Thunderbird es weiter", calendar_alarm_write_error, results)
+
     def search_placeholder():
         # Suchfeld oben: Platzhalter je Bereich steht im eigenen <span slot="placeholder">
         # (das placeholder-Attribut wäre unsichtbar) und in der Sprache der Oberfläche;

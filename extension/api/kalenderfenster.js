@@ -1903,6 +1903,347 @@ class EnhancerKalender {
     }
   }
 
+  // Einladungsfenster (Termin-Details einer offenen Einladung) im halo-Design,
+  // Variante A des Designers (Maintainer 15.11.2026), nach einer Antwort
+  // Variante „nach-a“ (17.11.2026); Gestaltung in spaces.css (:root[mc-invite]).
+  // Statt Werkzeugleiste und blauer Hinweisleiste oben eine graue Zeile mit
+  // Thunderbirds Text zum Stand; Titel als eigene Karte mit der Kalenderfarbe
+  // als Strich; Thunderbirds Tabelle bleibt die Zeitkarte (Beschriftungen
+  // Starts, Ends, Alert); Kalender mit Farbpunkt; Organisator und Teilnehmer in
+  // einer Gruppe „Invitees“ (Thunderbirds Liste samt Kontextmenü und Tooltip,
+  // nur umgestellt wie die Einladung in der Mail); unten „…“ mit allem aus den
+  // Pfeilmenüs (Antwort senden bzw. nicht senden) und „Save and Close“, rechts
+  // Decline, Tentative und Accept als Hauptknopf. Alle Antworten laufen über
+  // Thunderbirds reply()/saveAndClose() im Fenster. Nur für Termine, in die
+  // man antworten kann; Aufgaben und nur lesbare Kalender bleiben wie bisher.
+  haloInvitationDialog(dlg) {
+    try {
+      const doc = dlg.document;
+      const root = doc.documentElement;
+      const item = dlg.calendarItem;
+      if (dlg.isInvitation !== true || dlg.readOnly || !item?.isEvent?.() || root.hasAttribute("mc-invite")) {
+        return;
+      }
+      const summary = doc.getElementById("calendar-item-summary");
+      const box = summary?.querySelector(".item-summary-box");
+      const table = box?.querySelector(".calendar-summary-table");
+      const dialog = doc.querySelector("dialog");
+      if (!box || !table || !dialog) {
+        return;
+      }
+      const X = "http://www.w3.org/1999/xhtml";
+      const el = (tag, cls, ...kids) => {
+        const n = doc.createElementNS(X, tag);
+        if (cls) {
+          n.className = cls;
+        }
+        n.append(...kids);
+        return n;
+      };
+      root.setAttribute("mc-invite", "");
+      // Inhalt nicht strecken: mit Thunderbirds flex="1" maß sizeToContent das
+      // Fenster rund 300 px zu hoch (das Attribut schlägt die Regel in spaces.css)
+      summary.removeAttribute("flex");
+      summary.style.setProperty("flex", "none", "important");
+      root.style.setProperty("--mc-inv-cal", item.calendar?.getProperty("color") || "#A8C2E1");
+      const partstat = () => dlg.attendee?.participationStatus || "NEEDS-ACTION";
+
+      // graue Zeile oben: Kalendersymbol, nach einer Antwort deren Zeichen
+      const status = el("div", "mc-inv-status");
+      status.id = "mc-inv-status";
+      const statusText = el("span", "mc-inv-status-text");
+      summary.before(status);
+
+      // Titel als Karte mit Strich in der Kalenderfarbe
+      const title = el("div", "mc-inv-title");
+      title.textContent = item.title || "";
+      const head = el("div", "mc-inv-card mc-inv-head", el("span", "mc-inv-stripe"), title);
+      head.id = "mc-inv-head";
+      table.before(head);
+
+      // Kalender mit Farbpunkt
+      const calName = el("span", "mc-inv-calname");
+      calName.textContent = item.calendar?.name || "";
+      const calCard = el("div", "mc-inv-card mc-inv-cal", el("span", "mc-inv-dot"), calName);
+      calCard.id = "mc-inv-cal";
+
+      // Invitees: Thunderbirds Liste (Kontextmenü, Tooltip, attendeeid) in
+      // einer grauen Karte, der Organisator als erste Zeile
+      const label = el("div", "mc-inv-label");
+      label.textContent = tr("Invitees");
+      const people = el("div", "mc-inv-card mc-inv-people");
+      people.id = "mc-inv-people";
+      const group = el("div", "mc-inv-group", label, people);
+      group.id = "mc-inv-group";
+      const rest = box.querySelector(":scope > .item-attendees-description");
+      box.insertBefore(calCard, rest);
+      box.insertBefore(group, rest);
+      const list = box.querySelector(".item-attendees-list-container");
+      if (list) {
+        people.append(list);
+      }
+      const own = new Set([...MailServices.accounts.allIdentities].map(i => (i.email || "").toLowerCase()).filter(Boolean));
+      const myId = (dlg.attendee?.id || "").toLowerCase();
+      const orgId = (item.organizer?.id || "").toLowerCase();
+      const decorate = lab => {
+        const id = (lab.getAttribute("attendeeid") || "").toLowerCase();
+        const att = item.getAttendees().find(a => a.id.toLowerCase() == id) || (id == orgId ? item.organizer : null);
+        const mail = id.replace(/^mailto:/, "");
+        const name = att?.commonName || "";
+        const isOrg = lab.hasAttribute("mc-inv-org") || id == orgId;
+        const self = id == myId || own.has(mail);
+        let st = lab.querySelector(":scope > .mc-inv-st");
+        if (!lab.hasAttribute("mc-inv")) {
+          lab.setAttribute("mc-inv", "");
+          const av = el("span", "mc-inv-av");
+          av.textContent = initialsFor(name, mail);
+          av.dataset.email = mail;
+          const nm = el("span", "mc-inv-name");
+          nm.textContent = name || mail;
+          const sub = el("span", "mc-inv-mail");
+          sub.textContent = isOrg ? tr("Organizer") : self ? tr("You") : name ? mail : "";
+          const text = lab.querySelector(":scope > .attendee-name");
+          if (text) {
+            text.replaceChildren(nm, sub);
+          }
+          lab.insertBefore(av, lab.firstChild);
+          // Foto bzw. Logo in derselben Reihenfolge wie in der Mailliste
+          this.avatars?.resolve(mail, { name }).then(r => {
+            if (r?.src && av.isConnected) {
+              const img = el("img");
+              img.alt = "";
+              img.src = r.src;
+              av.replaceChildren(img);
+              av.classList.add("mc-has-img");
+            }
+          }).catch(() => {}); // gewollt: ohne Bild bleiben die Initialen
+          st = el("span", "mc-inv-st");
+          lab.append(st);
+        }
+        // Zeichen nur, wo die Einladung einen Stand trägt (nicht beim Organisator ohne Teilnahme)
+        const icon = lab.querySelector(":scope > .itip-icon");
+        const stat = self && dlg.attendee ? partstat() : icon?.getAttribute("partstat") || "NEEDS-ACTION";
+        const known = !(isOrg && !item.getAttendees().some(a => a.id.toLowerCase() == id));
+        st.hidden = !known;
+        if (st.dataset.st != stat) {
+          st.dataset.st = stat;
+        }
+      };
+      const fillPeople = () => {
+        if (!list) {
+          return;
+        }
+        // Organisator aus Thunderbirds Zeile „Organizer“ (mit Klick zum Schreiben),
+        // außer er steht ohnehin unter den Teilnehmern
+        const orgLabel = box.querySelector(".item-organizer-cell > .attendee-label");
+        const inList = [...list.querySelectorAll(".attendee-list .attendee-label")]
+          .find(l => (l.getAttribute("attendeeid") || "").toLowerCase() == orgId);
+        if (orgLabel && !inList) {
+          let ul = list.querySelector(":scope > .mc-inv-org");
+          if (!ul) {
+            ul = el("ul", "attendee-list mc-inv-org");
+            list.prepend(ul);
+          }
+          const li = el("li", "attendee-list-item");
+          orgLabel.setAttribute("mc-inv-org", "");
+          li.append(orgLabel);
+          ul.replaceChildren(li);
+        } else if (inList) {
+          inList.setAttribute("mc-inv-org", "");
+          const li = inList.closest("li");
+          if (li && li.parentNode.firstElementChild != li) {
+            li.parentNode.prepend(li);
+          }
+        }
+        for (const lab of list.querySelectorAll(".attendee-label")) {
+          decorate(lab);
+        }
+        group.hidden = !list.querySelector(".attendee-label");
+      };
+
+      // Beschriftungen der Zeitkarte ohne Doppelpunkt, Beginn/Ende/Hinweis wie
+      // im Termin-Fenster; Thunderbird bzw. Fluent schreiben den Text selbst –
+      // er bleibt, angezeigt wird data-mc-label (spaces.css)
+      const own2 = { "item-start-row-label": "Starts", "item-due-row-label": "Ends", "reminder-label": "Alert" };
+      const fillLabels = () => {
+        for (const th of table.querySelectorAll("th")) {
+          const key = Object.keys(own2).find(k => th.classList.contains(k));
+          const text = key ? tr(own2[key]) : th.textContent.replace(/\s*:\s*$/, "").trim();
+          if (th.dataset.mcLabel != text) {
+            th.dataset.mcLabel = text;
+          }
+        }
+      };
+
+      // Stand oben: Thunderbirds Texte (event-needs-action, event-accepted …)
+      const fillStatus = () => {
+        const p = partstat();
+        const sign = el("span", p == "NEEDS-ACTION" ? "mc-inv-status-icon" : "mc-inv-st");
+        if (p != "NEEDS-ACTION") {
+          sign.dataset.st = p;
+        }
+        doc.l10n.setAttributes(statusText, `event-${p.toLowerCase()}`);
+        status.replaceChildren(sign, statusText);
+      };
+
+      // Knopfzeile unten
+      const tbLabel = id => doc.getElementById(id)?.getAttribute("label") || "";
+      const call = (fn, ...args) => {
+        try {
+          dlg[fn](...args);
+        } catch (e) {
+          log("invitation reply error", String(e).slice(0, 120));
+        }
+      };
+      const answers = [
+        ["DECLINED", "declineButton", "mc-inv-decline", "Declined"],
+        ["TENTATIVE", "tentativeButton", "mc-inv-tentative", null],
+        ["ACCEPTED", "acceptButton", "mc-inv-accept", "Accepted"],
+      ];
+      const bar = el("div", "mc-inv-buttons");
+      bar.id = "mc-inv-buttons";
+      const more = el("button", "mc-inv-more");
+      more.id = "mc-inv-more";
+      more.type = "button";
+      more.title = tr("More");
+      more.setAttribute("aria-label", tr("More"));
+      more.setAttribute("aria-haspopup", "menu");
+      // Menü „…“: je Antwort mit bzw. ohne Nachricht (Thunderbirds Pfeilmenüs), dann Save and Close
+      const menu = doc.createXULElement("menupopup");
+      menu.id = "mc-inv-menu";
+      const sendLabel = doc.getElementById("acceptButton_Send")?.getAttribute("label") || "";
+      const quietLabel = doc.getElementById("acceptButton_DontSend")?.getAttribute("label") || "";
+      for (const [stat, tbId] of [...answers].reverse()) {
+        const sub = doc.createXULElement("menu");
+        sub.setAttribute("label", tbLabel(tbId));
+        const pop = doc.createXULElement("menupopup");
+        for (const [mode, text] of [["AUTO", sendLabel], ["NONE", quietLabel]]) {
+          const mi = doc.createXULElement("menuitem");
+          mi.setAttribute("label", text);
+          mi.addEventListener("command", e => {
+            e.stopPropagation();
+            call("reply", mode, stat);
+          });
+          pop.append(mi);
+        }
+        sub.append(pop);
+        menu.append(sub);
+      }
+      menu.append(doc.createXULElement("menuseparator"));
+      const save = doc.createXULElement("menuitem");
+      save.setAttribute("label", tbLabel("saveandcloseButton"));
+      save.setAttribute("tooltiptext", doc.getElementById("saveandcloseButton")?.getAttribute("tooltiptext") || "");
+      save.addEventListener("command", () => call("saveAndClose", "NONE"));
+      menu.append(save);
+      dialog.append(menu);
+      more.addEventListener("click", () => menu.openPopup(more, "before_start", 0, -4));
+      bar.append(more, el("span", "mc-inv-gap"));
+      const buttons = {};
+      for (const [stat, tbId, id] of answers) {
+        const b = el("button", "mc-inv-answer");
+        b.id = id;
+        b.type = "button";
+        b.title = doc.getElementById(tbId)?.getAttribute("tooltiptext") || "";
+        b.addEventListener("click", () => {
+          if (b.getAttribute("aria-pressed") != "true") {
+            call("reply", "AUTO", stat);
+          }
+        });
+        buttons[stat] = b;
+        bar.append(b);
+      }
+      const fillButtons = () => {
+        const p = partstat();
+        for (const [stat, tbId, , done] of answers) {
+          const b = buttons[stat];
+          const chosen = p == stat;
+          b.textContent = chosen && done ? tr(done) : tbLabel(tbId);
+          b.setAttribute("aria-pressed", chosen ? "true" : "false");
+          // Hauptknopf nur, solange die Antwort offen ist (G15)
+          b.classList.toggle("primary", stat == "ACCEPTED" && p == "NEEDS-ACTION");
+        }
+      };
+      summary.after(bar);
+
+      // Fensterhöhe: Inhalt und Knopfzeile ohne Leerraum dazwischen, unter den
+      // Knöpfen so viel Luft wie rechts daneben (Innenabstand der Knopfzeile);
+      // fitSummaryDialog ruft das statt seines Nachwachsens auf, solange
+      // Thunderbird noch Zeilen nachträgt
+      // Breite fest wie ein Popover (lange Titel und Zeilen brechen um), nur
+      // breiter, wenn die Knöpfe in einer Sprache mit langen Texten sonst nicht
+      // passten. Feste Zielwerte statt sizeToContent: wiederholte Aufrufe ändern
+      // nichts mehr (unter Linux setzt das Fenster Größen erst später)
+      let width = 0;
+      const fitHeight = () => {
+        try {
+          if (dlg.closed) {
+            return;
+          }
+          if (!width) {
+            bar.style.width = "max-content";
+            const barW = Math.ceil(bar.getBoundingClientRect().width);
+            bar.style.removeProperty("width");
+            width = Math.min(dlg.screen.availWidth - 40, Math.max(400, barW));
+            root.style.minWidth = `${width}px`;
+          }
+          const dw = Math.max(0, dlg.outerWidth - dlg.innerWidth), dh = Math.max(0, dlg.outerHeight - dlg.innerHeight);
+          if (Math.abs(dlg.innerWidth - width) >= 1) {
+            dlg.resizeTo(width + dw, dlg.outerHeight);
+          }
+          const need = Math.ceil(summary.getBoundingClientRect().bottom + bar.getBoundingClientRect().height);
+          const want = Math.min(dlg.screen.availHeight - 40 - dh, need);
+          if (Math.abs(want - dlg.innerHeight) >= 2) {
+            dlg.resizeTo(dlg.outerWidth, want + dh);
+          }
+        } catch {} // gewollt: Fenster schon zu
+      };
+      dlg.__mcFitInvite = fitHeight;
+      // Beschreibung so hoch wie ihr Text (eigenes Inhaltsdokument, rollt erst
+      // ab 200 px)
+      const frame = box.querySelector("iframe.item-description");
+      const fitFrame = () => {
+        try {
+          const fd = frame?.contentWindow?.document, body = fd?.body;
+          if (!body || dlg.closed) {
+            return;
+          }
+          const r = fd.createRange();
+          r.selectNodeContents(body);
+          const pad = parseFloat(fd.defaultView.getComputedStyle(body).marginBottom) || 0;
+          const want = Math.min(200, Math.max(18, Math.ceil(r.getBoundingClientRect().bottom + pad)));
+          const now = Math.round(frame.getBoundingClientRect().height);
+          if (Math.abs(want - now) >= 2) {
+            frame.style.setProperty("height", `${want}px`, "important");
+            fitHeight();
+          }
+        } catch {} // gewollt: Inhalt noch nicht geladen, der nächste Anlauf misst
+      };
+      if (frame) {
+        // Thunderbirds flex="1" streckt sonst auf die Standardhöhe (150 px)
+        frame.removeAttribute("flex");
+        frame.style.setProperty("flex", "none", "important");
+        frame.style.setProperty("height", "40px", "important");
+        frame.addEventListener("load", () => dlg.setTimeout(fitFrame, 0));
+        for (const ms of [0, 200, 600, 1500]) {
+          dlg.setTimeout(fitFrame, ms);
+        }
+      }
+
+      fillStatus();
+      fillLabels();
+      fillPeople();
+      fillButtons();
+      // Thunderbird füllt Zeilen, Teilnehmer und Beschriftungen teils erst nach dem Laden
+      const mo = new dlg.MutationObserver(() => {
+        fillLabels();
+        fillPeople();
+      });
+      mo.observe(box, { subtree: true, childList: true, characterData: true });
+    } catch (e) {
+      log("invitation dialog error", String(e).slice(0, 160));
+    }
+  }
+
   fitSummaryDialog(dlg) {
     try {
       const doc = dlg.document;
@@ -1933,10 +2274,15 @@ class EnhancerKalender {
       // Bildschirmmitte wie Thunderbird selbst (das eigene Fenster hat hier teils noch keine Größe)
       const sc = dlg.screen;
       const cx = sc.availLeft + sc.availWidth / 2, cy = sc.availTop + sc.availHeight / 2;
-      doc.documentElement.style.minWidth = `${Math.min(maxW, 480) - (dlg.outerWidth - dlg.innerWidth)}px`;
-      dlg.sizeToContent();
-      if (dlg.outerWidth > maxW || dlg.outerHeight > maxH) {
-        dlg.resizeTo(Math.min(maxW, dlg.outerWidth), Math.min(maxH, dlg.outerHeight));
+      if (dlg.__mcFitInvite) {
+        // Einladungsfenster: Größe aus Inhalt und Knopfzeile (haloInvitationDialog)
+        dlg.__mcFitInvite();
+      } else {
+        doc.documentElement.style.minWidth = `${Math.min(maxW, 480) - (dlg.outerWidth - dlg.innerWidth)}px`;
+        dlg.sizeToContent();
+        if (dlg.outerWidth > maxW || dlg.outerHeight > maxH) {
+          dlg.resizeTo(Math.min(maxW, dlg.outerWidth), Math.min(maxH, dlg.outerHeight));
+        }
       }
       dlg.moveTo(Math.round(cx - dlg.outerWidth / 2), Math.round(cy - dlg.outerHeight / 2));
       // die Beschreibung lädt später, rollt aber in ihrem eigenen Feld – nicht
@@ -1948,6 +2294,11 @@ class EnhancerKalender {
       const grow = () => {
         try {
           if (dlg.closed) {
+            return;
+          }
+          // Einladungsfenster: Höhe aus Inhalt und Knopfzeile (haloInvitationDialog)
+          if (dlg.__mcFitInvite) {
+            dlg.__mcFitInvite();
             return;
           }
           const w0 = dlg.outerWidth, h0 = dlg.outerHeight;

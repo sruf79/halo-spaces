@@ -8,7 +8,7 @@
 #   tests/board.sh export                        offene Einträge mit Text als JSON {"items":[…]} (für tests/haeufung.py)
 #   tests/board.sh zeige <id|Muster> […]         Einträge mit Text (mehrere in einem Aufruf: Board nur einmal geladen)
 #   tests/board.sh neu <bug|feature> <Titel> <Text> [<Status>]   legt an, gibt die id aus
-#   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis);
+#   tests/board.sh status <id> <todo|arbeit|ok|pausiert|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis);
 #                                                arbeit merkt sich, wer daran sitzt (~/halo-nacht/in-arbeit.tsv, Leitstand)
 #   tests/board.sh notiz <id> <Text>             hängt einen Absatz an den Text an
 #   tests/board.sh titel <id|Muster> <neuer Titel>   ersetzt den Titel eines offenen Eintrags (alter Wert ins Protokoll)
@@ -17,7 +17,7 @@
 #   tests/board.sh suche <Begriff>               offene und Done-Einträge sowie archivierte (Verzeichnis), höchstens 10 Zeilen
 #   tests/board.sh archiv-zeige <id>             Status und Text eines (auch archivierten) Eintrags per Board-id
 #   tests/board.sh nachtragen                    Warteschlange (nicht angekommene Notizen/Status) nachtragen, Rest zeigen
-# Status: todo = Todo, arbeit (auch in_progress) = In Progress, ok = Wartet auf OK, done = Done.
+# Status: todo = Todo, arbeit (auch in_progress) = In Progress, ok = Wartet auf OK, pausiert = Pausiert, done = Done.
 # Abfragelimit von GitHub: jeder gh-Aufruf wartet und wiederholt (tests/gh-wdh.zsh). Kommt eine Notiz, ein
 # Status, Titel oder Text trotzdem nicht an (Limit hält an, Board nicht lesbar), steht er in der Warteschlange
 # ~/halo-nacht/board-warteschlange.txt (Warnung, Exitcode 0 – nicht selbst wiederholen, sonst doppelt); der nächste
@@ -36,8 +36,13 @@ typ_option() { case $1 in bug) print ff678ae2;; feature) print 39bb4253;; *) ret
 status_option() {
   case ${1:l} in
     todo) print f75ad846;; arbeit|"in progress"|in_progress) print 47fc9ee4;;
-    ok|"wartet auf ok") print 2327eecc;; done) print 98236657;; *) return 1;;
+    ok|"wartet auf ok") print 2327eecc;; done) print 98236657;; pausiert) print 63db51ef;; *) return 1;;
   esac
+}
+# Anzeigename je Status-Wort (für den Zwischenspeicher: sonst stünde dort bis zum nächsten Laden ein leerer Status)
+status_name() {
+  case $1 in todo) print Todo;; arbeit) print "In Progress";; ok) print "Wartet auf OK";; done) print Done;;
+    pausiert) print Pausiert;; *) return 1;; esac
 }
 fehler() { print -u2 "FEHLER: $*"; exit 1 }
 source ${0:A:h}/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }   # (ältere Kopie ohne gh-wdh.zsh: ohne Wiederholen)
@@ -239,7 +244,7 @@ case $befehl in
     ;;
   status)
     typeset opt e
-    opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]"
+    opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|pausiert|done> [<Commit-Hash>]"
     set -- $1 ${${${${2:l}/in progress/arbeit}/in_progress/arbeit}/wartet auf ok/ok} $3   # (für die Warteschlange ein Wort)
     # (vor dem Lesen: auch ein Status aus der Warteschlange zählt für den Leitstand)
     [[ $2 != arbeit && $1 == PVTI_* ]] && in_arbeit_weg $1
@@ -249,7 +254,7 @@ case $befehl in
     setze $(print -r -- $e | jq -r .id) $FELD_STATUS $opt \
       || in_warteschlange status $(print -r -- $e | jq -r .id) "$2${3:+ $3}" "Status $2 ließ sich nicht setzen"
     zw_aendern '(.items[] | select(.id == $i) | .status) = $s' --arg i "$(print -r -- $e | jq -r .id)" \
-      --arg s "$(case $2 in todo) print Todo;; arbeit) print "In Progress";; ok) print "Wartet auf OK";; done) print Done;; esac)"
+      --arg s "$(status_name $2)"
     print -r -- "$(print -r -- $e | jq -r .id)  Status $2: $(print -r -- $e | jq -r .title)"
     # Done heißt immer auch archivieren (Entscheidung des Maintainers vom 12.11.2026): sonst bleibt der Eintrag
     # sichtbar; der Commit-Hash (optional, dritter Wert) kommt ins Archivverzeichnis

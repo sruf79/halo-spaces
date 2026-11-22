@@ -95,6 +95,13 @@ pruefe "zeige mit mehreren Einträgen: beide ausgegeben" 'grep -q "Text A" $T/au
 B status PVTI_b ok >/dev/null 2>&1
 B liste > $T/aus 2>&1
 pruefe "status ohne neues Laden, Liste danach mit neuem Status" '(( $(anzahl list) == 1 )) && grep -q "PVTI_b  Bug  Wartet auf OK" $T/aus'
+# Status „Pausiert“ (Option 63db51ef, 22.11.2026): gesetzt und im Zwischenspeicher gleich sichtbar (kein leerer Status)
+B status PVTI_b pausiert > $T/aus2 2>&1; rc=$?
+B liste > $T/aus 2>&1
+pruefe "status pausiert: Option 63db51ef gesetzt, Liste ohne Laden mit „Pausiert“" '(( rc == 0 )) && grep -q "single-select-option-id 63db51ef" $T/aufrufe && grep -q "Status pausiert: Kalender: Zwei" $T/aus2 && (( $(anzahl list) == 1 )) && grep -q "PVTI_b  Bug  Pausiert  Kalender: Zwei" $T/aus'
+B status PVTI_b Pausiert >/dev/null 2>&1; rc=$?
+pruefe "status Pausiert (groß geschrieben) ebenso angenommen" '(( rc == 0 ))'
+B status PVTI_b ok >/dev/null 2>&1
 B notiz PVTI_a "neu" >/dev/null 2>&1
 pruefe "notiz mit id: Einzelabfrage, die Liste wird nicht geladen" '(( $(anzahl list) == 1 && $(anzahl node) == 1 ))'
 B zeige PVTI_a > $T/aus 2>&1

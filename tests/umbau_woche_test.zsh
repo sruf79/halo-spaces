@@ -175,6 +175,9 @@ pruefe "Auftrag Tag 1: Listen A–D, N, W, U, Pausiert über board.sh, Zählung,
   'Zählung' 'zsh tests/umbau-woche.sh sortiert' 'nie schließen'
 pruefe "M2: Auftrag Tag 1: Nutzer-Bugs nie Pausiert, Wortlaut geht vor" "$A_1" \
   'Nutzer-Bugs kommen nie auf „Pausiert“' 'Weiter laufen von Nutzern gemeldete Bugs' 'nie bei einem Nutzer-Bug'
+pruefe "M3: Auftrag Tag 1: bei Zählabweichung nur melden und aufhören, nie zurückschreiben" \
+  "$A_1$(print -r -- $A_1 | grep -cE 'aus [^ ]*umbau-vorher\.txt' | sed 's/^/vorher-zurück=/')" \
+  'nichts zurückschreiben' 'betroffenen ids' 'Tag 1 hier beenden' 'vorher-zurück=0'
 pruefe "nachtlauf.sh: Zeile „Umbau-Woche:“ im Auftrag" "$(<$HIER/nachtlauf.sh)" 'umbau-woche\.sh status' 'Umbau-Woche: '
 pruefe "tagesroutine.sh: Fable-Sperre über umbau-woche.sh fable" "$(<$HIER/tagesroutine.sh)" 'umbau-woche\.sh fable'
 pruefe "Auslastungswächter: Sperrzeile über umbau-woche.sh worker-sperre" "$(<$HIER/auslastung-schleife.zsh)" 'umbau-woche\.sh worker-sperre'

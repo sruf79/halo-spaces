@@ -40,8 +40,10 @@ Wann: nach Schritt 0 (a bis c), vor Schritt 1. In dieser Nacht nichts an eigenen
 4. Nie: Einträge auf „Pausiert“, „Todo“ oder „Wartet auf OK“ anfassen; einen pausierten Eintrag bearbeiten oder schließen
    (nie schließen, auch nicht als Done); Einträge anlegen; Titel oder Text ersetzen.
 5. Zählung nachher wie in 1. In Progress vorher = In Progress nachher + auf Done gesetzte + auf Pausiert gesetzte;
-   Todo und Wartet auf OK unverändert; Pausiert nachher = Pausiert vorher + auf Pausiert gesetzte. Weicht etwas ab: aus ~/halo-nacht/<datum>-umbau-vorher.txt
-   zurückschreiben, im Bericht melden.
+   Todo und Wartet auf OK unverändert; Pausiert nachher = Pausiert vorher + auf Pausiert gesetzte. Weicht etwas ab:
+   nichts zurückschreiben und nichts nachbessern (neue Einträge, z. B. vom CI-Wächter, lassen die Zählung abweichen,
+   ohne dass Tag 1 etwas falsch gemacht hat; Done ist zudem archiviert), nur die Abweichung mit den betroffenen ids im
+   Bericht melden und Tag 1 hier beenden (kein Schritt 6, keine Marke; neon klärt ab 09:00).
 6. `zsh tests/board.sh nachtragen` (Rest der Warteschlange in den Bericht), dann
    `zsh tests/umbau-woche.sh sortiert <Bericht>` (Marke: Tag 1 erledigt, kein zweites Sortieren).
 7. Bericht, Abschnitt „Umbau-Woche Tag 1“: Zahl je Liste (A, B, C, D, N, W, U und wie U aufgelöst wurde), Zählung

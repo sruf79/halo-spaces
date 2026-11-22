@@ -5340,6 +5340,78 @@ def dialog_checks(m, results):
         return ok1(res["imp"]) and ok1(res["exp"]), f"{res}"
     check("Import und Export: Fläche in Fensterfarbe wie die übrigen Tabs, dunkel kein Blauschwarz", import_export, results)
 
+    def import_wizard_style():
+        # Import-Assistent im halo-Stil: kein Suchfeld im Kopf (Seitenleisten-Knopf bleibt, im Mail-Tab ist die Suche wieder da),
+        # eine Seite ohne weiße Karte, Schritte als graue Kreise 22 px (aktueller in Textfarbe), kurze Haarlinien,
+        # Titel 22 px halbfett mit grauem Symbol, Quellen in grauer Karte (Radius 10) mit Zeilen, Hilfe grau ohne
+        # Unterstrich in der Zeile der Knöpfe (30 px), schmal ohne Überlappung; PST-Anzahl in der Zeile des Ordners;
+        # Export: Hinweis in grauer Karte, „Export“ in der Zeile der Hilfe
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300); const out = {};
+          const findT = () => tm.tabInfo.find(x => x.browser?.currentURI?.spec?.startsWith("about:import"));
+          const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+          const shownC = e => !!e && csOf(e).display != "none" && e.getBoundingClientRect().width > 0;
+          const midY = r => r.top + r.height / 2;
+          w.toImport(); let t = await bis(findT, "Tab about:import", 6000);
+          try {
+            const dd = t.browser.contentDocument;
+            await bis(() => dd.getElementById("stepNav") && dd.defaultView.__mcTheme && dd.getElementById("mcPstSource"), "Assistent", 8000);
+            await bis(() => !shownC(search()), "Suchfeld weg", 3000).catch(() => {}); await ruhig(400);
+            const $ = s => dd.querySelector(s), r = e => e.getBoundingClientRect();
+            const nav = $("#stepNav li.current button"), next = $("#stepNav li:nth-child(2) button"), list = $("#start-sources .source-list");
+            const rows = [...list.querySelectorAll(":scope > label")], h1 = $("#startSource"), foot = $("#importFooter");
+            const cont = $("#tabPane-start .buttons-container .continue"), links = [...foot.querySelectorAll("a:not([hidden])")];
+            out.imp = { search: shownC(search()), side: shownC(d.getElementById("spacesPinnedButton")),
+              body: csOf(dd.body).backgroundColor, window: colorOf(dd, "var(--mt-window)", "backgroundColor"),
+              section: csOf($("#start-sources")).backgroundColor,
+              nav: [Math.round(r(nav).height), Math.round(r(nav).width), csOf(nav).backgroundColor, csOf(next).backgroundColor],
+              line: Math.round(parseFloat(csOf($("#stepNav li:nth-child(2)"), "::before").width)),
+              text: colorOf(dd, "var(--mt-text)", "color"), control: colorOf(dd, "var(--mt-control)", "backgroundColor"),
+              secondary: colorOf(dd, "var(--mt-text-secondary)", "color"),
+              h1: [csOf(h1).fontSize, csOf(h1).fontWeight, csOf(h1, "::before").stroke],
+              list: [csOf(list).backgroundColor, csOf(list).borderTopLeftRadius], rows: rows.length,
+              sep: rows.slice(1).every(l => csOf(l).backgroundImage.includes("gradient")),
+              links: links.map(a => [csOf(a).textDecorationLine, csOf(a).color]),
+              row: [Math.round(Math.abs(midY(r(foot)) - midY(r(cont)))), Math.round(r(cont).height), Math.round(r(foot).right - r(cont).left)] };
+            // schmal (Mindestbreite des Assistenten): Hilfe bricht um, nichts überlappt oder ragt hinaus
+            $("#main").style.maxInlineSize = "400px"; await ruhig(300);
+            const lastLink = links.at(-1);
+            out.narrow = { gap: Math.round(r(cont).left - Math.max(...links.map(a => r(a).right))), out: Math.round(r(cont).right - r($("#main")).right),
+                           wrap: r(lastLink).top > r(links[0]).top - 1 };
+            $("#main").style.maxInlineSize = "";
+          } finally { tm.closeTab(t); await ruhig(400); }
+          out.mailSearch = shownC(search());
+          // PST: Anzahl rechts in der Zeile des Ordners
+          const cw = await w.__mcPstWizard({ name: "Probe", mail: [{ name: "Inbox", count: 12, depth: 0, path: ["Inbox"], items: [] }] });
+          t = await bis(findT, "Tab PST", 6000);
+          try { const dc = cw.document; await bis(() => dc.querySelector("#halopst-items .mc-pst-count")?.getBoundingClientRect().width, "Anzahl", 5000); await ruhig(300);
+            const row = dc.querySelector("#halopst-items .mc-pst-folders > label");
+            out.pst = { dy: Math.round(Math.abs(midY(row.querySelector(".mc-pst-count").getBoundingClientRect()) - midY(row.querySelector(".mc-pst-name").getBoundingClientRect()))),
+                        card: csOf(row.parentElement).backgroundColor };
+          } finally { tm.closeTab(t); await ruhig(400); }
+          // Export
+          w.toExport(); t = await bis(findT, "Tab Export", 6000);
+          try { const de = t.browser.contentDocument; await bis(() => de.getElementById("exportButton")?.getBoundingClientRect().width && de.defaultView.__mcTheme, "Export", 6000); await ruhig(400);
+            const b = de.getElementById("exportButton").getBoundingClientRect(), f = de.getElementById("importFooter").getBoundingClientRect();
+            out.exp = { dy: Math.round(Math.abs(midY(b) - midY(f))), card: csOf(de.querySelector("#tabPane-export p.description")).backgroundColor, search: shownC(search()) };
+          } finally { tm.closeTab(t); await ruhig(300); }
+          return out;""")
+        i, n, p, e = res["imp"], res["narrow"], res["pst"], res["exp"]
+        ok = (not i["search"] and i["side"] and res["mailSearch"] and not e["search"]
+              and same_color(i["body"], i["window"]) and i["section"] in ("transparent", "rgba(0, 0, 0, 0)")
+              and i["nav"][:2] == [22, 22] and same_color(i["nav"][2], i["text"]) and same_color(i["nav"][3], i["control"]) and i["line"] == 22
+              and i["h1"][:2] == ["22px", "600"] and same_color(i["h1"][2], i["secondary"])
+              and same_color(i["list"][0], i["control"]) and i["list"][1] == "10px" and i["rows"] == 5 and i["sep"]
+              and i["links"] and all(x[0] == "none" and same_color(x[1], i["secondary"]) for x in i["links"])
+              and i["row"][0] <= 2 and i["row"][1] == 30 and i["row"][2] < 0
+              and n["gap"] >= 0 and n["out"] <= 0 and n["wrap"]
+              and p["dy"] <= 2 and same_color(p["card"], i["control"])
+              and e["dy"] <= 2 and same_color(e["card"], i["control"]))
+        return ok, f"{res}"
+    check("Import-Assistent: kein Suchfeld im Kopf, eine Seite mit grauen Schritt-Kreisen 22 px, Titel 22 px halbfett, "
+          "Quellen in grauer Karte mit Zeilen, Hilfe grau in der Zeile der Knöpfe; PST-Anzahl in der Ordnerzeile; Export ebenso",
+          import_wizard_style, results)
+
     def dark_window_surfaces():
         # Dunkel: Fensterflächen einheitlich #1E1E1E wie macOS – Mail-Hauptfenster (Liste, Leseansicht), Kalender,
         # Dialog, halo.spaces-Fenster und Mailtext; nicht #18181B (Thunderbird) bzw. #282828 (-moz-Dialog) oder #1E1E20

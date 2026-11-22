@@ -1023,3 +1023,6 @@ Deutung von neon (kein Wortlaut): Die Umbau-Woche beginnt in der Nacht zum Diens
 
 Herkunft: Maintainer in der Sitzung neon, 22.11.2026. Wortlaut: „weil der umbau kritisch ist und danach viele dinge nicht mehr funktionieren könnten muss fable den kompletten umbau überwachen“.
 Deutung von neon (kein Wortlaut): Fable prüft jeden Schritt der Umbau-Checkliste (`~/halo-berichte/2026-11-22-umbau-checkliste.md`) lesend nach der Ausführung und schreibt sein Urteil in die Notiz des Schritts; die Ausführung bleibt bei den Modellen laut Checkliste. Verbindlich sind Ablauf und Kontingentgrenzen erst nach Rückmeldung des Maintainers.
+
+Nachtrag 22.11.2026 (Maintainer, Sitzung neon) zur Umbau-Woche: „fable überwacht den ganzen umbau. alle fragen von dir bezüglich vorbereitung sollen an opus oder fable gehen.“ Vorher am selben Tag: „alles was den umbau betrifft soll opus oder fable entscheiden, auch deine fragen hier“.
+Deutung von neon (kein Wortlaut): Fragen zur Vorbereitung und zum Umbau beantwortet ein Opus- oder Fable-Agent mit Belegen; neon stellt sie nicht selbst als Entscheidung. Was nach `docs/dauerfreigaben.md` und `ENTSCHEIDUNGEN.md` allein beim Maintainer liegt (Notfall-Release, Fable-Reset, Wortlaute, Kq83E, Erneuern der Anmeldung), bleibt bei ihm.

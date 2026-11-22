@@ -1036,3 +1036,8 @@ Deutung von neon (kein Wortlaut): (a) Ab Montag 23.11. 20:00 starten keine neuen
 
 Herkunft: Maintainer in der Sitzung neon, 22.11.2026, 18:42 Wiener Zeit, auf die Frage, ob Volldampf bei 85 % der Woche (Stand 81 %, Tempo rund 2,4 Punkte je Stunde) ausgeschaltet werden soll. Wortlaut: „Schalte volldampf jetzt aus“.
 Folge (Beschreibung von neon, kein Wortlaut): `zsh tests/volldampf.sh aus` um 18:42; Regelzeile entfernt, Auslastungs- und Zwischen-Release-Wächter beendet, Nachtlauf und Tagesroutine gelten wieder mit Sollkurve und Alltagsregeln. Die Umbau-Woche beginnt wie geplant Di 24.11. 01:00.
+
+## Vorrang: Umbau am Dienstag vor dem Release der offenen Commits (22.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 22.11.2026. Wortlaut: „Zwei dinge sind jetzt Priorität: der umbau am Dienstag und die damit verbundene vorarbeiten und ein Release davor wir offenen commits. Falls letzteres das erste gefährdet fällt der Release vorübergehend aus“.
+Deutung von neon (kein Wortlaut): Die Vorbereitung (Schalter, Kopien, Pause, Generalprobe, Anmeldung Mo 21:00, Fable-Prüfungen) und der Umbau ab Di 24.11. 01:00 haben Vorrang. Das Release der offenen Commits (3.37.0) wird vorher versucht, fällt aber vorübergehend aus, sobald es Zeit, neon, Kontingent oder eine Prüfung der Vorbereitung gefährdet. Ein ausgefallenes Release wird nach dem Umbau nachgeholt.

@@ -137,7 +137,10 @@ board() {   # scheitert (Exitcode 1), wenn das Board nicht lesbar ist – dann n
   print -r -- $BOARD
 }
 
-# Bug eintragen oder offenen Eintrag zur selben Prüfung ergänzen; gibt „neu“/„ergänzt“ aus
+# Bug eintragen oder offenen Eintrag zur selben Prüfung ergänzen; gibt „neu“/„ergänzt“ aus. Einträge mit Status
+# „Pausiert“ (22.11.2026, bewusst zurückgestellt, niemand bearbeitet sie) gelten hier und in offen_finden wie nicht
+# vorhanden: eine neue rote Prüfung bekommt einen neuen Todo-Eintrag, statt in einem liegenden Eintrag zu verschwinden;
+# den Status des pausierten Eintrags ändert der Wächter nicht (die Pause ist eine Entscheidung des Maintainers)
 eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard „Tests: CI rot“] [<Schlüssel>]
   local job=$1 pruefung=$2 text=$3 zusatz=$4 anfang=${5:-"Tests: CI rot"} schluessel=$6 kurz titel id di body b
   kurz=${pruefung[1,90]}
@@ -157,11 +160,11 @@ eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard 
 
 Schlüssel: $schluessel"
     read -r id di <<< $(print -r -- $b | jq -r --arg s "Schlüssel: $schluessel" --arg a "$anfang" \
-      '[.items[] | select(.status != "Done" and (.title | startswith($a)) and ((.content.body // "") | split("\n") | any(. == $s)))][0] | "\(.id // "") \(.content.id // "")"')
+      '[.items[] | select(.status != "Done" and .status != "Pausiert" and (.title | startswith($a)) and ((.content.body // "") | split("\n") | any(. == $s)))][0] | "\(.id // "") \(.content.id // "")"')
   else
     # offener Eintrag zur selben Prüfung (egal welcher Job)? Vergleich über die ersten 60 Zeichen
     read -r id di <<< $(print -r -- $b | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
-      '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
+      '[.items[] | select(.status != "Done" and .status != "Pausiert" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
   fi
   if [[ -n $id ]]; then
     # Fehlerkonsole/-protokoll: höchstens eine Ergänzung pro Tag (sonst wächst der Eintrag mit jedem Lauf)
@@ -232,7 +235,7 @@ bericht_zeile() {   # <Zeile> <Beginn-Epoch des roten Laufs>
 # Zeile „- <Prüfung> (Job …)“ in der Liste des Textes); Vergleich über die ersten 60 Zeichen. Ausgabe „<id> <Inhalt-id>“
 offen_finden() {   # <Prüfung> <Board-JSON>
   print -r -- $2 | jq -r --arg p "${1[1,60]}" --arg a "Tests: CI rot" \
-    '[.items[] | select(.status != "Done" and (.title | startswith($a)) and ((.title | contains($p)) or ((.content.body // "") | contains("\n- " + $p))))][0] | "\(.id // "") \(.content.id // "")"'
+    '[.items[] | select(.status != "Done" and .status != "Pausiert" and (.title | startswith($a)) and ((.title | contains($p)) or ((.content.body // "") | contains("\n- " + $p))))][0] | "\(.id // "") \(.content.id // "")"'
 }
 
 # Prüfungen der Liste eines Lauf-Eintrags (Zeilen „- …“ nach „Ist: … rot:“ bis zur Leerzeile), je Zeile ein Name

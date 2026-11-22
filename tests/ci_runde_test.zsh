@@ -307,6 +307,11 @@ print '{"items":[{"id":"PI_2","status":"Done","title":"Tests: CI rot – mac: Ka
 BOARD_DATEI=$T/board2.json waechter; RC=$?
 pruefe "Wächter --lauf: ohne offenen Eintrag neu angelegt" '(( RC == 0 )) && grep -q "item-create.*Tests: CI rot – mac: Kalender: Scrollen ruckelt" $T/aufrufe'
 pruefe "Wächter --lauf: windows-github rot ohne Eintrag" '! grep -q windows-github $T/aufrufe'
+# pausierter Eintrag (Status „Pausiert“, 22.11.2026) zur selben Prüfung: nicht ergänzt, Status unverändert, neuer Eintrag
+print '{"items":[{"id":"PI_3","status":"Pausiert","title":"Tests: CI rot – mac: Kalender: Scrollen ruckelt","content":{"id":"DI_3","body":"alt"}}]}' > $T/board3.json
+: > $T/aufrufe
+BOARD_DATEI=$T/board3.json waechter; RC=$?
+pruefe "Wächter --lauf: pausierter Eintrag bleibt liegen, rote Prüfung neu angelegt" '(( RC == 0 )) && grep -q "item-create.*Tests: CI rot – mac: Kalender: Scrollen ruckelt" $T/aufrufe && ! grep -q "DI_3" $T/aufrufe && ! grep -q "PI_3" $T/aufrufe'
 : > $T/aufrufe
 BOARD_KAPUTT=1 BOARD_DATEI=$T/board1.json waechter; RC=$?
 pruefe "Wächter --lauf: Board nicht lesbar → Exitcode 3, nichts angelegt" '(( RC == 3 )) && [[ ! -s $T/aufrufe ]]'
@@ -331,6 +336,8 @@ pruefe "Nacht repariert: Zeile für den Bericht auf stdout" 'grep -qx -- "- CI r
 pruefe "Nacht repariert, nachgeholt: Zeile im Nachtlauf-Bericht" 'grep -qx -- "- CI rot, in derselben Nacht repariert: mac: $P (rot: Lauf 70, grün: Lauf 71, Commit sha71)" $W/halo-berichte/2026-11-07-nachtlauf.md'
 nacht $T/board2.json; RC=$?
 pruefe "Nacht repariert, kein offener Eintrag: kein Eintrag" '(( RC == 0 )) && [[ ! -s $T/aufrufe ]]'
+nacht $T/board3.json; RC=$?
+pruefe "Nacht repariert, nur pausierter Eintrag: nicht geschlossen, nichts geändert" '(( RC == 0 )) && [[ ! -s $T/aufrufe ]]'
 pruefe "Bericht-Zeile nicht doppelt" '[[ $(grep -c "Lauf 70, grün: Lauf 71" $W/halo-berichte/2026-11-07-nachtlauf.md) == 1 ]]'
 { lauf 70 80m macrot; lauf 71 40m gruen workflow_dispatch sha70 } | daten
 nacht $T/board2.json; RC=$?

@@ -12575,6 +12575,9 @@ class CardEnhancer {
     // daneben schließen sie.
     const FLOAT_HOT = 4;
     const FLOAT_KEEP = 64;
+    // Finger am Touchscreen: Randzone und Mindestweg der Wischgeste (siehe floatHot)
+    const FLOAT_TOUCH = 24;
+    const FLOAT_SWIPE = 16;
     // erst nach kurzem Verweilen am Rand (wie das Dock von macOS): Vorbeistreifen,
     // Größenändern und ein Zeiger, der nur kurz an den Rand stößt, lösen nicht
     // aus (vorher 50 ms – die Leiste kam oft ungewollt)
@@ -12944,10 +12947,89 @@ class CardEnhancer {
         }
       };
       w.addEventListener("mouseout", onOut, true);
+      // Touchscreen (Tablets mit Windows): Ein Finger verweilt nicht wie ein Mauszeiger am Rand und trifft keinen
+      // Streifen von 4 px. Die Leiste schwebt ein, wenn der Finger an den linken Fensterrand fährt (endet in der
+      // Randzone FLOAT_TOUCH) oder dort aufsetzt und nach innen wischt, jeweils mindestens FLOAT_SWIPE weit und
+      // eher waagrecht als senkrecht – ohne Verweilzeit, die Geste ist eindeutig. Ein Tippen am Rand und
+      // senkrechtes Scrollen dort lösen nichts aus; zwei Finger (Zoomen) auch nicht. Schwebt die Leiste, schließt
+      // sie ein Wisch nach links (ein Tippen daneben schließt sie schon über die Fläche mcSideCatch). Thunderbird
+      // meldet den Finger als Zeiger-Ereignisse (pointerType touch) und, wo eingeschaltet, als Touch-Ereignisse;
+      // sobald der Inhalt unter dem Finger scrollt, enden die Zeiger-Ereignisse (pointercancel), die
+      // Touch-Ereignisse laufen weiter – beide speisen dieselbe Spur. Lage wie oben über Bildschirmkoordinaten
+      const touchAt = p => ({ x: p.screenX - w.mozInnerScreenX, y: p.screenY - w.mozInnerScreenY });
+      let trace = null;
+      const touchStart = (p, viaTouch) => {
+        const { x, y } = touchAt(p);
+        if (trace && !trace.viaTouch && viaTouch && w.performance.now() - trace.t < 300) {
+          // derselbe Finger, eben schon als Zeiger gemeldet
+          trace.viaTouch = true;
+          return;
+        }
+        trace = y >= 0 && y < w.innerHeight ? { x0: x, y0: y, edge: x < FLOAT_TOUCH, viaTouch, t: w.performance.now(), done: false } : null;
+      };
+      const touchMove = p => {
+        if (!trace || trace.done) {
+          return;
+        }
+        const { x, y } = touchAt(p);
+        const dx = x - trace.x0;
+        if (Math.abs(dx) < FLOAT_SWIPE || Math.abs(dx) <= Math.abs(y - trace.y0)) {
+          return;
+        }
+        if (float && float.state != "out") {
+          if (dx < 0 && !float.drag && !floatPopups()) {
+            trace.done = true;
+            floatEnd();
+          }
+        } else if (hot.style.display != "none" && (trace.edge ? dx > 0 : dx < 0 && x < FLOAT_TOUCH)) {
+          trace.done = true;
+          disarm();
+          floatShow();
+        }
+      };
+      const onTouch = e => {
+        if (e.type == "touchstart") {
+          if (e.touches.length == 1) {
+            touchStart(e.changedTouches[0], true);
+          } else {
+            trace = null;
+          }
+        } else if (e.type == "touchmove") {
+          if (e.touches.length == 1) {
+            touchMove(e.changedTouches[0]);
+          }
+        } else {
+          trace = null;
+        }
+      };
+      const onTouchPointer = e => {
+        if (e.pointerType != "touch") {
+          return;
+        }
+        if (e.type == "pointerdown") {
+          if (e.isPrimary) {
+            touchStart(e, false);
+          } else {
+            trace = null;
+          }
+        } else if (e.type == "pointermove") {
+          if (e.isPrimary) {
+            touchMove(e);
+          }
+        } else if (e.type == "pointerup" || !trace?.viaTouch) {
+          trace = null;
+        }
+      };
+      const TOUCH_EVENTS = [["touchstart", onTouch], ["touchmove", onTouch], ["touchend", onTouch], ["touchcancel", onTouch],
+        ["pointerdown", onTouchPointer], ["pointermove", onTouchPointer], ["pointerup", onTouchPointer], ["pointercancel", onTouchPointer]];
+      for (const [type, fn] of TOUCH_EVENTS) {
+        w.addEventListener(type, fn, { capture: true, passive: true });
+      }
       // eine Mail an den Rand gezogen: sofort öffnen, offen bis zum Ablegen
       hot.addEventListener("dragenter", () => floatShow(true));
       hot.addEventListener("pointerdown", event => {
-        if (event.button != 0) {
+        // (Finger: die Wischgeste oben blendet die Leiste schwebend ein, kein Herausziehen)
+        if (event.button != 0 || event.pointerType == "touch") {
           return;
         }
         floatEnd(false);
@@ -12957,6 +13039,9 @@ class CardEnhancer {
       this.restorers.push(() => {
         w.removeEventListener("mouseout", onOut, true);
         w.removeEventListener("mousemove", onMove, true);
+        for (const [type, fn] of TOUCH_EVENTS) {
+          w.removeEventListener(type, fn, { capture: true });
+        }
         disarm();
         floatEnd(false);
         hot.remove();

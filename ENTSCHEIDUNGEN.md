@@ -1031,3 +1031,8 @@ Deutung von neon (kein Wortlaut): Fragen zur Vorbereitung und zum Umbau beantwor
 
 Herkunft: Maintainer in der Sitzung neon, 22.11.2026 (ca. 15:30), auf die vier Teilfragen a bis d mit der Empfehlung des Opus-Agenten. Wortlaut: „mit allen empfehlungen einverstanden“.
 Deutung von neon (kein Wortlaut): (a) Ab Montag 23.11. 20:00 starten keine neuen Worker bis Dienstag 24.11. 01:00; laufende dürfen enden. (b) In der Umbau-Woche läuft kein Fable aus der Tagesroutine, außer nach „Rot bleibt rot“. (c) Beim Sortieren am Dienstag bleiben P4- und Umbau-Einträge auf „In Progress“, dazu Einträge mit Commit auf einem Prüfzweig bei grünen Tests. (d) Eine Sammelfrage je Tag um 18:00.
+
+## Volldampf vorzeitig ausgeschaltet (22.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 22.11.2026, 18:42 Wiener Zeit, auf die Frage, ob Volldampf bei 85 % der Woche (Stand 81 %, Tempo rund 2,4 Punkte je Stunde) ausgeschaltet werden soll. Wortlaut: „Schalte volldampf jetzt aus“.
+Folge (Beschreibung von neon, kein Wortlaut): `zsh tests/volldampf.sh aus` um 18:42; Regelzeile entfernt, Auslastungs- und Zwischen-Release-Wächter beendet, Nachtlauf und Tagesroutine gelten wieder mit Sollkurve und Alltagsregeln. Die Umbau-Woche beginnt wie geplant Di 24.11. 01:00.

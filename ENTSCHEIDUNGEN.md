@@ -1026,3 +1026,8 @@ Deutung von neon (kein Wortlaut): Fable prüft jeden Schritt der Umbau-Checklist
 
 Nachtrag 22.11.2026 (Maintainer, Sitzung neon) zur Umbau-Woche: „fable überwacht den ganzen umbau. alle fragen von dir bezüglich vorbereitung sollen an opus oder fable gehen.“ Vorher am selben Tag: „alles was den umbau betrifft soll opus oder fable entscheiden, auch deine fragen hier“.
 Deutung von neon (kein Wortlaut): Fragen zur Vorbereitung und zum Umbau beantwortet ein Opus- oder Fable-Agent mit Belegen; neon stellt sie nicht selbst als Entscheidung. Was nach `docs/dauerfreigaben.md` und `ENTSCHEIDUNGEN.md` allein beim Maintainer liegt (Notfall-Release, Fable-Reset, Wortlaute, Kq83E, Erneuern der Anmeldung), bleibt bei ihm.
+
+## Umbau-Woche: Sammelfrage S0 beantwortet (22.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 22.11.2026 (ca. 15:30), auf die vier Teilfragen a bis d mit der Empfehlung des Opus-Agenten. Wortlaut: „mit allen empfehlungen einverstanden“.
+Deutung von neon (kein Wortlaut): (a) Ab Montag 23.11. 20:00 starten keine neuen Worker bis Dienstag 24.11. 01:00; laufende dürfen enden. (b) In der Umbau-Woche läuft kein Fable aus der Tagesroutine, außer nach „Rot bleibt rot“. (c) Beim Sortieren am Dienstag bleiben P4- und Umbau-Einträge auf „In Progress“, dazu Einträge mit Commit auf einem Prüfzweig bei grünen Tests. (d) Eine Sammelfrage je Tag um 18:00.

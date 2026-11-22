@@ -29,6 +29,9 @@ Eingaben
 - docs/design-vorgaben.md (Grundphilosophien G1–G15, Maßstäbe Abschnitt 4, entschiedene Fragen
   Abschnitt 9), ENTSCHEIDUNGEN.md.
 
+Einträge mit Status „Pausiert“ (Umbau-Woche) nicht bearbeiten, nicht schließen und in keine Gruppe aufnehmen; steht
+einer im Auftrag, ihn auslassen und im Bericht nennen.
+
 Ablauf (je Eintrag genau einer)
 1. tests/board.sh status <id> arbeit. Eintrag, Zitate und Vorlage lesen; Soll-Zustand in einem Satz
    festhalten.

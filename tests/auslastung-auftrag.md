@@ -53,7 +53,7 @@ Eintrag wählen (Board über tests/board.sh im Worktree; Abfragen sparsam, ein �
   „(Design-Eintrag)“, „Ablauf:“, „Release:“, „Store:“, Features mit „GitHub #n“, Pläne von heute, freie Bug-Jagd-Fälle)
   mindestens einen möglichen Eintrag fand. Sie kennt nur diese groben Merkmale; die Wahl nach den Regeln unten bleibt
   bei dir. Dein „nichts_passend“ merkt sich der Wächter: bei unveränderter Liste startet er keinen weiteren Worker.
-- Ausgeschlossen: Status „In Progress“ (egal wessen), „Wartet auf OK“, „Done“; Einträge mit Notiz „In Arbeit:“;
+- Ausgeschlossen: Status „In Progress“ (egal wessen), „Wartet auf OK“, „Pausiert“ (nicht bearbeiten, nicht schließen), „Done“; Einträge mit Notiz „In Arbeit:“;
   Design- und Optik-Einträge (Aussehen, Größe, Abstand, Farbe, Symbol, Schrift, Platzierung: sie gehören dem Designer,
   docs/design-vorgaben.md F13); Ablauf-, Release- und Store-Einträge; Features mit „[GitHub #n]“ ohne Freigabe;
   Einträge, die eine Entscheidung des Maintainers brauchen; Einträge, die in einem Plan von heute stehen

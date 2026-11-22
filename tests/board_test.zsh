@@ -218,4 +218,9 @@ print -r -- '{"items":[{"id":"PVTI_p","title":"Kalender: Ruht","status":"Pausier
 pruefe "neu neben pausiertem Eintrag: abgelehnt, Meldung mit id und Pausiert, kein item-create" '(( rc != 0 )) && grep -q "steht auf Pausiert (PVTI_p)" $T/aus && ! grep -q "item-create" $T/aufrufe'
 : > $T/aufrufe; B neu bug "Mail: Offen" "z" > $T/aus 2>&1; rc=$?
 pruefe "neu neben offenem Eintrag: wie bisher „existiert schon“, kein item-create" '(( rc != 0 )) && grep -q "existiert schon" $T/aus && ! grep -q "item-create" $T/aufrufe'
+
+# 9. Aufträge, die das Board lesen oder ändern, kennen „Pausiert“ (nicht bearbeiten, nicht schließen; 22.11.2026)
+for a in nachtlauf tagesroutine designer wochenpruefung rundgang auslastung; do
+  pruefe "Auftrag $a-auftrag.md nennt Status „Pausiert“" "grep -q 'Pausiert' $HIER/$a-auftrag.md"
+done
 exit $F

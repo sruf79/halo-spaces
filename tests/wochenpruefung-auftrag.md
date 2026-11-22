@@ -147,6 +147,8 @@ Maintainer freigibt) – und wirkten die freigegebenen Änderungen der Vorwochen
   fehlen dort – sie stattdessen aus den Nachtlauf-Berichten und den
   Commits der Woche zählen. Durchsatz = in der Woche erledigte Einträge
   (Bugs/Features getrennt), neu angelegte, offene am Ende.
+  Einträge mit Status „Pausiert“ eigens zählen, nicht als offen werten und
+  nichts an ihnen ändern.
 
 ## 2. Kennzahlen speichern
 

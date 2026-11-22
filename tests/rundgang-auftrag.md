@@ -30,7 +30,8 @@ und Protokoll. Nichts committen, nichts pushen, keine Testläufe starten.
 ## 2. Board (gh project, wie in AGENTS.md)
 
 Die Aufgabenliste einmal zu Beginn laden (`gh project item-list 1 --owner
-sruf79 --limit 300 --format json`, auch Done-Einträge ansehen).
+sruf79 --limit 300 --format json`, auch Done-Einträge ansehen). Einträge mit Status
+„Pausiert“ nicht ändern und nicht schließen; gehört ein Ausreißer zu einem, ihn nur im Bericht nennen.
 
 - **Neue Ausreißer:** gebündelt nach Bereich als Bug, Status Todo
   (`~/.claude/skills/aufgabe/eintragen.sh bug "<Bereich>: …" "<Text>"`),

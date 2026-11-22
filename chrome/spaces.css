@@ -10260,6 +10260,501 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
+/* ---------- Einladungsfenster im halo-Design (mc-invite) ----------
+   Variante A des Designers (15.11.2026), nach der Antwort „nach-a“
+   (17.11.2026); die Erweiterung (haloInvitationDialog) setzt die Teile ein.
+   Bauart wie das Termin-Fenster: graue Karten (Radius 12), Kalenderfarbe als
+   Strich links am Titel, Beschriftungen grau und rechtsbündig. Oben statt
+   Werkzeugleiste und blauer Hinweisleiste eine ruhige graue Zeile (G5); unten
+   „…“ als runder grauer Symbolknopf, Decline und Tentative als graue
+   Textknöpfe, Accept als Hauptknopf (Knopf-Familie, 30 px); nach einer
+   Antwort ist der gewählte Knopf grau eingedrückt und es gibt keinen
+   Hauptknopf (G15). Zusage-Zeichen wie in der Einladung in der Mail (E26). */
+#calendar-summary-dialog[mc-invite] {
+  --mt-inv-card: var(--mt-control);
+  --mt-inv-line: var(--mt-separator);
+  --mt-inv-text2: var(--mt-text-secondary);
+  --mt-inv-text3: var(--mt-text-tertiary);
+  --mt-inv-avatar: linear-gradient(#A5ADBD, #868E9E);
+  --mt-inv-yes: #34C759;
+  --mt-inv-maybe: #FF9500;
+  --mt-inv-no: #FF3B30;
+  --mt-inv-pad: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  #calendar-summary-dialog[mc-invite] {
+    --mt-inv-yes: #30D158;
+    --mt-inv-maybe: #FF9F0A;
+    --mt-inv-no: #FF6961;
+  }
+}
+
+#calendar-summary-dialog[mc-invite] :is(#summary-toolbox, #status-notifications),
+#calendar-summary-dialog[mc-invite] .item-summary-box > .calendar-caption,
+#calendar-summary-dialog[mc-invite] .calendar-summary-table tr:is(:has(> .item-title), .calendar-row, .item-organizer-row),
+#calendar-summary-dialog[mc-invite] .item-attendees,
+#calendar-summary-dialog[mc-invite] .item-summary-splitter,
+#calendar-summary-dialog[mc-invite] :is(.item-description-box, .item-comment-box) > .calendar-caption,
+#calendar-summary-dialog[mc-invite] .item-comment-box > .default-spacer,
+#calendar-summary-dialog[mc-invite] .mc-inv-group[hidden],
+#calendar-summary-dialog[mc-invite] .mc-inv-st[hidden] {
+  display: none !important;
+}
+
+/* graue Zeile oben: Kalendersymbol bzw. Zeichen der Antwort, Text grau */
+#calendar-summary-dialog[mc-invite] .mc-inv-status {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 2px var(--mt-inv-pad) 0 !important;
+  padding: 0 4px !important;
+  min-height: 24px !important;
+  background: transparent !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-status-text {
+  color: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-status-icon {
+  flex: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  background: url("resource://mailcards/icons/calendar.svg") center / 16px no-repeat !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .calendar-summary-table,
+#calendar-summary-dialog[mc-invite] .calendar-summary-table > tbody {
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 12px 14px !important;
+  row-gap: 8px !important;
+  column-gap: 12px !important;
+}
+
+/* Karten */
+#calendar-summary-dialog[mc-invite] .mc-inv-card {
+  position: relative !important;
+  border-radius: 12px !important;
+  background: var(--mt-control) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-head {
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 12px 14px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-stripe {
+  position: absolute !important;
+  inset-block: 6px !important;
+  inset-inline-start: -10px !important;
+  width: 4px !important;
+  border-radius: 2px !important;
+  background: var(--mc-inv-cal) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-title {
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  line-height: calc(22px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Beschriftungen der Zeitkarte: grau, rechtsbündig, ohne Doppelpunkt
+   (Text aus data-mc-label, Thunderbirds eigener Text bleibt unsichtbar) */
+#calendar-summary-dialog[mc-invite] .calendar-summary-table th {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-align: end !important;
+  align-self: center !important;
+}
+
+#calendar-summary-dialog[mc-invite] .calendar-summary-table th::before {
+  content: attr(data-mc-label) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(18px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .calendar-summary-table td {
+  align-self: center !important;
+  line-height: calc(18px * var(--mt-font-scale, 1)) !important;
+}
+
+/* Erinnerung als Auswahl in der Karte: ohne eigene Fläche, Doppelpfeil rechts */
+#calendar-summary-dialog[mc-invite] .reminder-details > hbox {
+  width: 100% !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-alarm {
+  flex: 1 !important;
+  margin: 0 !important;
+  margin-inline-start: -10px !important;
+  min-height: 24px !important;
+  background-color: transparent !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-alarm:hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-cal {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 0 14px !important;
+  min-height: 36px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-dot {
+  flex: none !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: var(--mc-inv-cal) !important;
+}
+
+/* Invitees: Überschrift grau, darunter die Personen als Zeilen einer Karte
+   mit Haarlinien ab der Textkante */
+#calendar-summary-dialog[mc-invite] .mc-inv-group {
+  margin: 14px var(--mt-inv-pad) 0 !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-label {
+  margin: 0 4px 6px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people {
+  padding: 0 14px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-attendees-list-container {
+  appearance: none !important;
+  display: block !important;
+  flex: none !important;
+  height: auto !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list {
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+  display: block !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list-item {
+  display: block !important;
+  position: relative !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* Haarlinie über jeder Zeile außer der ersten, ab der Textkante (Kürzel 28 + 10) */
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list-item::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  inset-inline: 38px 0 !important;
+  height: var(--mt-hairline) !important;
+  background: var(--mt-separator) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list:first-child > .attendee-list-item:first-child::before {
+  display: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 6px 0 !important;
+  border: none !important;
+  outline: none !important;
+  background: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] > .itip-icon {
+  display: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] > .attendee-name {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--mt-text) !important;
+  text-decoration: none !important;
+  cursor: default !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] > .attendee-name.text-link {
+  cursor: pointer !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-name {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(17px * var(--mt-font-scale, 1)) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .mc-inv-mail {
+  margin: 0 !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(16px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text-secondary) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-av {
+  flex: none !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  overflow: hidden !important;
+  border-radius: 50% !important;
+  background: var(--mt-inv-avatar) !important;
+  color: #FFFFFF !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-av.mc-has-img {
+  background: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-av > img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .mc-inv-st {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-status .mc-inv-st {
+  margin-inline-start: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Beschreibung (und Kommentar) als Karte ohne Überschrift */
+#calendar-summary-dialog[mc-invite] .item-attendees-description {
+  flex: none !important;
+  margin: 0 !important;
+}
+
+/* Beschreibung so hoch wie ihr Text (Höhe setzt die Erweiterung, höchstens 200 px) */
+#calendar-summary-dialog[mc-invite] :is(.item-description-box, .item-comments-box, .item-comment-box) {
+  flex: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-description {
+  flex: none !important;
+  min-height: 0 !important;
+}
+
+#calendar-summary-dialog[mc-invite] :is(.item-description-box, .item-comment-box) {
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 12px !important;
+  background: var(--mt-control) !important;
+}
+
+#calendar-summary-dialog[mc-invite] :is(.item-description, .item-comment) {
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-comments-box {
+  margin: 0 !important;
+}
+
+/* Inhalt so hoch wie nötig (gestreckt maß sizeToContent das Fenster rund
+   300 px zu hoch); die Knopfzeile sitzt am unteren Rand */
+#calendar-summary-dialog[mc-invite] #calendar-item-summary {
+  flex: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] #calendar-item-summary {
+  padding-bottom: 14px !important;
+}
+
+/* Karten 16 px vom Fensterrand wie die Knopfzeile */
+#calendar-summary-dialog[mc-invite] :is(#calendar-item-summary, .item-summary-box) {
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+}
+
+/* Knopfzeile unten mit Haarlinie darüber */
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: auto !important;
+  padding: 12px var(--mt-inv-pad) 16px !important;
+  border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-gap {
+  flex: 1 !important;
+  min-width: 8px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button {
+  appearance: none !important;
+  box-sizing: border-box !important;
+  flex: none !important;
+  height: var(--mt-btn-h, 30px) !important;
+  min-height: var(--mt-btn-h, 30px) !important;
+  margin: 0 !important;
+  padding: 0 14px !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+  color: var(--mt-text) !important;
+  font: inherit !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button:hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button:hover:active,
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button[aria-pressed="true"] {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+/* gewählte Antwort: grau eingedrückt mit Häkchen davor */
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button[aria-pressed="true"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  cursor: default !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button[aria-pressed="true"]::before {
+  content: url("resource://mailcards/icons/check.svg") !important;
+  width: 14px !important;
+  height: 14px !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: currentColor !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button.primary,
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button.primary:hover {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
+  box-shadow: var(--mt-primary-shadow) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button.primary:hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+/* „…“: einzeln stehender runder grauer Symbolknopf */
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > .mc-inv-more {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: var(--mt-btn-h, 30px) !important;
+  min-width: var(--mt-btn-h, 30px) !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-more::before {
+  content: url("resource://mailcards/icons/more-20.svg") !important;
+  width: 20px !important;
+  height: 20px !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-text) !important;
+}
+
+
+/* Zeichen des Zusage-Stands wie in der Einladung in der Mail (E26): offen
+   graues Fragezeichen im Kreis, zugesagt grüner Kreis mit weißem Häkchen,
+   vielleicht orange mit Fragezeichen, abgesagt rot mit ×. Als halo-Symbole
+   statt der Masken aus parts.css (das Fenster sperrt dort data:-Bilder) */
+#calendar-summary-dialog[mc-invite] .mc-inv-st {
+  position: relative !important;
+  flex: none !important;
+  margin-inline-start: auto !important;
+  border-radius: 50% !important;
+  mask: none !important;
+  background: url("resource://mailcards/icons/question.svg") center / 100% no-repeat !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-inv-text3) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st::after {
+  display: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st:is([data-st="ACCEPTED"], [data-st="TENTATIVE"], [data-st="DECLINED"]) {
+  background-size: 78% !important;
+  stroke: #FFFFFF !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st[data-st="ACCEPTED"] {
+  background-image: url("resource://mailcards/icons/check.svg") !important;
+  background-color: var(--mt-inv-yes) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st[data-st="TENTATIVE"] {
+  background-image: url("resource://mailcards/icons/question-mark.svg") !important;
+  background-color: var(--mt-inv-maybe) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st[data-st="DECLINED"] {
+  background-image: url("resource://mailcards/icons/close-12.svg") !important;
+  background-size: 64% !important;
+  background-color: var(--mt-inv-no) !important;
+}
+
 /* Adressbuch: keine Linie über „Total contacts …“ und keine über der
    Kontaktliste (die Kopfzeile sitzt oben in der Toolbar) */
 #cardCount,

@@ -8,6 +8,25 @@ Freigabe des Maintainers für diesen Lauf:
   andere Sitzungen nur auf Aufforderung).
 - Am Ende selbst veröffentlichen nach AGENTS.md, Abschnitt „Release“.
 
+Umbau-Woche (Freigabe des Maintainers 20.11.2026, Plan bestätigt 21.11.2026, Sammelfrage S0 22.11.2026; Wortlaute in
+ENTSCHEIDUNGEN.md „Umbau-Woche“): Zu Beginn `zsh tests/umbau-woche.sh status` (auch ohne Zeile „Umbau-Woche:“ oben, das
+Skript läuft aus dem Checkout). Gilt sie (Exitcode 0):
+- Tag 1: endet `zsh tests/umbau-woche.sh faellig` mit 0, nach Schritt 0 und vor Schritt 1 nach
+  tests/umbau-tag1-auftrag.md sortieren.
+- Danach nur noch: P4 (Testzeit, rote und flackernde Prüfungen), von Nutzern gemeldete Bugs, die Nutzer spüren, und
+  Release bei Bedarf. Vor jedem Eintrag `zsh tests/umbau-woche.sh erlaubt <Typ> "<Titel>" <id> "<Status>"`, nur bei
+  „ja …“ planen (Director in Schritt 1a wie Rückfall 1b). Keine neuen Features und Design-Einträge, auch nicht über den
+  Designer. Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen.
+- „Pausiert“: nie planen, nie bearbeiten, nie schließen.
+- Schritt 0 (Mitnehmen) und Schritt 4 (Push, CI, Release gepushter Commits) bleiben unverändert; „nicht beginnen“ gilt
+  nur für neue Arbeit.
+- Nicht an eigenen Skripten und Abläufen bauen (den Umbau macht neon tagsüber); Prüfungen reparieren (P4) ist erlaubt.
+- Bericht: Zeile „Umbau-Woche Tag <n>“ (Tag 1 = Di 24.11.2026).
+Rückfall B (Ablaufplan Abschnitt 6): Ist heute zwischen Di 24.11.2026 und Mo 30.11.2026, meldet der Schalter aber
+„aus“ oder „FEHLER … unlesbar“ und gibt es keine Datei ~/halo-nacht/umbau-woche-aus-*.txt (Entscheidung des Maintainers),
+dann nicht sortieren, keine neuen Features und Design-Einträge beginnen und im Bericht „FEHLER: Schalter der Umbau-Woche
+fehlt“ melden.
+
 Reihenfolge:
 0. Zuerst alle offenen Änderungen mitnehmen (Entscheidung des Maintainers
    vom 4.11.2026), ohne Rückfrage, bevor ein Eintrag beginnt:

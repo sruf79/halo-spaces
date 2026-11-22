@@ -327,10 +327,15 @@ if ci_laeufe_holen $CI_D; then
   fi
 fi
 rm -f $CI_D*
+# Umbau-Woche (Freigabe des Maintainers 20.11.2026, tests/umbau-woche.sh läuft aus dem Checkout): Zeile, solange sie gilt
+# oder der Schalter unlesbar ist (dann FEHLER sichtbar); Tag 1 sortiert der Lauf nach tests/umbau-tag1-auftrag.md
+UMBAU_ZEILE=$(zsh $REPO/tests/umbau-woche.sh status 2>/dev/null)
+case $? in 0) zsh $REPO/tests/umbau-woche.sh faellig 2>/dev/null && UMBAU_ZEILE+="; Tag 1: heute sortieren (tests/umbau-tag1-auftrag.md)" ;; 4) ;; *) UMBAU_ZEILE= ;; esac
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
 Thunderbird auf neon vor dem Lauf: $TB_INFO
 $CI_HINWEIS${VD_STATUS:+
-Volldampf: $VD_STATUS}
+Volldampf: $VD_STATUS}${UMBAU_ZEILE:+
+Umbau-Woche: $UMBAU_ZEILE}
 
 $(<$REPO/tests/nachtlauf-auftrag.md)"
 # Sicherheitsnetz: um 09:00 hart beenden

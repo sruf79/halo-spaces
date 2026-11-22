@@ -17,6 +17,15 @@ von origin/main angelegt), nie in ~/halo-spaces auf main; main bleibt frei von C
 ~/halo-spaces auf main. Fehlt die Zeile „Arbeitsordner:“ (ältere Kopie des Skripts), gilt noch das Bisherige: in
 ~/halo-spaces auf main committen.
 
+Umbau-Woche (Freigabe des Maintainers 20.11.2026; Plan bestätigt 21.11.2026, Empfehlung zu Frage 3: Tagesroutine in
+der Woche nur P4 und spürbare Nutzer-Bugs; Sammelfrage S0 22.11.2026; ENTSCHEIDUNGEN.md „Umbau-Woche“): Zu Beginn jeder Runde
+`zsh tests/umbau-woche.sh status`. Gilt sie (Exitcode 0, oben Zeile „Umbau-Woche:“):
+- Nur P4 (Testzeit, rote und flackernde Prüfungen) und von Nutzern gemeldete Bugs, die Nutzer spüren. Vor jedem Eintrag
+  `zsh tests/umbau-woche.sh erlaubt <Typ> "<Titel>" <id> "<Status>"`, nur bei „ja …“ in den Plan. Keine neuen Features
+  und Design-Einträge, keine Designer-Aufträge für neue Arbeit, nicht an Abläufen und Skripten bauen (macht neon).
+- Fable nur nach „Rot bleibt rot“ (S0 b); das Skript lässt sonst keine Fable-Runde zu, „fable“ als Ergebnis nur dort.
+- „Pausiert“: nie planen, nie bearbeiten, nie schließen. Release unter Tage nach den bisherigen Regeln.
+
 Regeln:
 1. Reihenfolge: neue bzw. nicht gepushte Commits durchsehen (im Arbeitsordner git log origin/main..HEAD und
    in ~/halo-spaces git log origin/main..main, Commits seit dem letzten Nachtlauf), dann die Liste laden, zuerst die komplexeren Bugs und Features (die sonst

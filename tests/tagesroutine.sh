@@ -827,8 +827,11 @@ runde() {   # <Modell> <Prompt> <Ausgabe>
   return $rc
 }
 kopf() {
+  # Umbau-Woche (Freigabe 20.11.2026, tests/umbau-woche.sh, läuft aus dem Checkout): Zeile nur, solange sie gilt
+  UMBAU_ZEILE=$(zsh $REPO/tests/umbau-woche.sh status 2>/dev/null); [[ $? == [04] ]] || UMBAU_ZEILE=
   print -r -- "Heute: $TAG. Protokoll: $LOG. Plan: $PLAN. Jetzt: $(date +%H:%M); kein neuer Eintrag nach $KONF[LETZTER_BEGINN], harte Grenze $KONF[ENDE].
-Kontingent (Skript): $(kontingent_zeile)
+Kontingent (Skript): $(kontingent_zeile)${UMBAU_ZEILE:+
+Umbau-Woche: $UMBAU_ZEILE (nur P4 und spürbare Nutzer-Bugs, Abschnitt „Umbau-Woche“ des Auftrags)}
 Arbeitsordner: $WT (Zweig $PRUEF) – nur hier arbeiten und committen, nie in $REPO auf main; Release unter Tage nur in $REPO auf main.
 
 $(<$AUFTRAG_DATEI)"
@@ -1061,6 +1064,11 @@ Ergebnisdatei: $ERG (eine Zeile, siehe Auftrag). Berichtsabschnitt: $DIR/$TAG-ta
       # Fable-Regel: nur weit unter dem Soll, 5-Stunden-Fenster unter FABLE_5H_MAX, nacheinander, höchstens FABLE_JE_LAUF;
       # im Volldampf ohne Soll-Bedingung, 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF, „Fable only“ höchstens FABLE_WOCHE_MAX
       entscheiden
+      # Umbau-Woche (Sammelfrage S0 b, Maintainer 22.11.2026: „mit allen empfehlungen einverstanden“): kein Fable aus der
+      # Tagesroutine, außer nach „Rot bleibt rot“ (rote oder flackernde Prüfung); ohne Woche ändert sich nichts
+      if [[ $E[FABLE] == ja ]] && ! zsh $REPO/tests/umbau-woche.sh fable "$TITEL" $ID 2>/dev/null; then
+        E[FABLE]=nein; log "Umbau-Woche: kein Fable für $ID (S0 b, nur nach „Rot bleibt rot“)"
+      fi
       if [[ $E[FABLE] == ja ]] && (( FABLE_LAEUFE < KONF[FABLE_JE_LAUF] )) && (( $(date +%s) < LETZTER )); then
         FABLE_LAEUFE=$((FABLE_LAEUFE + 1)) N=$((N + 1))
         ABSCHNITTE+=($DIR/$TAG-tagesroutine-$N.md)

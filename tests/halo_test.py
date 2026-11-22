@@ -19800,10 +19800,16 @@ Neu
           popup.hidePopup(); await ruhig(200);
           await pick("table"); out.table = { cols: cols(), ...geo(), side: d.documentElement.hasAttribute("mc-task-side") };
           await pick("list"); out.list = { cols: cols(), ...geo(), side: d.documentElement.hasAttribute("mc-task-side") };
+          // schmal: eine offene Today-Pane hielte die Mindestbreite des Fensters über 820 px (gemessen 1319 px innen),
+          // dann käme die schmale Lage nie zustande – Pane vorher zu, danach wieder wie vorher
+          const tpWas = !!w.TodayPane?.isVisible;
+          const tp = async on => { if (!!w.TodayPane?.isVisible != on) { d.getElementById("mcTodayToggle")?.click(); await until(() => !!w.TodayPane?.isVisible == on, 3000); await ruhig(600); } };
+          await tp(false);
           w.resizeTo(820, 900); await wait(900);
           const boxW = Math.round(tree.parentElement.getBoundingClientRect().width);
-          out.narrow = { boxW, side: d.documentElement.hasAttribute("mc-task-side"), ...geo() };
+          out.narrow = { boxW, side: d.documentElement.hasAttribute("mc-task-side"), ...geo(), iw: w.innerWidth, tp: tpWas };
           w.resizeTo(1500, 900); await wait(900); out.wideAgain = d.documentElement.hasAttribute("mc-task-side");
+          await tp(tpWas);
           await pick("table"); out.tableAgain = cols();
           await pick(out.start);
           try { await c.deleteItem(saved); } catch {}

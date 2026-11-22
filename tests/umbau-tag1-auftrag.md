@@ -27,12 +27,15 @@ Wann: nach Schritt 0 (a bis c), vor Schritt 1. In dieser Nacht nichts an eigenen
    - Liste C (kein Commit in den Notizen: angefangen, nicht fertig): erst
      `zsh tests/board.sh notiz <id> "Umbau-Woche Tag 1 (<datum>): Pausiert – angefangen, nicht fertig. Stand: <ein Satz aus den Notizen>."`,
      dann `zsh tests/board.sh status <id> pausiert`.
-   - Liste D (P4 und Umbau, S0 c), Liste N (von Nutzern gemeldeter Bug ohne Commit), Liste W (frischer Vermerk
-     „In Arbeit: worker-…“ unter 5 Stunden): nicht anfassen, nur zählen.
+   - Liste D (P4 und Umbau, S0 c), Liste N (von Nutzern gemeldeter Bug, Typ Bug mit „GitHub #n“, mit oder ohne Commit,
+     nicht als fertig belegt), Liste W (frischer Vermerk „In Arbeit: worker-…“ unter 5 Stunden): nicht anfassen, nur
+     zählen. Nutzer-Bugs kommen nie auf „Pausiert“, auch nicht als Teil oder mit Offenem: der Wortlaut
+     „Weiter laufen von Nutzern gemeldete Bugs, die Nutzer spüren“ (Freigabe 20.11.2026) geht dem allgemeinen
+     „angefangen, aber nicht fertig → Pausiert“ vor. Fertig belegte Nutzer-Bugs stehen in A bzw. B und werden dort abgeschlossen.
    - Liste U (nicht eindeutig belegt): einzeln lesen (`zsh tests/board.sh zeige <id>`, `git branch -a --contains <Hash>`,
      `gh run list`). Nur wenn der Fall danach eindeutig auf eine Regel des Wortlauts passt, wie A, B oder C behandeln:
-     Reihe (n/m), „Teil“, „Schritt“ oder Offenes mit Commit heißt „angefangen, nicht fertig“, also Pausiert mit Notiz,
-     die Hash und Zweig nennt (der Commit geht nicht verloren); Reihen nie Done. Nicht eindeutig (z. B. „zur Abnahme“,
+     Reihe (n/m), „Teil“, „Schritt“ oder Offenes mit Commit heißt „angefangen, nicht fertig“, also Pausiert mit Notiz
+     (nie bei einem Nutzer-Bug, siehe Liste N), die Hash und Zweig nennt (der Commit geht nicht verloren); Reihen nie Done. Nicht eindeutig (z. B. „zur Abnahme“,
      „Entscheidung fehlt“, CI rot ohne belegte Ursache): nicht anfassen, im Bericht unter „Offen (Tag 1)“ mit Grund nennen.
 4. Nie: Einträge auf „Pausiert“, „Todo“ oder „Wartet auf OK“ anfassen; einen pausierten Eintrag bearbeiten oder schließen
    (nie schließen, auch nicht als Done); Einträge anlegen; Titel oder Text ersetzen.

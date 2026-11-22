@@ -174,10 +174,20 @@ def einordnen(i, f, now):
     nutzer = i.get("typ", "").lower() == "bug" and GITHUB.search(titel)
     if not mit_hash:
         if nutzer:
-            return "N", "", "Nutzer-Bug ohne Commit: unberührt bis zur Antwort (offene Frage)"
+            return "N", "", "Nutzer-Bug ohne Commit: läuft weiter, nie Pausiert"
         return "C", "", "kein Commit in den Notizen: angefangen, nicht fertig"
     n, absatz, hs = mit_hash[-1]
     kurz = ",".join(h[:8] for h in hs)
+    r = einordnen_commit(n, absatz, hs, kurz, titel, teile, f)
+    if nutzer and r[0] in ("U", "C"):
+        # Wortlaut 20.11.2026 „Weiter laufen von Nutzern gemeldete Bugs, die Nutzer spüren“ geht dem allgemeinen
+        # „angefangen, aber nicht fertig → Pausiert“ vor (Fable-Prüfung M2): fertig belegt (A, B) wird abgeschlossen,
+        # alles andere läuft weiter und kommt nie auf Pausiert
+        return "N", kurz, "Nutzer-Bug mit Commit, nicht fertig belegt (%s): läuft weiter, nie Pausiert" % r[2]
+    return r
+
+
+def einordnen_commit(n, absatz, hs, kurz, titel, teile, f):
     if n != len(teile) - 1:
         return "U", kurz, "nach der letzten Commit-Notiz folgen weitere Notizen"
     if not COMMITTET.search(absatz):
@@ -200,7 +210,7 @@ NAMEN = {"A": "Done (committet, Commit in main, CI grün)",
          "B": "bleibt In Progress, abschließen (wartet auf Push/CI oder grüner Prüfzweig)",
          "C": "Pausiert mit Notiz zum Stand (angefangen, nicht fertig)",
          "D": "bleibt In Progress (P4 und Umbau, S0 c)",
-         "N": "unberührt: Nutzer-Bug ohne Commit (offene Frage an den Maintainer)",
+         "N": "bleibt In Progress, läuft weiter: von Nutzern gemeldeter Bug (Typ Bug, GitHub #n), nie Pausiert",
          "W": "unberührt: frischer Worker-Vermerk",
          "U": "einzeln prüfen (nicht eindeutig belegt)"}
 

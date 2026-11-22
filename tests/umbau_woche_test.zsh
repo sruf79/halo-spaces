@@ -122,6 +122,9 @@ J=(
 J+=("$(e ZIFFR Bug 'Mail: Ziffern-Hash' "committet auf main ($H_ZIFFERN)")")
 # M1 (Fable-Prüfung 22.11.): Unfertiges ohne „Teil/Schritt/offen“ (wie Kgibc) bzw. harmloses „Abnahme-Mangel behoben“
 J+=("$(e UKGIB Feature 'Seitenleiste schwebend: Leiste bleibt offen' "Plan\\n\\ncommittet, wartet auf Push/CI ($H_GRUEN). Punkt 1 „weich“ nicht umgesetzt: die Breite springt. Abnahme-Bildfolge des Designers steht noch aus.")")
+# M2 (Fable-Prüfung 22.11.): Nutzer-Bug mit Commit, aber Teil/Offenes → N (läuft weiter), fertig → A
+J+=("$(e NTEIL Bug 'Mail: Suchfeld springt [GitHub #70]' "Teil 1 committet, wartet auf Push/CI ($H_GRUEN). Offen: Teil 2")")
+J+=("$(e NFERT Bug 'Mail: Liste leer [GitHub #71]' "committet, wartet auf Push/CI ($H_GRUEN)")")
 J+=("$(e AJF6A Feature 'Logo neu: Ring' "Abnahme-Mangel behoben: leeres Quadrat. committet, wartet auf Push/CI ($H_GRUEN)")")
 print -r -- "{\"items\":[${(j:,:)J}]}" > $T/export.json
 mkdir -p $T/bin; print -r -- '#!/bin/sh
@@ -145,9 +148,12 @@ pruefe "U: Reihe (2/5) → kein Done (Done erst nach OK)" "$(z UREIH)" '^U	'
 pruefe "„30/24 px“ ist keine Reihe" "$(z AFELD)" '^A	'
 pruefe "M1: „nicht umgesetzt“ / „steht noch aus“ → kein Done, einzeln prüfen" "$(z UKGIB)" '^U	Teil, Schritt'
 pruefe "M1: „Abnahme-Mangel behoben“ bleibt Done" "$(z AJF6A)" '^A	'
+pruefe "M2: Nutzer-Bug mit Commit, Teil/Offenes → N, läuft weiter, nie Pausiert" "$(z NTEIL)" '^N	Nutzer-Bug mit Commit.*läuft weiter, nie Pausiert'
+pruefe "M2: Nutzer-Bug fertig belegt → A (abschließen)" "$(z NFERT)" '^A	'
+pruefe "M2: Nutzer-Bug ohne Commit → N, läuft weiter" "$(z NNNNN)" '^N	Nutzer-Bug ohne Commit: läuft weiter'
 pruefe "Hash nur aus Ziffern wird erkannt (sonst fiele ein Commit nach C)" "$(z ZIFFR)" '^B	'
 pruefe "nur In Progress zählt, Pausiert und Todo nicht angefasst; Summe stimmt" "$S" \
-  '# Zählung: A 3, B 3, C 2, D 2, N 1, W 1, U 6; Summe 18 = In Progress 18$' 'Pausiert 1' 'rc=0'
+  '# Zählung: A 4, B 3, C 2, D 2, N 2, W 1, U 6; Summe 20 = In Progress 20$' 'Pausiert 1' 'rc=0'
 pruefe "Pausiert und Todo erscheinen in keiner Liste" "$(print -r -- $S | grep -cE 'PVTI_test(PAUSE|TODOO)')" '^0$'
 pruefe "mit Exportdatei: kein gh-Aufruf, kein Board" "$(cat $T/aufrufe.log 2>/dev/null; print ende)" '^ende$'
 pruefe "ohne grüne Läufe: nichts wird Done (nur Release-Tags zählen)" \
@@ -167,6 +173,8 @@ pruefe "Tagesroutine-Auftrag: nur P4 und spürbare Nutzer-Bugs, Filter, kein Fab
 pruefe "Auftrag Tag 1: Listen A–D, N, W, U, Pausiert über board.sh, Zählung, Marke" "$A_1" \
   'zsh tests/umbau-woche.sh sortieren' 'board.sh status <id> pausiert' 'board.sh status <id> done' 'Liste D' 'Liste N' 'Liste W' 'Liste U' \
   'Zählung' 'zsh tests/umbau-woche.sh sortiert' 'nie schließen'
+pruefe "M2: Auftrag Tag 1: Nutzer-Bugs nie Pausiert, Wortlaut geht vor" "$A_1" \
+  'Nutzer-Bugs kommen nie auf „Pausiert“' 'Weiter laufen von Nutzern gemeldete Bugs' 'nie bei einem Nutzer-Bug'
 pruefe "nachtlauf.sh: Zeile „Umbau-Woche:“ im Auftrag" "$(<$HIER/nachtlauf.sh)" 'umbau-woche\.sh status' 'Umbau-Woche: '
 pruefe "tagesroutine.sh: Fable-Sperre über umbau-woche.sh fable" "$(<$HIER/tagesroutine.sh)" 'umbau-woche\.sh fable'
 pruefe "Auslastungswächter: Sperrzeile über umbau-woche.sh worker-sperre" "$(<$HIER/auslastung-schleife.zsh)" 'umbau-woche\.sh worker-sperre'

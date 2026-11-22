@@ -23881,7 +23881,7 @@ Neu
         # Einstellungsseite minimalistisch: Abhängiges erst bei Bedarf (Ort nur mit Wetter, Stichwörter nur mit Emojis),
         # Wahl für den fünften Platz als eigene Gruppe nach Kalender, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
         # Die Seite läuft hier in einem Testfenster mit nachgebildeter Schnittstelle (die echte liegt im Erweiterungsprozess)
-        res = m.js(r"""
+        res = m.js(SNAP_JS + r"""
           const saved = [];
           const settings = { mac: true, darkReader: true, fullConversation: true, unreadTint: false, undoSend: 10, senderLogos: true,
             macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, calendarEmoji: true,
@@ -23914,9 +23914,14 @@ Neu
               // Überschriften ohne sichtbare Zeile darunter (eingeklappte mit Pfeil ausgenommen), GitHub #58
               bare: [...od.querySelectorAll("h2")].filter(h => !h.querySelector(".disclosure") && ![...(h.nextElementSibling?.querySelectorAll(".row") || [])].some(r => !r.hidden && r.getBoundingClientRect().height > 0)).map(h => h.textContent),
               glow: shown("sidebarGlow"),
+              // erste Gruppe „Appearance & Spaces“ (Maintainer 20.11.2026: zusammengefasst, ganz oben): Zeilen der Gruppe
+              firstRows: [...(od.querySelector("h2")?.nextElementSibling?.querySelectorAll(":scope > .row") || [])].map(r => r.id.replace("row-", "")),
               // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
               removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
                         "hideCollectedAddresses", "spacesOrderCustom", "fifthSpaceIcon"].filter(k => od.getElementById("row-" + k)) } };
+            // mit HALO_SHOTS ein Bild der ersten beiden Gruppen (Kopf der Seite)
+            const hs = [...od.querySelectorAll("h2")].slice(0, 2);
+            out.png = { kopf: await snap(ow, hs.flatMap(h => [h, h.nextElementSibling])) };
             // fünfter Platz (seit 20.11.2026 hier, Maintainer 17.11.2026): eigene Gruppe nach Kalender, Auswahl mit Chat zuerst,
             // Erweiterung ohne installierte nicht wählbar, Adresse erst bei „Website“
             const fs = od.getElementById("s-fifthSpace");
@@ -23953,20 +23958,21 @@ Neu
             out.reset.saved = saved.filter(e => e[0] == "spacesOrderReset");
             return out;
           } finally { Services.obs.removeObserver(obs, "document-element-inserted"); ow.close(); }""")
+        save_pngs("einstellungen-seite", res)
         if not res.get("page"):
             return False, f"{res}"
         st = res["start"]
         fifth = res.get("fifth", {})
         ok = (not st["place"] and st["emoji"] and not st["chat"] and st["instead"] and not st["url"] and not st["debug"]
-              and st["heads"][:4] == ["Spaces", "Mail", "Calendar", "Fifth space"]
+              and st["heads"][:4] == ["Appearance & Spaces", "Mail", "Calendar", "Fifth space"]
+              and "Appearance" not in st["heads"] and "Spaces" not in st["heads"]
+              and st.get("firstRows") == ["sidebarGlow", "earlyTheme"]
               and fifth.get("options") == [["chat", False], ["addon", True], ["web", False], ["none", False]] and fifth.get("value") == "chat"
               and fifth.get("head") == "Fifth space" and fifth.get("url") is True and fifth.get("addon") is False and fifth.get("urlBack") is False
               and fifth.get("saved") == [["fifthSpace", "web"], ["fifthSpace", "chat"]]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
-              # „Spaces“ steht seit dem Schalter „Light glow in the sidebar“ (Maintainer 13.11.2026: Option in den
-              # halo.spaces-Einstellungen) zu Recht da; leer darf sie wie jede Überschrift nicht sein (GitHub #58)
-              and st.get("bare") == [] and st["empty"] == 0
-              and ("Spaces" not in st["heads"] or st.get("glow"))
+              # leer darf keine Überschrift sein (GitHub #58); der Lichtschein steht sichtbar in der ersten Gruppe
+              and st.get("bare") == [] and st["empty"] == 0 and st.get("glow")
               and st.get("removed") == [] and "Updates" not in st["heads"]
               and res.get("tsKeys") == ["calendarOffline", "spacesOrderReset", "debug"]
               and res.get("reset") == {"tag": "button", "text": "Reset", "saved": [["spacesOrderReset", True]]}
@@ -23977,7 +23983,7 @@ Neu
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, Gruppen Spaces, Mail, Calendar, Fifth space zuerst, Wahl des fünften Platzes mit Adresse erst bei Website, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, Gruppen „Appearance & Spaces“ (Lichtschein, Design ohne Flackern), Mail, Calendar, Fifth space zuerst, Wahl des fünften Platzes mit Adresse erst bei Website, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_chat_more():
         # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“): Thunderbirds Chat-Einstellungen nur bei „Chat“ auf dem
@@ -24484,10 +24490,11 @@ Neu
                    width: Services.prefs.getIntPref("extensions.mailcards.listWidth", -1) > 0 || Cu.evalInSandbox("LIST_WIDTH_DEFAULT", g) > 0 };''' % ADDON_ID)
         keys = [k for _, ks in res["sections"] for k in ks]
         last = res["sections"][-1][1] if res["sections"] else []
-        # Reihenfolge der Gruppen: Spaces zuerst (Maintainer 17.11.2026), dann die Spaces in der Reihenfolge der Leiste,
-        # danach Übergreifendes, Fehlerbehebung zuletzt
+        # Reihenfolge der Gruppen: „Appearance & Spaces“ zuerst (Maintainer 17. und 20.11.2026), dann die Spaces in der
+        # Reihenfolge der Leiste, Fehlerbehebung zuletzt
         titles = [title for title, _ in res["sections"]]
-        ok = (titles == ["Spaces", "Mail", "Calendar", "Fifth space", "Appearance", "Troubleshooting"]
+        ok = (titles == ["Appearance & Spaces", "Mail", "Calendar", "Fifth space", "Troubleshooting"]
+              and res["sections"][0][1] == ["sidebarGlow", "earlyTheme"]
               and not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
               and last == ["calendarOffline", "spacesOrderReset", "debug"] and keys.count("calendarOffline") == 1
               and not {"bundledTheme", "appleIcons"} & set(keys) and res.get("removedInTable") == [] and res.get("escape") == [True, True, True]
@@ -24495,7 +24502,7 @@ Neu
               and res["emoji"] is True and not res["emojiStored"] and res["width"])
         return ok, f"{res}"
     check("Einstellungen: Seite ohne Breite der Mailliste, doppelte Kontakte, Vorschauzeilen und Geburtstage, ohne die am 17.11.2026 entfernten Optionen "
-          "(Design und Symbole nur noch über about:config), Gruppen in der Reihenfolge Spaces, Mail, Calendar, Fifth space, Appearance, Troubleshooting, "
+          "(Design und Symbole nur noch über about:config), Gruppen in der Reihenfolge „Appearance & Spaces“, Mail, Calendar, Fifth space, Troubleshooting, "
           "Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
           options_page_slim, results)
 

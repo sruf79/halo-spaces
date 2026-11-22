@@ -54,10 +54,13 @@ def iso(s):
 
 def zustand(datei):
     """Letzte Zeile „umbau <ab ISO mit Zone> <Grund>“ gilt. Kein Ende: endet nur durch „aus“ (Maintainer, Plan Frage 7)."""
+    if not os.path.lexists(datei):
+        return ("aus", "", "")
     try:
         zeilen = [z.strip() for z in open(datei, encoding="utf-8") if z.strip() and not z.lstrip().startswith("#")]
-    except OSError:
-        return ("aus", "", "")
+    except (OSError, UnicodeDecodeError) as e:
+        # Datei da, aber nicht lesbar: nicht „aus“ (das gäbe alles frei), sondern unlesbar (Fable-Prüfung M7)
+        return ("unlesbar", "", "Datei nicht lesbar: %s" % type(e).__name__)
     if not zeilen:
         return ("aus", "", "")
     t = zeilen[-1].split(None, 2)

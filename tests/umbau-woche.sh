@@ -11,8 +11,10 @@
 #   zsh tests/umbau-woche.sh aktiv                         nur rc (0 = gilt jetzt)
 #   zsh tests/umbau-woche.sh worker-sperre                 rc 0 = keine neuen Worker (S0 a: ab Mo 20:00 = 5 Std. vor
 #                                                          dem Beginn, danach die ganze Woche); gibt den Grund aus
-#   zsh tests/umbau-woche.sh erlaubt <Typ> <Titel> [<id>] [<Status>]   darf ein Lauf den Eintrag beginnen? (ohne Woche: ja)
-#   zsh tests/umbau-woche.sh fable <Titel> [<id>]          rc 0 = Fable aus der Tagesroutine erlaubt (S0 b; ohne Woche: ja)
+#   zsh tests/umbau-woche.sh erlaubt <Typ> <Titel> [<id>] [<Status>]   darf ein Lauf den Eintrag beginnen? (ohne Woche: ja;
+#                                                          Schalter unlesbar: Filter der Woche)
+#   zsh tests/umbau-woche.sh fable <Titel> [<id>]          rc 0 = Fable aus der Tagesroutine erlaubt (S0 b; ohne Woche: ja;
+#                                                          Schalter unlesbar: gesperrt wie in der Woche)
 #   zsh tests/umbau-woche.sh sortieren [<export.json>]     Listen A–D (+N, W, U) für Tag 1, schreibt nichts; ohne Datei
 #                                                          liest es tests/board.sh export und grüne CI-Läufe über gh
 #   zsh tests/umbau-woche.sh faellig                       rc 0 = Woche gilt und Tag 1 ist noch nicht sortiert
@@ -79,12 +81,19 @@ case $cmd in
   worker-sperre) py sperre $DATEI $VORLAUF_H; exit $? ;;
   erlaubt)
     (( $# >= 2 )) || { print -u2 "Aufruf: tests/umbau-woche.sh erlaubt <Typ> <Titel> [<id>] [<Status>]"; exit 2 }
-    if status_zeile >/dev/null; then py erlaubt "$@"; exit $?; fi
+    status_zeile >/dev/null; rc=$?
+    (( rc == 0 )) && { py erlaubt "$@"; exit $? }
+    # Unlesbarer Schalter (Fable-Prüfung M7): die Woche gilt nicht automatisch (kein Sortieren, keine Sperren), aber er
+    # gibt auch nicht alles frei – sicherer Standard ist der Filter der Woche, wie Rückfall B im Nachtlauf-Auftrag
+    if (( rc == 4 )); then
+      out=$(py erlaubt "$@"); r=$?; print -r -- "$out (Schalter unlesbar: Filter der Umbau-Woche, bis geklärt)"; exit $r
+    fi
     [[ $4 == Pausiert ]] && { print "nein Status Pausiert (nie bearbeiten, nie schließen)"; exit 1 }
     print "ja Umbau-Woche nicht aktiv"; exit 0 ;;
   fable)
     (( $# >= 1 )) || { print -u2 "Aufruf: tests/umbau-woche.sh fable <Titel> [<id>]"; exit 2 }
-    status_zeile >/dev/null || exit 0
+    status_zeile >/dev/null; rc=$?
+    (( rc == 0 || rc == 4 )) || exit 0   # unlesbar: Fable bleibt gesperrt wie in der Woche (M7)
     py fable "$@"; exit $? ;;
   sortieren)
     if [[ -n $1 ]]; then

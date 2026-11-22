@@ -53,6 +53,12 @@ pruefe "an jetzt (Rückfall: Schalter Di früh von Hand)" "$(HALO_JETZT=2026-11-
   'Umbau-Woche aktiv seit 2026-11-24T07:10\+01:00' 'rc=0'
 print -r -- "umbau morgen kaputt" > $HALO_UMBAU_DATEI
 pruefe "unlesbare Zeile: gilt nicht, FEHLER sichtbar (rc 4)" "$(uw status; rc zsh $U status; rc zsh $U worker-sperre)" 'FEHLER: Schalter .* unlesbar' 'rc=4' 'rc=1'
+pruefe "M7: unlesbare Zeile: Filter der Woche (Feature nein), nicht „ja“" "$(uw erlaubt Feature 'Mail: x'; rc zsh $U erlaubt Feature 'Mail: x')" '^nein Feature.*Schalter unlesbar' 'rc=1'
+pruefe "M7: unlesbare Zeile: P4 und Nutzer-Bug weiter ja" "$(uw erlaubt Bug 'Tests: flackert – x'; uw erlaubt Bug 'X [GitHub #67]')" '^ja P4' '^ja von Nutzern'
+pruefe "M7: unlesbare Zeile: Fable gesperrt, nur rote Prüfung frei" "$(rc zsh $U fable 'Mail: x'; rc zsh $U fable 'Tests: flackert – x')" '^rc=1$' '^rc=0$'
+print -r -- "umbau 2026-11-24T01:00+01:00 Probe" > $HALO_UMBAU_DATEI; chmod 000 $HALO_UMBAU_DATEI
+pruefe "M7: Datei da, aber nicht lesbar: unlesbar (rc 4), nicht aus; Fable gesperrt" "$(uw status; rc zsh $U status; rc zsh $U fable 'Mail: x')" 'FEHLER: Schalter .* unlesbar' 'rc=4' 'rc=1'
+chmod 600 $HALO_UMBAU_DATEI
 pruefe "an mit Zeit ohne Zone: abgelehnt, keine gültige Zeile" "$(rm -f $HALO_UMBAU_DATEI; uw an 2026-11-24T01:00; rc zsh $U status)" 'FEHLER: Zeile gilt nicht' 'rc=1'
 rm -f $T/n/*(N)
 

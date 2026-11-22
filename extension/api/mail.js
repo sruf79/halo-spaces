@@ -945,6 +945,8 @@ const FollowUp = {
     // Schalter in den Einstellungen wirkt sofort, nicht erst beim Ordnerwechsel
     const prefObs = { observe: update };
     Services.prefs.addObserver(FOLLOWUP_PREF, prefObs);
+    // Tab geschlossen: Beobachter abmelden – er hielt sonst die geschlossene Mailansicht im Speicher
+    a3.addEventListener("unload", () => Services.prefs.removeObserver(FOLLOWUP_PREF, prefObs), { once: true });
     update();
     enhancer?.addWinRestorer(a3, () => {
       Services.prefs.removeObserver(FOLLOWUP_PREF, prefObs);

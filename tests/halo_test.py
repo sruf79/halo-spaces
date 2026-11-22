@@ -22462,6 +22462,39 @@ Neu
         return res["fenster"] == 5 and res["alive"] <= 2, f"{res}"
     check("Speicher: geschlossene Verfassen-Fenster werden freigegeben (von fünf bleiben höchstens die zwei zuletzt benutzten)", compose_freed, results)
 
+    def folder_tab_freed():
+        # Geschlossene Ordner-Tabs werden freigegeben (22.11.2026): Beobachter und Listener, die halo.spaces je Mailansicht
+        # anmeldet (Größenbeobachter an der Toolbar-Zeile des Hauptfensters, Listener für neue Mails, Beobachter der
+        # Nachfassen-Einstellung, Aufräumer in der gemeinsamen Liste), blieben nach dem Schließen des Tabs bestehen und
+        # hielten die Mailansicht samt Dokument im Speicher – gemessen 15 von 15 Tabs und rund 11 MB je Tab, ohne
+        # halo.spaces 0 von 15. Fünf Ordner-Tabs öffnen und schließen, Speicher bereinigen: höchstens der zuletzt
+        # benutzte darf noch leben
+        # (je Tab ein eigener Aufruf: Verweise, die noch im laufenden Prüfskript liegen, hielten ihn sonst selbst fest)
+        for i in range(5):
+            m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+              await toMail();
+              const folder = tm.currentAbout3Pane.gFolder || MailServices.accounts.localFoldersServer.rootFolder.subFolders[0];
+              const vorher = new Set(tm.tabInfo);
+              tm.openTab("mail3PaneTab", { folderURI: folder.URI, background: false });
+              const tab = await bis(() => tm.tabInfo.find(t => !vorher.has(t) && t.mode.name == "mail3PaneTab"), "Ordner-Tab offen", 8000);
+              // (eingerichtet von halo.spaces: erst dann hängen dessen Beobachter an der neuen Mailansicht)
+              const doc = await bis(() => (cd => cd?.readyState == "complete" && cd.__mcPatched && cd.defaultView.__mcRelayout ? cd : null)(tab.chromeBrowser?.contentDocument), "Mailansicht im Tab eingerichtet", 10000);
+              await ruhig(800);
+              (w.__haloSpeicherTabs = w.__haloSpeicherTabs || []).push(Cu.getWeakReference(doc));
+              tm.closeTab(tab); await bis(() => !tm.tabInfo.includes(tab), "Ordner-Tab zu", 5000); tm.switchToTab(0); await ruhig(400);
+              return 1;""")
+        res = m.js(r"""
+          await toMail();
+          const refs = w.__haloSpeicherTabs || []; delete w.__haloSpeicherTabs;
+          // Speicher bereinigen, bis höchstens einer übrig ist (feste Pause: die Bereinigung gibt Dokumente erst in späteren Runden frei)
+          let alive = refs.length, runden = 0;
+          for (; runden < 12 && alive > 1; runden++) { Cu.forceGC(); Cu.forceCC(); await wait(250); alive = refs.filter(r => r.get()).length; }
+          return { tabs: refs.length, alive, runden, wer: refs.map(r => r.get() ? 1 : 0), offen: tm.tabInfo.filter(t => t.mode.name == "mail3PaneTab").length };""")
+        return res["tabs"] == 5 and res["alive"] <= 1 and res["offen"] == 1, f"{res}"
+    check("Speicher: geschlossene Ordner-Tabs werden freigegeben (von fünf bleibt höchstens der zuletzt benutzte)", folder_tab_freed, results)
+
     def search_scroll():
         # laufende Suche über viele Postfächer: beim Scrollen hält halo.spaces sie an (sonst kam jedes zweite Bild
         # 50–70 ms zu spät), danach läuft sie weiter und findet alle Treffer

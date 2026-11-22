@@ -8407,7 +8407,8 @@ def calendar_checks(m, results):
             out.url = dw ? dw.location.href.split("/").pop() : null;
             out.quick = d.getElementById("mcQuickPanel")?.state || null;
             if (dw) { const doc = dw.document;
-              out.buttons = ["acceptButton", "tentativeButton", "declineButton"].map(id => vis(doc.getElementById(id))); }
+              // Antworten unten im halo-Design (Werkzeugleiste entfällt, Einladungsfenster im halo-Design)
+              out.buttons = ["mc-inv-accept", "mc-inv-tentative", "mc-inv-decline"].map(id => vis(doc.getElementById(id))); }
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             w.focus(); await pause(300);
@@ -8419,6 +8420,205 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Doppelklick auf eine Einladung öffnet das Einladungsfenster (Zusagen, Vielleicht, Absagen), kein Schnellfenster",
           invitation_double_click, results)
+
+    def invitation_window_design():
+        # Einladungsfenster im halo-Design (Variante A des Designers, Maintainer 15.11.2026; nach der Antwort Variante
+        # „nach-a“, 17.11.2026): keine Werkzeugleiste und keine farbige Hinweisleiste, sondern oben eine ruhige graue Zeile
+        # mit Kalendersymbol; Titel in grauer Karte mit Kalenderfarbe als Strich links; Zeitkarte mit grauen,
+        # rechtsbündigen Beschriftungen ohne Doppelpunkt (Starts, Ends, Location, Alert als Auswahl); Kalender mit
+        # Farbpunkt; Gruppe „Invitees“ mit runden Kürzeln, Name, darunter Organizer, You oder Adresse, rechts Zusage
+        # (grün) bzw. offen (grau), beim Organisator kein Zeichen; Beschreibung als Karte; unten „…“ als runder grauer
+        # Symbolknopf (darin Antworten mit und ohne Nachricht und Save and Close, nichts entfällt), rechts Decline und
+        # Tentative grau, Accept als Hauptknopf (30 px). Schon beantwortet: Zeile mit grünem Häkchen, gewählter Knopf
+        # „Accepted“ grau eingedrückt, kein Hauptknopf. Schmales Fenster: kein Knopf abgeschnitten. Antworten werden
+        # abgefangen (dlg.reply), nichts wird gesendet. Mit HALO_SHOTS Bilder des Fensters offen und zugesagt.
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(CAL_CHECK_JS + r"""
+          const shots = %s;
+          const { CalAttendee } = ChromeUtils.importESModule("resource:///modules/CalAttendee.sys.mjs");
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const me = acc.identities[0].email;
+          const c = testCalendar(); c.setProperty("imip.identity.key", acc.identities[0].key);
+          const person = (mail, name, o = {}) => { const a = new CalAttendee(); a.id = "mailto:" + mail; a.commonName = name; Object.assign(a, o); return a; };
+          const make = async (title, mine) => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = cal.dtz.now(); s.hour = 16; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+            e.setProperty("LOCATION", "Raum 2.07"); e.setProperty("DESCRIPTION", "Erfundene Einladung von Anna Beispiel.");
+            e.organizer = person("anna@example.invalid", "Anna Beispiel", { isOrganizer: true });
+            e.addAttendee(person("ben@example.invalid", "Ben Muster", { role: "REQ-PARTICIPANT", participationStatus: "ACCEPTED" }));
+            e.addAttendee(person(me, "Halo Test", { role: "REQ-PARTICIPANT", participationStatus: mine, rsvp: "TRUE" }));
+            return c.addItem(e); };
+          const R = el => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }; };
+          const open = async item => { const known = new Set([...Services.wm.getEnumerator(null)]);
+            w.openEventDialogForViewing(item);
+            const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-summary-dialog") && x.document.readyState == "complete"), 8000);
+            if (!dw) return null;
+            // springt nicht: Lage, Größe und Titelkarte vom ersten fertigen Bild an unverändert
+            const seen = []; const t0 = Date.now();
+            while (Date.now() - t0 < 1800) {
+              const head = dw.document.getElementById("mc-inv-head");
+              if (dw.document.readyState == "complete" && dw.outerWidth > 100 && head) {
+                const r = head.getBoundingClientRect();
+                const st = JSON.stringify([dw.screenX, dw.screenY, dw.outerWidth, dw.outerHeight, Math.round(r.left), Math.round(r.top)]);
+                if (seen.at(-1)?.[1] != st) seen.push([Date.now() - t0, st]);
+              }
+              // (Abtasten je Bild: hier soll Zeit vergehen, Ruhe gibt es während des Öffnens nicht)
+              await takt(16);
+            }
+            dw.mcSeen = seen;
+            await till(() => dw.document.documentElement.hasAttribute("mc-invite"), 4000);
+            let last = "", calm = 0;
+            for (let i = 0; i < 40 && calm < 3; i++) { await pause(100); const st = [dw.outerWidth, dw.outerHeight].join(); calm = st == last ? calm + 1 : 0; last = st; }
+            await ruhig(600); return dw; };
+          const shoot = async (dw, name) => { if (!shots) return;
+            const bmp = await dw.browsingContext.currentWindowGlobal.drawSnapshot(null, 2, "white");
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bmp.width; cv.height = bmp.height; cv.getContext("2d").drawImage(bmp, 0, 0);
+            const blob = await new Promise(r => cv.toBlob(r)); await IOUtils.write(PathUtils.join(shots, `einladung-fenster-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+          const measure = dw => { const doc = dw.document, q = s => doc.querySelector(s), bg = el => el && csOf(el).backgroundColor;
+            const o = { invite: doc.documentElement.hasAttribute("mc-invite"), toolbar: vis(q("#summary-toolbox")), note: vis(q("#status-notifications .notificationbox-stack notification-message, #status-notifications notification-message")) };
+            const st = q("#mc-inv-status");
+            o.status = st && vis(st) ? { text: st.textContent.trim(), bg: bg(st), icon: vis(st.querySelector(".mc-inv-status-icon")), sign: st.querySelector(".mc-inv-st")?.dataset.st || null,
+              color: csOf(st.querySelector(".mc-inv-status-text")).color, top: R(st).t } : null;
+            o.control = colorOf(doc, "var(--mt-control)", "backgroundColor");
+            o.secondary = colorOf(doc, "var(--mt-text-secondary)");
+            o.accent = colorOf(doc, "var(--mt-accent)", "backgroundColor");
+            o.calColor = colorOf(doc, c.getProperty("color") || "#A8C2E1", "backgroundColor");
+            const head = q("#mc-inv-head"), stripe = head?.querySelector(".mc-inv-stripe"), title = head?.querySelector(".mc-inv-title");
+            o.head = head && vis(head) ? { bg: bg(head), radius: csOf(head).borderTopLeftRadius, title: title?.textContent, size: title && csOf(title).fontSize, weight: title && csOf(title).fontWeight,
+              stripe: stripe && vis(stripe) ? { bg: bg(stripe), w: R(stripe).w, left: R(stripe).r <= R(head).l } : null, top: R(head).t, l: R(head).l, r: R(head).r } : null;
+            o.tbTitleVisible = vis(q(".calendar-summary-table td.item-title"));
+            const table = q(".calendar-summary-table");
+            o.table = table ? { bg: bg(table), radius: csOf(table).borderTopLeftRadius, l: R(table).l, r: R(table).r, top: R(table).t } : null;
+            o.rows = [...doc.querySelectorAll(".calendar-summary-table tr")].filter(tr => vis(tr.querySelector("th")) || vis(tr.querySelector("td"))).map(tr => {
+              const th = tr.querySelector("th"), td = tr.querySelector("td");
+              return { label: th ? csOf(th, "::before").content.replace(/^"|"$/g, "") : "", align: th && csOf(th).textAlign, color: th && csOf(th, "::before").color,
+                       thR: th && R(th).r, value: (td?.textContent || "").trim().slice(0, 30) }; });
+            o.alarm = vis(q(".item-alarm"));
+            const calCard = q("#mc-inv-cal");
+            o.cal = calCard && vis(calCard) ? { name: calCard.querySelector(".mc-inv-calname")?.textContent, dot: bg(calCard.querySelector(".mc-inv-dot")), bg: bg(calCard), top: R(calCard).t } : null;
+            const grp = q("#mc-inv-group");
+            o.people = grp && vis(grp) ? { head: grp.querySelector(".mc-inv-label")?.textContent, bg: bg(grp.querySelector(".mc-inv-people")), top: R(grp).t,
+              rows: [...grp.querySelectorAll(".attendee-label[mc-inv]")].filter(vis).map(l => ({ av: (() => { const a = l.querySelector(".mc-inv-av"); return a ? { w: R(a).w, h: R(a).h, round: csOf(a).borderTopLeftRadius, text: a.textContent } : null; })(),
+                name: l.querySelector(".mc-inv-name")?.textContent, sub: l.querySelector(".mc-inv-mail")?.textContent,
+                st: (() => { const s = l.querySelector(".mc-inv-st"); return s && vis(s) ? { st: s.dataset.st, bg: bg(s), r: R(s).r } : null; })(),
+                tip: !!l.getAttribute("title"), id: l.getAttribute("attendeeid") })) } : null;
+            o.tbAttendeesVisible = vis(q(".item-attendees .calendar-caption")) || vis(q(".item-organizer-row th"));
+            const desc = q(".item-description-box");
+            o.desc = desc && vis(desc) ? { bg: bg(desc), caption: vis(desc.querySelector(".calendar-caption")), top: R(desc).t } : null;
+            const bar = q("#mc-inv-buttons");
+            o.bar = bar && vis(bar) ? { line: csOf(bar).borderTopStyle, buttons: [...bar.querySelectorAll("button")].filter(vis).map(b => ({ id: b.id, text: b.textContent.trim(), ...R(b),
+                bg: bg(b), img: csOf(b).backgroundImage != "none", round: csOf(b).borderTopLeftRadius, disabled: b.disabled, pressed: b.getAttribute("aria-pressed") })) } : null;
+            o.win = { w: dw.innerWidth, h: dw.innerHeight };
+            return o; };
+          const out = {};
+          const made = [];
+          let dw = null;
+          try {
+            made.push(await make("Workshop Gestaltung", "NEEDS-ACTION"));
+            await toCalendar();
+            dw = await open(made[0]); if (!dw) return { dialog: false };
+            Object.assign(out, { open: measure(dw), still: dw.mcSeen });
+            await shoot(dw, "offen");
+            // Menü „…“: Antworten mit und ohne Nachricht, Save and Close
+            const more = dw.document.getElementById("mc-inv-more");
+            if (more) { more.click(); const pop = dw.document.getElementById("mc-inv-menu"); await till(() => pop?.state == "open", 3000);
+              out.menu = { state: pop?.state, items: [...pop.querySelectorAll(":scope > menu, :scope > menuitem")].map(x => [x.localName, x.getAttribute("label"), x.querySelectorAll("menuitem").length]) };
+              pop.hidePopup(); await till(() => pop.state == "closed", 2000); }
+            // Knöpfe antworten über Thunderbirds reply() – abgefangen, nichts wird gesendet oder gespeichert
+            const calls = []; dw.reply = (mode, stat) => calls.push([mode, stat]); dw.saveAndClose = mode => calls.push(["save", mode]);
+            for (const id of ["mc-inv-decline", "mc-inv-tentative", "mc-inv-accept"]) dw.document.getElementById(id)?.click();
+            const pop = dw.document.getElementById("mc-inv-menu");
+            for (const mi of pop ? [...pop.querySelectorAll("menuitem")] : []) mi.doCommand();
+            out.calls = calls;
+            // schmales Fenster: kein Knopf abgeschnitten
+            // (so schmal es geht: die Mindestbreite des Fensters begrenzt)
+            dw.resizeTo(300, dw.outerHeight); await ruhig(800);
+            out.narrow = { w: dw.innerWidth, buttons: [...dw.document.querySelectorAll("#mc-inv-buttons button")].filter(vis).map(b => { const r = R(b); return [b.id, r.l, r.r, b.scrollWidth <= b.clientWidth + 1]; }) };
+            dw.close(); await till(() => dw.closed, 4000);
+            // schon zugesagt
+            made.push(await make("Workshop Zugesagt", "ACCEPTED"));
+            dw = await open(made[1]); if (!dw) return { ...out, dialog2: false };
+            out.done = measure(dw);
+            await shoot(dw, "zugesagt");
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            w.focus(); await pause(300);
+            for (const it of made) { try { await c.deleteItem(it); } catch {} }
+            c.deleteProperty("imip.identity.key");
+          }
+          return out;""" % ("PathUtils.normalize(%r)" % shots if shots else "''"))
+        if shots:
+            os.makedirs(shots, exist_ok=True)
+        if res.get("dialog") is False or res.get("dialog2") is False:
+            return False, f"Einladungsfenster nicht offen: {res}"
+        o, dn = res.get("open") or {}, res.get("done") or {}
+        bad = []
+        def need(cond, what):
+            if not cond:
+                bad.append(what)
+        for name, x in (("offen", o), ("zugesagt", dn)):
+            need(x.get("invite") and not x.get("toolbar") and not x.get("note"), f"{name}: Werkzeugleiste bzw. Hinweisleiste sichtbar")
+            stt = x.get("status") or {}
+            need(stt.get("text") and rgba_alpha(stt.get("bg")) == 0 and same_color(stt.get("color"), x.get("secondary")), f"{name}: graue Zeile oben fehlt")
+            h = x.get("head") or {}
+            need(h.get("title") in ("Workshop Gestaltung", "Workshop Zugesagt") and same_color(h.get("bg"), x.get("control")) and h.get("radius") == "12px"
+                 and h.get("size") == "17px" and int(h.get("weight") or 0) >= 600, f"{name}: Titelkarte")
+            need(h.get("l") == 16 and h.get("r") == x.get("win", {}).get("w", 0) - 16, f"{name}: Karten über die Breite ({h.get('l')}–{h.get('r')})")
+            need((h.get("stripe") or {}).get("left") and same_color((h.get("stripe") or {}).get("bg"), x.get("calColor")) and (h.get("stripe") or {}).get("w") in (3, 4), f"{name}: Kalenderstrich")
+            need(not x.get("tbTitleVisible") and not x.get("tbAttendeesVisible"), f"{name}: Thunderbirds Titelzeile bzw. Teilnehmerkasten sichtbar")
+            t = x.get("table") or {}
+            need(same_color(t.get("bg"), x.get("control")) and t.get("radius") == "12px" and t.get("l") == h.get("l") and t.get("r") == h.get("r"), f"{name}: Zeitkarte")
+            rows = x.get("rows") or []
+            labels = [r["label"] for r in rows]
+            need(len(rows) >= 4 and all(r["align"] in ("end", "right") and same_color(r["color"], x.get("secondary")) and not r["label"].endswith(":") for r in rows)
+                 and len({r["thR"] for r in rows}) == 1, f"{name}: Beschriftungen {labels}")
+            need(x.get("alarm"), f"{name}: Erinnerung als Auswahl fehlt")
+            cc = x.get("cal") or {}
+            need(cc.get("name") == "Halo Test" and same_color(cc.get("dot"), x.get("calColor")) and same_color(cc.get("bg"), x.get("control")), f"{name}: Kalenderkarte")
+            p = x.get("people") or {}
+            pr = p.get("rows") or []
+            need(len(pr) == 3 and same_color(p.get("bg"), x.get("control")) and p.get("head"), f"{name}: Invitees")
+            if len(pr) == 3:
+                org, ben, you = pr
+                need(org["name"] == "Anna Beispiel" and org["sub"] and org["st"] is None and org["av"] and org["av"]["text"] == "AB", f"{name}: Organisator {org}")
+                need(ben["sub"] == "ben@example.invalid" and (ben["st"] or {}).get("st") == "ACCEPTED", f"{name}: Teilnehmer {ben}")
+                need(you["sub"] and you["st"], f"{name}: eigene Zeile {you}")
+                need(all(r["av"] and r["av"]["w"] == r["av"]["h"] == 28 and r["av"]["round"] == "50%" and r["tip"] for r in pr), f"{name}: Kürzel/Tooltip")
+            ds = x.get("desc") or {}
+            need(same_color(ds.get("bg"), x.get("control")) and not ds.get("caption"), f"{name}: Beschreibung als Karte")
+            order = [stt.get("top"), h.get("top"), t.get("top"), cc.get("top"), p.get("top"), ds.get("top")]
+            need(all(v is not None for v in order) and order == sorted(order), f"{name}: Reihenfolge {order}")
+            bar = x.get("bar") or {}
+            btns = bar.get("buttons") or []
+            ids = [b["id"] for b in btns]
+            need(ids == ["mc-inv-more", "mc-inv-decline", "mc-inv-tentative", "mc-inv-accept"], f"{name}: Knöpfe {ids}")
+            need(bar.get("line") == "solid", f"{name}: Linie über den Knöpfen")
+            if len(btns) == 4:
+                mo = btns[0]
+                need(mo["w"] == mo["h"] == 30 and mo["round"] == "50%" and same_color(mo["bg"], x.get("control")), f"{name}: „…“ {mo}")
+                need(all(b["h"] == 30 for b in btns) and btns[3]["r"] == x["win"]["w"] - 16 and btns[1]["l"] > mo["r"] + 16, f"{name}: Lage der Knöpfe {btns}")
+        b = {k["id"]: k for k in ((o.get("bar") or {}).get("buttons") or [])}
+        if b:
+            need(same_color(b["mc-inv-accept"]["bg"], o.get("accent")) and b["mc-inv-accept"]["img"], "offen: Accept nicht Hauptknopf")
+            need(all(same_color(b[k]["bg"], o.get("control")) for k in ("mc-inv-decline", "mc-inv-tentative")), "offen: Decline/Tentative nicht grau")
+        need(((o.get("status") or {}).get("icon")) and not (o.get("status") or {}).get("sign"), "offen: Kalendersymbol in der Zeile")
+        bd = {k["id"]: k for k in ((dn.get("bar") or {}).get("buttons") or [])}
+        if bd:
+            need(not any(same_color(k["bg"], dn.get("accent")) for k in bd.values()), "zugesagt: Hauptknopf trotz Antwort")
+            need(bd["mc-inv-accept"]["pressed"] == "true" and bd["mc-inv-accept"]["text"] != b.get("mc-inv-accept", {}).get("text")
+                 and not same_color(bd["mc-inv-accept"]["bg"], dn.get("control")), "zugesagt: gewählter Knopf nicht eingedrückt")
+        need((dn.get("status") or {}).get("sign") == "ACCEPTED", "zugesagt: Zeichen in der Zeile")
+        menu = res.get("menu") or {}
+        need(menu.get("state") == "open" and [i[2] for i in menu.get("items", [])] == [2, 2, 2, 0], f"Menü „…“ {menu}")
+        calls = res.get("calls") or []
+        need(calls == [["AUTO", "DECLINED"], ["AUTO", "TENTATIVE"], ["AUTO", "ACCEPTED"],
+                       ["AUTO", "ACCEPTED"], ["NONE", "ACCEPTED"], ["AUTO", "TENTATIVE"], ["NONE", "TENTATIVE"], ["AUTO", "DECLINED"], ["NONE", "DECLINED"], ["save", "NONE"]],
+             f"Antworten {calls}")
+        need(len(res.get("still") or []) == 1, f"springt beim Öffnen {res.get('still')}")
+        nr = res.get("narrow") or {}
+        need(nr.get("buttons") and nr.get("w", 999) <= 420 and all(bl >= 0 and br <= nr["w"] and fit for _, bl, br, fit in nr["buttons"]), f"schmal {nr}")
+        return not bad, f"{bad} {res}"
+    check("Einladungsfenster: halo-Design ohne Werkzeugleiste (graue Zeile, Titelkarte mit Kalenderstrich, Zeitkarte, Kalender, Invitees mit Kürzeln und Zusage, „…“-Menü, Accept als Hauptknopf; beantwortet eingedrückt ohne Hauptknopf)",
+          invitation_window_design, results)
 
     def summary_description():
         # Lesefenster (Termin → Öffnen): Beschreibung im eigenen Inhaltsdokument (iframe.item-description) dunkel

@@ -22169,9 +22169,12 @@ Neu
             type("kolibri"); await open(2, "Vorschlagsmenü offen"); await ruhig(600);
             out.rows = rows(); out.focus = bar.shadowRoot.activeElement == input; out.lupe.offen = li.hasAttribute("mc-search-open");
             const list = panel.querySelector(".mc-sg-list"), row = panel.querySelector(".mc-sg-row"), icon = row.querySelector(".mc-sg-icon"), term = row.querySelector(".mc-sg-term");
+            // Kanten der sichtbaren Fläche: unter Windows ist das Popup-Fenster ringsum um den Schattenrand größer
+            // (--panel-box-shadow-margin 4 px, Gecko gleicht ihn mit negativem Rand aus); macOS und Linux in der CI 0 px
             const pr = panel.getOuterScreenRect(), br = bar.getBoundingClientRect(), lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
-            out.geo = { width: Math.round(lr.width), field: Math.round(br.width), room: Math.round(br.right - 8), end: Math.round(w.mozInnerScreenX + br.right - (pr.x + pr.width)),
-              below: Math.round(pr.y - (w.mozInnerScreenY + br.bottom)), rowH: Math.round(rr.height), rowIn: Math.round(rr.left - lr.left),
+            const sm = parseFloat(w.getComputedStyle(panel).getPropertyValue("--panel-box-shadow-margin")) || 0;
+            out.geo = { width: Math.round(lr.width), field: Math.round(br.width), room: Math.round(br.right - 8), end: Math.round(w.mozInnerScreenX + br.right - (pr.x + pr.width - sm)),
+              below: Math.round(pr.y + sm - (w.mozInnerScreenY + br.bottom)), rowH: Math.round(rr.height), rowIn: Math.round(rr.left - lr.left),
               icon: Math.round(icon.getBoundingClientRect().left - lr.left), iconW: Math.round(icon.getBoundingClientRect().width),
               text: Math.round(row.querySelector(".mc-sg-label").getBoundingClientRect().left - lr.left) };
             out.grey = w.getComputedStyle(row).color != w.getComputedStyle(term).color;
@@ -26576,8 +26579,10 @@ Neu
             to(600, 1)
             out["top"] = leave(600, -1, "off")
             out["mid"].append(mitte())
-            to(1290)
-            out["right"] = leave(1299, 420, "off")
+            # rechter Rand des Inhalts: unter Windows ist er wegen des Fensterrahmens schmaler als resizeTo(1300) (1284 px)
+            iw = m.js("return w.innerWidth;")
+            to(iw - 10)
+            out["right"] = leave(iw - 1, 420, "off")
         finally:
             weg()
             m.js("""w.removeEventListener("mouseover", w.__mcSpurFn, true); delete w.__mcSpurFn; delete w.__mcSpurZiel;

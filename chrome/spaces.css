@@ -9940,7 +9940,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   top: -2px !important;
 }
 
-/* der Titel steht jetzt oben in der Toolbar-Zeile (#mcTodayTitle) */
+/* der Titel „Today“ steht zwischen Mini-Kalender und Terminliste (#mcTodayTitle) */
 #today-pane-header {
   display: none !important;
 }
@@ -9955,8 +9955,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none !important;
 }
 
-/* Thunderbirds „Neuer Termin“ unten entfällt – das „+“ sitzt oben rechts
-   in der Today-Pane (#mcTodayNew, setzt die Erweiterung) */
+/* Thunderbirds „Neuer Termin“ unten entfällt – das „+“ sitzt fest mittig
+   am unteren Rand der Today-Pane (#mcTodayFoot > #mcTodayNew, setzt die Erweiterung) */
 #today-pane-panel > #todaypane-new-event-button {
   display: none !important;
 }
@@ -9995,7 +9995,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 #mcNewPopup.mc-up .mc-pop::before {
   top: auto !important;
   bottom: -7px !important;
-  inset-inline-start: calc(50% - 7px) !important;
+  /* über der Mitte des „+“ (gemessen wie oben, sonst die Mitte) */
+  inset-inline-start: var(--mc-arrow-x, calc(50% - 7px)) !important;
   transform: rotate(225deg) !important;
 }
 
@@ -10165,52 +10166,11 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   border-inline-start: 1px solid var(--mt-sidebar-border);
   box-sizing: border-box;
   pointer-events: none;
-  display: flex;
-  align-items: center;
-  /* Titel mittig in der Fläche, links und rechts Platz für den Knopf */
-  justify-content: center;
-  padding-inline: min(62px, var(--mc-tp-w, 0px));
-  /* rechts Platz für „+“ und davor ≡/Fensterknöpfe von Windows/Linux –
-     der Titel rückt nie darunter; zusammen mit der Linie links (1 px) nie
-     mehr als die Breite, sonst wüchse die Fläche trotz border-box über die
-     Today-Pane hinaus (unter Windows um genau diesen Pixel nach links) */
-  padding-inline-end: min(calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
-                          max(0px, calc(var(--mc-tp-w, 0px) - min(62px, var(--mc-tp-w, 0px)) - 1px)));
   overflow: hidden;
 }
 
-/* während die Today-Pane gleitet: Überschrift an ihrem Endplatz (gemessen,
-   --mc-tt-off ab der linken Kante der Fläche), die Fläche deckt sie nur auf –
-   sie gleitet so mit der Pane herein bzw. hinaus */
-#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop {
-  justify-content: flex-start !important;
-  padding-inline: 0 !important;
-}
-
-#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop > #mcTodayTitle {
-  flex: none !important;
-  margin-inline-start: var(--mc-tt-off, 0px) !important;
-}
-
-/* (ohne Wetter gibt es kein Symbol: dann der Text, notfalls mit „…“) */
-#mcTodayTitle[data-narrow]:not([data-weather-off]) {
-  font-size: 0;
-  gap: 0;
-}
-
-/* Windows/Linux mit wenig Platz neben ≡ und Fensterknöpfen: Überschrift als
-   eigene Zeile oben in der Today-Pane (setzt die Erweiterung dorthin) */
-#mcTodayTitle[data-below] {
-  flex: none;
-  justify-content: center;
-  padding: 8px 12px 6px;
-  font-size: calc(15px * var(--mt-font-scale, 1));
-  gap: 7px;
-}
-
-/* die Toolbar-Leiste liegt über der Überschrift der Today-Pane: ihre leere
-   Fläche reicht Klicks durch (darunter zieht die Zeile weiter das Fenster),
-   ihre Knöpfe bleiben bedienbar */
+/* die leere Fläche der Toolbar-Leiste reicht Klicks durch (darunter zieht
+   die Zeile weiter das Fenster), ihre Knöpfe bleiben bedienbar */
 #unifiedToolbar,
 #unifiedToolbarContent {
   pointer-events: none;
@@ -10221,16 +10181,21 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   pointer-events: auto;
 }
 
+/* „Today“ mit Sonne bzw. Wetter mittig zwischen Mini-Kalender und Liste
+   (unter der Linie, über der Karte); Klick springt zu heute */
 #mcTodayTitle {
-  /* die Fläche darum lässt Klicks durch (Fenster ziehen); der Titel selbst
-     nimmt Klick und Tooltip an, Doppelklick zoomt hier nicht das Fenster */
-  pointer-events: auto;
   -moz-window-dragging: no-drag;
   cursor: default;
+  flex: none;
+  align-self: center;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   min-width: 0;
+  max-width: calc(100% - 24px);
+  /* Abstand zur Linie darüber 10 px, zur Karte darunter deren 8 px */
+  padding-top: 10px;
   font-size: calc(15px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--mt-text);
@@ -10331,14 +10296,17 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   appearance: none !important;
 }
 
-/* „+“ rechts oben in der Today-Pane: wie der Today-Knopf, am rechten Rand
-   (vor den Fensterknöpfen von Windows/Linux); nur bei offener Today-Pane */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayNew {
-  position: absolute !important;
-  z-index: 3 !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  inset-inline-end: calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))) !important;
+/* „+“ fest mittig am unteren Rand der Today-Pane in eigenem Streifen: die
+   Karte mit der Liste endet darüber (ihr Außenabstand 8 px + 4 px), die
+   Liste rollt in der Karte und läuft unten aus; wie der Today-Knopf 40 × 38 */
+#mcTodayFoot {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 10px;
+}
+
+#mcTodayNew {
   margin: 0 !important;
   width: 40px !important;
   height: 38px !important;
@@ -10354,15 +10322,14 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   appearance: none !important;
 }
 
-#mcTodayNew {
-  display: none;
-}
-
-/* „+“ sichtbar: der Today-Knopf hält Abstand dazu – unter Windows lassen die
-   breiten Fensterknöpfe in der Today-Pane sonst nur Platz für einen Knopf,
-   die beiden überlappten (beim Mac ändert das nichts, dort reicht der Platz) */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayToggle {
-  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + 46px), calc(var(--mc-tp-w, 0px) - 50px)) !important;
+/* Today-Pane gleitet: der Today-Knopf hängt an der Kante der Pane, im
+   Abstand seines Endplatzes (--mc-tp-full = volle Breite, --mc-tp-w = Breite
+   im Bild) – er gleitet mit ihr herein bzw. hinaus und steht im letzten Bild
+   schon am Endplatz (kein Nachsprung); nie rechts von seinem Platz bei
+   zugeklappter Pane */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-slide] > #mcTodayToggle {
+  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
+                        calc(var(--mc-tp-w, 0px) - var(--mc-tp-full, 0px) + max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))), calc(var(--mc-tp-full, 0px) - 50px)))) !important;
 }
 
 #mcTodayNew:hover {

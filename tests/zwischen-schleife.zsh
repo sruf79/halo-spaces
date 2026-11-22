@@ -347,6 +347,9 @@ pruefen() {
   (( vd == 1 )) && { print -r -- "ende Volldampf nicht aktiv"; return }
   # Wochenlimit: Volldampf pausiert nur bis zum freien Reset (Maintainer 18.11.2026) – warten, nicht enden
   (( vd == 2 )) && { print -r -- "warten Volldampf pausiert (Wochenlimit, wartet auf den freien Reset)"; return }
+  # Umbau-Woche (Freigabe 20.11.2026, Plan: in den Volldampf-Wächtern eine Sperrzeile): kein Zwischen-Release, sobald sie gilt;
+  # Releases bei Bedarf macht in der Woche der Nachtlauf. Vor dem Beginn (Di 24.11. 01:00) bleibt alles wie bisher
+  HALO_JETZT=${HALO_VOLLDAMPF_JETZT:-$HALO_JETZT} zsh $HIER/umbau-woche.sh aktiv 2>/dev/null && { print -r -- "warten Umbau-Woche gilt – Zwischen-Releases ruhen"; return }
   j=$((10#${HALO_JETZT_HM:-$(date +%H%M)}))
   # nach BIS warten statt enden: der Wächter startet nicht von selbst neu, endete er um 22:30, gab es an den folgenden
   # Volldampf-Tagen keine Zwischen-Releases mehr (18.11.2026); er endet erst mit Volldampf (oben)

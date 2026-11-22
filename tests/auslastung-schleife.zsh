@@ -267,6 +267,9 @@ pruefen() {
   volldampf_aktiv >/dev/null; vd=$?
   (( vd == 1 )) && { print -r -- "ende Volldampf nicht aktiv"; return }
   g=$(pause_aktiv auslastung) && { print -r -- "warten Pause $g"; return }
+  # Umbau-Woche (Sammelfrage S0 a, Maintainer 22.11.2026: „mit allen empfehlungen einverstanden“): ab 5 Std. vor dem Beginn
+  # (Mo 23.11. 20:00) bis zum Ende der Woche keine neuen Worker und kein Rundgang, laufende machen fertig (Sperrzeile, Ablaufplan V4)
+  g=$(zsh $HIER/umbau-woche.sh worker-sperre 2>/dev/null) && { print -r -- "warten Umbau-Woche: $g"; return }
   # Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48, 19.11.2026): frische Marke zwischen-faellig.txt des
   # Wächters tests/zwischen-schleife.zsh → kein neuer Worker und kein Rundgang, laufende machen fertig
   g=$(zr_vorrang) && { print -r -- "warten Zwischen-Release fällig ($g) – keine neuen Worker"; return }

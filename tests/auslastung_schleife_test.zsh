@@ -26,7 +26,7 @@ print -r -- '{"items":[{"id":"PVTI_frei12345","typ":"Bug","status":"Todo","title
 # W [VAR=Wert …]: Trockenlauf; Standard Di 17.11. 15:00 (14 h nach dem Reset, Soll der Kalenderwoche 8,3 %), Woche 5 %, 5 Stunden 40 %,
 # 1 Arbeits-Sitzung, kein Fable, kein Nachtlauf, letzter Start lange her
 W() {
-  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
+  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 HALO_UMBAU_DATEI=$T/kein-umbau.txt \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=5 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
     HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt HALO_ZR_FAELLIG=$T/kein-zf.txt \
@@ -133,6 +133,13 @@ print -r -- "auslastung 2026-11-17T14:00+01:00 abgelaufen" > $T/pausen.txt
 pruefe "abgelaufene Pause zählt nicht" "$(W)" 'starten'
 rm -f $T/pausen.txt
 pruefe "ohne Volldampf: Ende" "$(W HALO_VOLLDAMPF_DATEI=$T/keine.txt)" 'ende Volldampf nicht aktiv'
+# Umbau-Woche (S0 a, Maintainer 22.11.2026): ab Mo 23.11. 20:00 keine neuen Worker, auch kein Rundgang
+print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd-um.txt
+print -r -- "umbau 2026-11-24T01:00+01:00 Probe" > $T/umbau.txt
+pruefe "Umbau angemeldet, Mo 19:59: Worker wie sonst" "$(W HALO_VOLLDAMPF_DATEI=$T/vd-um.txt HALO_UMBAU_DATEI=$T/umbau.txt HALO_JETZT=2026-11-23T19:59+01:00 HALO_AS_WOCHE=10)" '^Prüfung:  starten'
+pruefe "Umbau angemeldet, Mo 20:00: keine neuen Worker" "$(W HALO_VOLLDAMPF_DATEI=$T/vd-um.txt HALO_UMBAU_DATEI=$T/umbau.txt HALO_JETZT=2026-11-23T20:00+01:00 HALO_AS_WOCHE=10)" \
+  '^Prüfung:  warten Umbau-Woche: keine neuen Worker seit 2026-11-23T20:00\+01:00'
+pruefe "Umbau Mo 23:00, 5 Stunden 90 %: auch kein Rundgang" "$(W HALO_VOLLDAMPF_DATEI=$T/vd-um.txt HALO_UMBAU_DATEI=$T/umbau.txt HALO_JETZT=2026-11-23T23:00+01:00 HALO_AS_5H=90 HALO_AS_WOCHE=10)" 'warten Umbau-Woche'
 pruefe "nach dem Volldampf-Fenster: Ende" "$(W HALO_JETZT=2026-11-24T02:00+01:00)" 'ende Volldampf nicht aktiv'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-18T08:00+01:00 98" > $T/vd-beendet.txt
 # Wochenlimit pausiert nur (Maintainer 18.11.2026): warten statt Ende, nach dem freien Reset (Anker) von selbst weiter

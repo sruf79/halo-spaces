@@ -22,7 +22,7 @@ pruefe() {   # <Name> <Ausgabe> <Muster …> (grep -E, alle müssen vorkommen)
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
 # W [VAR=Wert …]: Trockenlauf mit Standardwerten (10:00, Volldampf, grüner Stand, 3 Thunderbird-Commits, frei)
 W() {
-  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=$T/kein-anker.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
+  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=$T/kein-anker.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 HALO_UMBAU_DATEI=$T/kein-umbau.txt \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_BELEGT= HALO_ZS_STAND=abcdef1234567 HALO_ZS_TB=3 HALO_JETZT_HM=1000 \
     HALO_ZS_MISCHBAR=ja HALO_ZS_NUR_PRUEF=nein HALO_ZS_SPUERBAR=ja ZWISCHEN_ERZWINGEN= HALO_ZS_GESPERRT_DATEI=$T/gesperrt.txt HALO_ZS_5H=40 HALO_ZS_FENSTER_REST=3600 \
     "$@" zsh $SKRIPT --trocken 2>&1
@@ -53,6 +53,12 @@ rm -f $T/vd-beendet.txt
 print -r -- "zwischen-release 2099-01-01T00:00+01:00 Probe" > $T/pausen.txt
 pruefe "Pause zwischen-release in pausen.txt: warten" "$(W)" 'warten Pause'
 rm -f $T/pausen.txt
+# Umbau-Woche (Plan: Sperrzeile in den Volldampf-Wächtern): vor Di 24.11. 01:00 wie bisher, danach kein Zwischen-Release
+print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T02:00+01:00 Probe" > $T/vd-um.txt
+print -r -- "umbau 2026-11-24T01:00+01:00 Probe" > $T/umbau.txt
+pruefe "Umbau angemeldet (Mo 23.11. 10:00): fällig wie bisher" "$(W HALO_VOLLDAMPF_DATEI=$T/vd-um.txt HALO_UMBAU_DATEI=$T/umbau.txt HALO_VOLLDAMPF_JETZT=2026-11-23T10:00+01:00)" '^Prüfung:  fällig'
+pruefe "Umbau gilt (Di 24.11. 01:30): kein Zwischen-Release" "$(W HALO_VOLLDAMPF_DATEI=$T/vd-um.txt HALO_UMBAU_DATEI=$T/umbau.txt HALO_VOLLDAMPF_JETZT=2026-11-24T01:30+01:00 HALO_JETZT_HM=1000)" \
+  '^Prüfung:  warten Umbau-Woche gilt'
 
 # Prüfzweige aller Art (Maintainer 18.11.2026), Fenster-Schwelle, Sperrdatei
 pruefe "anderer Prüfzweig grün (pruef/worker-…): fällig mit seinem Zweig" "$(W HALO_ZS_STAND='abcdef1234567 pruef/worker-20261118-0906-1')" \

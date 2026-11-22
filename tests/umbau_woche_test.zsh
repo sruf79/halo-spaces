@@ -153,4 +153,18 @@ SK=$(grep -vE '^[[:space:]]*#' $HIER/umbau-woche.py $U)
 pruefe "Vorsortierung schreibt nie ins Board (kein status/notiz/neu/item-edit)" \
   "$(print -r -- $SK | grep -cE 'board\.sh (status|notiz|neu|text|titel|archiv)|item-edit|item-archive|updateProjectV2'; print -r -- $SK | grep -cE 'git[^|]*(push|commit|reset|checkout)')" '^0$' '^0$'
 
+# --- Einbindung ---
+A_N=$(<$HIER/nachtlauf-auftrag.md) A_T=$(<$HIER/tagesroutine-auftrag.md) A_1=$(<$HIER/umbau-tag1-auftrag.md 2>/dev/null)
+pruefe "Nachtlauf-Auftrag: Abschnitt Umbau-Woche mit Schalter, Tag 1 und Filter" "$A_N" \
+  'zsh tests/umbau-woche.sh status' 'zsh tests/umbau-woche.sh faellig' 'tests/umbau-tag1-auftrag.md' 'zsh tests/umbau-woche.sh erlaubt'
+pruefe "Tagesroutine-Auftrag: nur P4 und spürbare Nutzer-Bugs, Filter, kein Fable" "$A_T" \
+  'zsh tests/umbau-woche.sh status' 'zsh tests/umbau-woche.sh erlaubt' 'P4' 'Fable'
+pruefe "Auftrag Tag 1: Listen A–D, N, W, U, Pausiert über board.sh, Zählung, Marke" "$A_1" \
+  'zsh tests/umbau-woche.sh sortieren' 'board.sh status <id> pausiert' 'board.sh status <id> done' 'Liste D' 'Liste N' 'Liste W' 'Liste U' \
+  'Zählung' 'zsh tests/umbau-woche.sh sortiert' 'nie schließen'
+pruefe "nachtlauf.sh: Zeile „Umbau-Woche:“ im Auftrag" "$(<$HIER/nachtlauf.sh)" 'umbau-woche\.sh status' 'Umbau-Woche: '
+pruefe "tagesroutine.sh: Fable-Sperre über umbau-woche.sh fable" "$(<$HIER/tagesroutine.sh)" 'umbau-woche\.sh fable'
+pruefe "Auslastungswächter: Sperrzeile über umbau-woche.sh worker-sperre" "$(<$HIER/auslastung-schleife.zsh)" 'umbau-woche\.sh worker-sperre'
+pruefe "Zwischen-Release-Wächter: Sperrzeile über umbau-woche.sh aktiv" "$(<$HIER/zwischen-schleife.zsh)" 'umbau-woche\.sh aktiv'
+
 exit $FEHLER

@@ -27,8 +27,12 @@ UMBAU_TITEL = re.compile(r"Umbau-Woche")
 GITHUB = re.compile(r"GitHub #\d+")
 REIHE = re.compile(r"\(\d+/(\d+|n)\)|\b\d+/(\d+|n) –")
 # Notiz, die einen Eintrag als nicht abgeschlossen ausweist (dann kein Done ohne Einzelprüfung)
+# Auch ausdrücklich Ausstehendes (Fable-Prüfung 22.11.2026, M1: „Punkt 1 … nicht umgesetzt“, „Abnahme-Bildfolge … steht
+# noch aus“); „Abnahme“ allein nicht, sonst träfe es „Abnahme-Mangel behoben“.
 UNFERTIG = re.compile(r"teilweise|Teil-?[Ff]ix|\bTeil\b|Teil \d|Schritt|[Oo]ffen|zur Abnahme|Rest\b|zurückgenommen|"
-                      r"[Rr]evert|Nebenzweig|rot\b|flackert|nicht gelöst|Vorschlag", re.I)
+                      r"[Rr]evert|Nebenzweig|rot\b|flackert|nicht gelöst|Vorschlag|nicht umgesetzt|steht (noch )?aus|"
+                      r"\bnoch aus\b|noch nicht (umgesetzt|erledigt|fertig|gelöst|abgenommen|geprüft)|fehlt noch|noch fehlt|"
+                      r"ausstehend", re.I)
 COMMITTET = re.compile(r"committet|übernommen|cherry-pick|gepusht")
 HASH = re.compile(r"(?<![0-9A-Za-z_/-])[0-9a-f]{7,40}(?![0-9A-Za-z_-])")
 WORKER = re.compile(r"In Arbeit( beendet| aufgegeben)?: (worker-[^ ]+) \(Auslastungswächter, ([^),]+)")

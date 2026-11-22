@@ -14536,7 +14536,8 @@ def run_checks(m, version, profile, results):
 
     def appearance_tiles():
         # Erscheinungsbild als Bildauswahl wie „Message list view style“: drei Kacheln Hell, Dunkel, Auto (in dieser
-        # Reihenfolge) mit Fenstergrafik 68×44 nebeneinander, die gewählte entspricht dem Theme; Klick stellt um
+        # Reihenfolge) mit Fenstergrafik nebeneinander, seit Seltene Symbole Teil 2 (15.11.2026) so groß wie die
+        # übrigen Bilder der Darstellung (118×76), die gewählte entspricht dem Theme; Klick stellt um
         res = m.js(r"""
           const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
           const THEMES = { auto: "default-theme@mozilla.org", light: "thunderbird-compact-light@mozilla.org", dark: "thunderbird-compact-dark@mozilla.org" };
@@ -14574,12 +14575,172 @@ def run_checks(m, version, profile, results):
         ts = res.get("tiles") or []
         cl = res.get("clicked") or {}
         ok = (not res.get("menulist") and [x["v"] for x in ts] == ["light", "dark", "auto"]
-              and all(x["w"] == 68 and x["h"] == 44 and x["img"] and x["label"] for x in ts) and len({x["top"] for x in ts}) == 1
+              and all(x["w"] == 118 and x["h"] == 76 and x["img"] and x["label"] for x in ts) and len({x["top"] for x in ts}) == 1
               and res.get("selected") == res.get("theme") and cl.get("now") == cl.get("target") and cl.get("sel") == cl.get("target")
               # (ältere Versionen, z. B. die ESR, haben „View style“ noch nicht: fehlende Beschriftung zählt nicht, eine muss da sein)
               and any(x and x != "fehlt" for x in res.get("labels") or []) and not any(x.rstrip().endswith(":") for x in res.get("labels") or []))
         return ok, f"{res}"
     check("Einstellungen: Erscheinungsbild als Bildauswahl – Kacheln Hell, Dunkel, Auto mit Fenstergrafik nebeneinander, gewählt ist das aktive Theme, Klick stellt um, Beschriftungen ohne Doppelpunkt", appearance_tiles, results)
+
+    # Bilder speichern, die eine Prüfung als base64 in out["png"] (Name → Daten) zurückgibt (nur mit HALO_SHOTS)
+    def save_pngs(prefix, res):
+        pngs = res.pop("png", None) or {}
+        if os.environ.get("HALO_SHOTS") and pngs:
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            mode = "dunkel" if res.get("dark") else "hell"
+            for k, v in pngs.items():
+                if v:
+                    path = os.path.join(os.environ["HALO_SHOTS"], f"{prefix}-{k}-{mode}.png")
+                    open(path, "wb").write(base64.b64decode(v))
+                    print(f"Bild {path}", flush=True)
+
+    SNAP_JS = r"""
+      const SHOT = %s;
+      // Ausschnitt eines Dokuments (Elemente, je 8 px Rand) als PNG; mehrere Elemente untereinander in einem Bild
+      const snap = async (win, els) => { if (!SHOT) return null; const parts = [];
+        for (const el of els.filter(Boolean)) { el.scrollIntoView({ block: "center" }); await ruhig(150);
+          const r = el.getBoundingClientRect(), rr = new win.DOMRect(Math.max(0, r.left - 8), Math.max(0, r.top - 8), r.width + 16, r.height + 16);
+          parts.push(await win.browsingContext.currentWindowGlobal.drawSnapshot(rr, 2, "white")); }
+        if (!parts.length) return null;
+        const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+        cv.width = Math.max(...parts.map(p => p.width)); cv.height = parts.reduce((s, p) => s + p.height, 0);
+        const ctx = cv.getContext("2d"); let y = 0; for (const p of parts) { ctx.drawImage(p, 0, y); y += p.height; }
+        return cv.toDataURL("image/png").split(",")[1]; };""" % ("true" if os.environ.get("HALO_SHOTS") else "false")
+
+    def appearance_pictures():
+        # Seltene Symbole Teil 2 (Freigabe „Ja A passt“, 15.11.2026): die Bilder der Darstellung (Card view, Table view,
+        # Unthreaded, Threaded, Grouped by Sort) sind kleine halo-Fenster 118×76 statt Thunderbirds „pictograph“-Bilder,
+        # Hell/Dunkel/Auto gleich groß; kein Kasten um die Wahl, die gewählte zeigt einen Ring in der Systemfarbe mit
+        # Abstand zum Bild, der Name steht darunter mittig in Textfarbe, gewählt halbfett. Themes unter Add-ons: Vorschau
+        # als abgerundetes Bild mit feiner Kante in der Karte statt randlos mit Strich darunter. Mit HALO_SHOTS Bilder
+        res = m.js(SNAP_JS + r"""
+          w.resizeTo(1400, 1000);
+          w.openPreferencesTab("paneAppearance");
+          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("mcAppearance");
+            return x?.readyState == "complete" && e?.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
+          await ruhig(600);
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, pw = t.browser.contentWindow, cs = e => pw.getComputedStyle(e);
+          const probe = (v, p = "color") => { const e = cd.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style[p] = v; cd.documentElement.append(e); const c = cs(e)[p]; e.remove(); return c; };
+          const out = { dark: pw.matchMedia("(prefers-color-scheme: dark)").matches, accent: probe("AccentColor"), text: probe("var(--mt-text)"), png: {} };
+          const ids = ["mcAppearance-light", "mcAppearance-dark", "mcAppearance-auto", "appearanceStyleCards", "appearanceStyleTable",
+                       "defaultFlagUnthreaded", "defaultFlagThreaded", "defaultFlagGrouped"];
+          out.tiles = ids.map(id => { const r = cd.getElementById(id); if (!r) return { id, fehlt: true };
+            const i = r.querySelector(".radio-icon"), l = r.querySelector(".radio-label"), b = i.getBoundingClientRect(), lb = l.getBoundingClientRect(), s = cs(i), rs = cs(r);
+            return { id, sel: !!r.selected, w: Math.round(b.width), h: Math.round(b.height), data: s.listStyleImage.startsWith('url("data:image/svg'),
+              pict: /pictograph/.test(s.listStyleImage), rad: s.borderTopLeftRadius, ring: [s.outlineStyle, parseFloat(s.outlineWidth), parseFloat(s.outlineOffset), s.outlineColor],
+              edge: s.boxShadow, box: [rs.borderTopWidth, rs.backgroundColor, rs.boxShadow, rs.outlineStyle],
+              label: [cs(l).fontWeight, cs(l).color, cs(l).fontSize], mid: Math.round(Math.abs((lb.left + lb.right) / 2 - (b.left + b.right) / 2)), under: Math.round(lb.top - b.bottom) }; });
+          out.png.darstellung = await snap(pw, [cd.getElementById("mcAppearance"), cd.getElementById("appearanceViewStyle"), cd.getElementById("defaultViewFlags")]);
+          tm.closeTab(t); await ruhig(400);
+          // Add-ons: Themes
+          w.openAddonsMgr("addons://list/theme");
+          const ad = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector("addon-card img.card-heading-image") && x; }, "Themes", 8000);
+          await ruhig(800);
+          const aw = ad.defaultView;
+          out.themes = [...ad.querySelectorAll("addon-card img.card-heading-image")].filter(i => i.getBoundingClientRect().width).map(i => {
+            const s = aw.getComputedStyle(i), b = i.getBoundingClientRect(), c = i.closest(".card").getBoundingClientRect();
+            return { rad: s.borderTopLeftRadius, bottom: s.borderBottomWidth, edge: s.boxShadow, inset: Math.round(b.left - c.left), w: Math.round(b.width) }; });
+          out.png.themes = await snap(aw, [ad.querySelector("addon-card .card")]);
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        save_pngs("selten2", res)
+        ts, th = res.get("tiles") or [], res.get("themes") or []
+        def tile(x):
+            if x.get("fehlt"):
+                return not x["id"].startswith("mcAppearance")  # ältere Thunderbird-Versionen haben nicht alle Bilder
+            ring = x["ring"]
+            return (x["w"] == 118 and x["h"] == 76 and x["data"] and not x["pict"] and x["rad"] == "8px" and x["edge"] != "none"
+                    and x["box"][0] == "0px" and x["box"][1] == "rgba(0, 0, 0, 0)" and x["box"][2] == "none" and x["box"][3] == "none"
+                    and ((ring[0] == "solid" and ring[1] >= 2 and ring[2] >= 2 and same_color(ring[3], res["accent"])) if x["sel"] else ring[0] == "none")
+                    and int(x["label"][0]) == (600 if x["sel"] else 400) and same_color(x["label"][1], res["text"]) and x["label"][2] == "13px"
+                    and x["mid"] <= 1 and 4 <= x["under"] <= 12)
+        ok = (len(ts) == 8 and all(tile(x) for x in ts) and sum(1 for x in ts if x.get("sel") and x["id"].startswith("mcAppearance")) == 1
+              and bool(th) and all(x["rad"] == "8px" and x["bottom"] == "0px" and x["edge"] != "none" and x["inset"] >= 8 for x in th))
+        return ok, f"{res}"
+    check("Einstellungen: Bilder der Darstellung (Karten, Tabelle, Unterhaltungen, Hell/Dunkel/Auto) als halo-Fenster 118×76 ohne Kasten, "
+          "Wahl als Ring in der Systemfarbe, Name darunter, gewählt halbfett; Theme-Vorschau unter Add-ons abgerundet mit feiner Kante", appearance_pictures, results)
+
+    def rare_icons():
+        # Seltene Symbole Teil 2: Ordner-Eigenschaften „Farbe zurücksetzen“ als runder grauer Symbolknopf 26 px mit dem halo-
+        # Pfeil zurück; Export-Hinweis mit grauem halo-i; Panel „Kontakt bearbeiten“ mit grauem halo-Adressbuch; globale
+        # Suche ohne Treffer mit grauer halo-Lupe 40 px statt Thunderbirds Lupe mit Kreuz; App-Menü (Mitmachen, Export fürs
+        # Handy), Punkt an Empfängern außerhalb des Adressbuchs und Sortierpfeil der Listen (Filter, OpenPGP) als halo-Symbole
+        res = m.js(READING_JS + SNAP_JS + r"""
+          const HTML = "http://www.w3.org/1999/xhtml";
+          const probeIn = (dc, v, p = "color") => { const e = dc.createElementNS(HTML, "div"); e.style[p] = v; dc.documentElement.append(e); const c = cs(e)[p]; e.remove(); return c; };
+          const icon = el => { if (!el) return null; const s = cs(el), b = el.getBoundingClientRect();
+            return { img: (s.content + " " + s.listStyleImage).replace(/.*?(mailcards\/icons\/[\w-]+\.svg|chrome:[^")]+).*/, "$1"), stroke: s.stroke, fill: s.fill,
+                     w: Math.round(b.width), h: Math.round(b.height) }; };
+          const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches, png: {} };
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          // Ordner-Eigenschaften
+          const folder = root.getChildNamed("Kopf");
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.openDialog("chrome://messenger/content/folderProps.xhtml", "", "chrome,modal=no,titlebar,resizable=no", { folder, serverType: "none", msgWindow: w.msgWindow, name: folder.prettyName });
+          const fw = await bis(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.startsWith("chrome://messenger/content/folderProps.xhtml") && x.document.readyState == "complete"), "Ordner-Eigenschaften", 8000);
+          try { await ruhig(1200); const fd = fw.document, b = fd.getElementById("resetColor"), s = cs(b);
+            out.reset = { ...icon(b), radius: s.borderTopLeftRadius, bg: s.backgroundColor, control: probeIn(fd, "var(--mt-control)", "backgroundColor"), sh: s.boxShadow,
+                          inner: icon(b.querySelector(".button-icon")), text: probeIn(fd, "var(--mt-text)") };
+            out.png.ordnerfarbe = await snap(fw, [b.parentElement]);
+          } finally { fw.close(); await ruhig(500); }
+          // Export
+          w.toExport();
+          const it = await bis(() => tm.tabInfo.find(x => x.browser?.currentURI?.spec?.startsWith("about:import")), "Tab about:import", 6000);
+          try { const dd = it.browser.contentDocument;
+            const img = await bis(() => { const i = dd.querySelector("#tabPane-export p.description img.info"); return i && i.getBoundingClientRect().width && i; }, "Export-Hinweis", 6000);
+            await ruhig(500); out.info = { ...icon(img), secondary: probeIn(dd, "var(--mt-text-secondary)") };
+            out.png.export = await snap(it.browser.contentWindow, [img.parentElement]);
+          } finally { tm.closeTab(it); await ruhig(400); }
+          // Kontakt bearbeiten (Panel aus dem Mailkopf)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = book.childCards.find(c => c.primaryEmail == "paula@example.invalid");
+          if (!card) { card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            card.displayName = "Paula Panel"; card.primaryEmail = "paula@example.invalid"; card = book.addCard(card); }
+          try { const doc = await showMail("Halo Kontakt");
+            const menu = doc.getElementById("emailAddressPopup"), from = doc.querySelector("#fromRecipient0");
+            (from.querySelector(".recipient-single-line, .recipient-multi-line-name") || from).click();
+            await bis(() => menu.state == "open", "Adressmenü offen", 3000);
+            doc.getElementById("editContactItem").doCommand(); menu.hidePopup();
+            const panel = await bis(() => { const p = doc.getElementById("editContactPanel"); return p?.state == "open" && p; }, "Panel Kontakt bearbeiten", 4000);
+            try { await ruhig(500); out.contact = { ...icon(doc.getElementById("editContactPanelIcon")), secondary: probeIn(doc, "var(--mt-text-secondary)") };
+              // (Panel ist ein eigenes Popup-Fenster: drawSnapshot des Dokuments erfasst es nicht, daher kein Bild)
+            } finally { panel.hidePopup(); await ruhig(300); }
+          } finally { book.deleteCards([card]); }
+          // globale Suche ohne Treffer
+          const { GlodaMsgSearcher } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaMsgSearcher.sys.mjs");
+          const gt = tm.openTab("glodaFacet", { searcher: new GlodaMsgSearcher(null, "haloohnetreffer") });
+          try { const gd = await bis(() => { const x = gt.browser?.contentDocument; return x?.readyState == "complete" && x.querySelector("img.empty")?.getBoundingClientRect().width && x; }, "Suche ohne Treffer", 8000);
+            await ruhig(600); out.empty = { ...icon(gd.querySelector("img.empty")), tertiary: probeIn(gd, "var(--mt-text-tertiary)") };
+            out.png.suche = await snap(gt.browser.contentWindow, [gd.querySelector("span.empty")]);
+          } finally { tm.closeTab(gt); await ruhig(500); }
+          // App-Menü, Punkt am Empfänger, Sortierpfeil (Regeln an Klassen bzw. Variablen, im Hauptfenster nachgebaut)
+          const rs = cs(d.documentElement);
+          out.vars = ["--icon-handshake", "--icon-mobile-export-sm", "--icon-mobile-export-lg"].map(v => rs.getPropertyValue(v).replace(/.*?(mailcards\/icons\/[\w-]+\.svg|chrome:[^")]+).*/, "$1"));
+          const box = d.createXULElement("hbox"); d.documentElement.append(box);
+          try { const pill = d.createElementNS(HTML, "img"); pill.className = "pill-indicator"; box.append(pill);
+            // (treecol baut Beschriftung und Sortierpfeil beim Einhängen selbst; fehlt er, ein eigenes Bild mit der Klasse)
+            const sorts = ["ascending", "descending"].map(k => { const col = d.createXULElement("treecol"); col.setAttribute("sortDirection", k); box.append(col);
+              let im = col.querySelector(".treecol-sortdirection"); if (!im) { im = d.createXULElement("image"); im.className = "treecol-sortdirection"; col.append(im); } return im; });
+            out.pill = icon(pill); out.sort = sorts.map(icon);
+          } finally { box.remove(); }
+          return out;""")
+        save_pngs("selten2", res)
+        def gray(x, key):
+            return bool(x) and same_color(x["stroke"], x[key])
+        r, i, c, e = res.get("reset") or {}, res.get("info") or {}, res.get("contact") or {}, res.get("empty") or {}
+        ok = (bool(r) and (r["inner"] or {}).get("img") == "mailcards/icons/restore.svg" and r["w"] == 26 and r["h"] == 26
+              and r["radius"] in ("50%", "13px", "999px") and same_color(r["bg"], r["control"]) and "inset" in r["sh"]
+              and same_color((r["inner"] or {}).get("stroke", ""), r["text"])
+              and i.get("img") == "mailcards/icons/info.svg" and gray(i, "secondary")
+              and c.get("img") == "mailcards/icons/address-book.svg" and gray(c, "secondary")
+              and e.get("img") == "mailcards/icons/search-empty-40.svg" and gray(e, "tertiary") and e.get("w") == 40
+              and res.get("vars") == ["mailcards/icons/handshake.svg", "mailcards/icons/mobile-export.svg", "mailcards/icons/mobile-export-24.svg"]
+              and (res.get("pill") or {}).get("img") == "mailcards/icons/dot-12.svg"
+              and [x.get("img") for x in res.get("sort") or [{}, {}]] == ["mailcards/icons/ascending-12.svg", "mailcards/icons/descending-12.svg"])
+        return ok, f"{res}"
+    check("Symbole: Farbe zurücksetzen (Ordner-Eigenschaften) als runder grauer Symbolknopf, Export-Hinweis, Kontakt bearbeiten und "
+          "Suche ohne Treffer mit grauen halo-Symbolen, App-Menü, Empfänger-Punkt und Sortierpfeil als halo-Symbole", rare_icons, results)
 
     def prefs_menulist():
         # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen

@@ -14179,6 +14179,271 @@ button.wizard-button[disabled] {
   }
 }
 
+/* ---------- Unterdialoge der Einstellungen: ein gemeinsames Muster ----------
+   (Schriften, Dock, Benachrichtigung, Schlagwort, Empfangsbestätigungen,
+   Update-Chronik, Verbindung, Offline, Sprachen, Anhang-Erinnerung,
+   Ausnahmen, Cookies, Passwörter, Zertifikate, Kryptographie-Module,
+   Kategorie, Systemintegration, LDAP, Hauptpasswort; Variante A des
+   Designers, 15.11.2026): Panel mit Radius 18 und 20 px Rand, Überschrift
+   links 17 px halbfett wie der Konto-Hub, Schrift 13 px, Listen und Tabellen
+   als graue Karte ohne Rahmen und Spaltenlinien (Kopf 30 px, 11,5 px grau
+   halbfett, Zeilen 28 px mit Haarlinie, Auswahl grau wie in der Mailliste),
+   kein sichtbarer Größengriff (Ziehen an der Ecke bleibt). Das Panel steht
+   im Dokument der Einstellungen (#MailPreferences), der Inhalt in einem
+   eigenen Dokument, das die Erweiterung mit mc-pref-dialog kennzeichnet */
+:root {
+  --mt-radius-pref-dialog: 18px;
+  --mt-pref-dialog-edge: 20px;
+}
+
+#MailPreferences .dialogBox {
+  border-radius: var(--mt-radius-pref-dialog) !important;
+}
+
+/* Maße ab der Außenkante: das Panel hat 1 px (durchsichtigen) Rand */
+#MailPreferences .dialogTitleBar {
+  padding: 17px calc(var(--mt-pref-dialog-edge) - 1px) 0 !important;
+}
+
+#MailPreferences .dialogTitle {
+  text-align: start !important;
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+  color: var(--mt-text) !important;
+}
+
+/* 1 px Rand, 15 px Abstand und die 4 px, die Thunderbird dem Inhalt für den
+   Fokusring lässt, ergeben 20 px bis zur Kante. Oben und unten gleich:
+   Thunderbird rechnet die Höhe größenveränderlicher Dialoge mit dem doppelten
+   oberen Rand, ein kleinerer oberer Rand schnitte unten die Knöpfe ab */
+#MailPreferences .dialogFrame {
+  margin: calc(var(--mt-pref-dialog-edge) - 5px) !important;
+}
+
+/* Schrift überall 13 px statt 11 bzw. 12,1 px (Thunderbird: 1.1rem) */
+:root[mc-pref-dialog] {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+:root[mc-pref-dialog] :is(body, window) > :is(dialog, hbox, vbox),
+:root[mc-pref-dialog] .contentPane {
+  font-size: 1rem !important;
+}
+
+/* Listen und Tabellen als graue Karte */
+:root[mc-pref-dialog] :is(tree, richlistbox) {
+  appearance: none !important;
+  border: none !important;
+  border-radius: var(--mt-radius-card, 12px) !important;
+  background-color: var(--mt-control) !important;
+}
+
+:root[mc-pref-dialog] richlistbox {
+  padding: 0 !important;
+}
+
+:root[mc-pref-dialog] tree > treecols {
+  box-sizing: border-box !important;
+  min-height: 30px !important;
+  height: 30px !important;
+  padding-inline: 4px !important;
+  border-bottom: var(--mt-hairline) solid var(--mt-separator) !important;
+}
+
+:root[mc-pref-dialog] tree > treecols > :is(treecol, treecolpicker) {
+  min-height: 0 !important;
+  padding-block: 0 !important;
+}
+
+:root[mc-pref-dialog] tree > treecols > treecol {
+  padding-inline: 8px !important;
+  border: none !important;
+  font-size: calc(11.5px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Spaltentrenner zum Ziehen bleiben, nur ohne Linie */
+:root[mc-pref-dialog] tree > treecols > splitter {
+  border: none !important;
+  background: transparent !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-row {
+  min-height: 28px !important;
+  height: 28px !important;
+  border: none !important;
+  border-bottom: var(--mt-hairline) solid var(--mt-separator) !important;
+  background-color: transparent !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-row(selected),
+:root[mc-pref-dialog] treechildren::-moz-tree-row(selected, focus) {
+  background-color: var(--mt-selected-unfocused) !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-cell {
+  padding-inline: 8px !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-cell-text {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-pref-dialog] richlistbox > richlistitem {
+  min-height: 28px !important;
+  padding-inline: 12px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-pref-dialog] richlistbox > richlistitem:not(:last-of-type) {
+  border-bottom: var(--mt-hairline) solid var(--mt-separator) !important;
+}
+
+:root[mc-pref-dialog] richlistbox > richlistitem[selected] {
+  background: var(--mt-selected-unfocused) !important;
+  color: var(--mt-text) !important;
+}
+
+/* Update-Chronik ohne Updates: der Hinweis in der Karte an der Textkante der
+   Zeilen (12 px). Ohne das stand er mit Thunderbirds 5 px Rand am Kartenrand,
+   weil die Karte ihren Innenabstand verliert (Linux-CI 23.11.2026) */
+:root[mc-pref-dialog] #historyItems > label {
+  margin: 8px 12px !important;
+}
+
+/* Spalten-Auswahl rechts im Tabellenkopf ohne eigenen Rahmen */
+:root[mc-pref-dialog] tree > treecols > treecolpicker {
+  appearance: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Häkchen- und Optionsgruppen als graue Karte: eine Reihe aufeinander
+   folgender Kästchen bzw. Optionen bildet eine Karte (Radius 12), Zeilen
+   38 px mit Haarlinie ab der Textkante; Thunderbirds Einzug entfällt */
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]) {
+  align-self: stretch !important;
+  min-height: 38px !important;
+  margin: 0 !important;
+  padding-inline: 12px !important;
+  background-color: var(--mt-control) !important;
+}
+
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]) + :is(checkbox, radio):not([hidden]) {
+  background-image: linear-gradient(var(--mt-separator), var(--mt-separator)) !important;
+  background-repeat: no-repeat !important;
+  background-position: 38px 0 !important;
+  background-size: calc(100% - 50px) var(--mt-hairline, 1px) !important;
+}
+
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]):not(:is(checkbox, radio):not([hidden]) + *) {
+  border-start-start-radius: var(--mt-radius-card, 12px) !important;
+  border-start-end-radius: var(--mt-radius-card, 12px) !important;
+}
+
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]):not(:has(~ :not([hidden]))),
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]):has(+ :not(checkbox, radio, [hidden])) {
+  border-end-start-radius: var(--mt-radius-card, 12px) !important;
+  border-end-end-radius: var(--mt-radius-card, 12px) !important;
+}
+
+:root[mc-pref-dialog] radiogroup:not(hbox:not([orient="vertical"]) > radiogroup) {
+  align-items: stretch !important;
+  margin-inline: 0 !important;
+}
+
+/* Offline: die waagerechten Gruppen stehen als Raster untereinander (unten),
+   als Karte dann so breit wie die übrigen */
+:root[mc-pref-dialog] #OfflineSettingsDialog radiogroup[orient="horizontal"] {
+  justify-items: stretch !important;
+}
+
+/* Zwischenüberschriften (Text direkt über einer Karte) klein, grau und
+   halbfett; ein einleitender Satz behält seinen Doppelpunkt (E28) */
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"]) > :is(label, description):not(:first-child):has(+ :is(radiogroup, checkbox, #enabledActions, #defaultClientList)) {
+  margin-block: 14px 6px !important;
+  margin-inline: 8px 0 !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Trennlinien zwischen den Gruppen entfallen, die Karten trennen selbst */
+:root[mc-pref-dialog] separator.groove {
+  display: none !important;
+}
+
+/* Abstand zwischen einer Karte am Ende und der Knopfzeile (als Rand des
+   Inhalts: Thunderbird misst die Höhe des Dialogs am Inhalt, ein Rand an den
+   Knöpfen schnitte sie unten ab) */
+:root[mc-pref-dialog] dialog > :is(checkbox, radiogroup, vbox):not([hidden]):last-child {
+  margin-block-end: 12px !important;
+}
+
+/* Kategorie: Thunderbird setzt den Dialog auf 100vh – so maß der Rahmen die
+   Höhe vor der größeren Schrift, die Knöpfe waren unten abgeschnitten */
+:root[mc-pref-dialog] #editCategory {
+  height: auto !important;
+  padding-block-end: 8px !important;
+}
+
+/* Hilfetext unter der Überschrift grau; bei den Passwörtern über dem
+   Suchfeld wie in der Vorschau */
+:root[mc-pref-dialog] #signonsIntro {
+  order: -1 !important;
+  margin-block-end: 10px !important;
+}
+
+:root[mc-pref-dialog] :is(#signonsIntro, #permissionsText),
+:root[mc-pref-dialog] :is(dialog, window > vbox) > description:first-child,
+:root[mc-pref-dialog] :is(dialog, window > vbox) > label:not([control]):first-child {
+  color: var(--mt-text-secondary) !important;
+  margin-inline: 0 !important;
+}
+
+/* Knöpfe 30 px wie in allen Dialogen; Listenaktionen bleiben graue
+   Textknöpfe links, rechts steht ein Hauptknopf: „Close“ bei Passwörtern
+   und Cookies (der einzige Knopf rechts), „Save Changes“ bei den Ausnahmen */
+:root[mc-pref-dialog] button {
+  min-height: var(--mt-btn-h, 30px) !important;
+}
+
+:root[mc-pref-dialog]:is(#SignonViewerDialog, #CookiesDialog) #closeButton:not([disabled]),
+:root[mc-pref-dialog]#PermissionsDialog #btnApplyChanges:not([disabled]) {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+:root[mc-pref-dialog]:is(#SignonViewerDialog, #CookiesDialog) #closeButton:not([disabled]):hover:active,
+:root[mc-pref-dialog]#PermissionsDialog #btnApplyChanges:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+/* Ausnahmen: Block, Allow for Session und Allow sind Listenaktionen, keine
+   zweiten Hauptknöpfe (Thunderbird macht „Allow“ zum Standardknopf) */
+:root[mc-pref-dialog]#PermissionsDialog :is(#btnBlock, #btnSession, #btnAllow) {
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-pref-dialog]#PermissionsDialog :is(#btnBlock, #btnSession, #btnAllow)[disabled] {
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text, var(--mt-text-secondary)) !important;
+}
+
 :is(dialog:not(.account-hub-dialog), wizard) :is(input, textarea):focus {
   outline: none !important;
   border-color: var(--mt-accent) !important;

@@ -16607,10 +16607,12 @@ def run_checks(m, version, profile, results):
         # 224 statt 380 px zusammengedrückt)
         res = m.js('''
           await toMail(); const sx = w.screenX, sy = w.screenY, sw = w.outerWidth, sh = w.outerHeight;
+          const mcWin = l => { const a3 = tm.currentAbout3Pane; return [l, w.outerWidth, w.innerWidth, w.screenX, w.windowState, Math.round(a3?.innerWidth ?? -1), Math.round(d.getElementById("today-pane-panel")?.getBoundingClientRect().width ?? -1), [...Services.wm.getEnumerator(null)].map(x => [x.document.documentElement.getAttribute("windowtype"), x.outerWidth, x.outerHeight, x.screenX].join("/")).join(" ")]; };
+          const diagWin = [mcWin("vorher")];
           const right = w.screen.availLeft + w.screen.availWidth;
-          w.moveTo(right - 1300, w.screen.availTop); w.resizeTo(1300, 900); await wait(1200);
+          w.moveTo(right - 1300, w.screen.availTop); w.resizeTo(1300, 900); diagWin.push(mcWin("gleich nach 1300")); await wait(1200); diagWin.push(mcWin("1300"));
           if (!w.TodayPane.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(800); }
-          const out = { visibility: d.visibilityState, screenRight: right };
+          const out = { visibility: d.visibilityState, screenRight: right, diagWin, avail: [w.screen.availLeft, w.screen.availTop, w.screen.availWidth, w.screen.availHeight] };
           for (const id of ["mcNewEvent", "mcNewTask"]) {
             d.getElementById("mcTodayNew").click(); await until(() => d.getElementById("mcNewPopup").state == "open", 3000);
             d.getElementById(id).click();
@@ -16619,7 +16621,7 @@ def run_checks(m, version, profile, results):
             out[id] = { state: qp.state, mode: qp.querySelector(".mc-qc-seg > button[selected]")?.dataset.mode, width: Math.round(r.width), right: Math.round(r.left + r.width) };
             qp.hidePopup(); await until(() => qp.state == "closed", 2000);
           }
-          w.moveTo(sx, sy); w.resizeTo(sw, sh); await wait(800);
+          w.moveTo(sx, sy); w.resizeTo(sw, sh); diagWin.push(mcWin("gleich nach zurück")); await wait(800); diagWin.push(mcWin("zurück"));
           return out;''')
         panels = [res["mcNewEvent"], res["mcNewTask"]]
         if any(p["state"] != "open" for p in panels) and res["visibility"] == "hidden":
@@ -16631,6 +16633,8 @@ def run_checks(m, version, profile, results):
     def today_animation():
         res = m.js('''
           await toMail(); await ruhig(1500);
+          const mcWin = l => { const a3 = tm.currentAbout3Pane; return [l, w.outerWidth, w.innerWidth, w.screenX, w.windowState, Math.round(a3?.innerWidth ?? -1), Math.round(d.getElementById("today-pane-panel")?.getBoundingClientRect().width ?? -1), [...Services.wm.getEnumerator(null)].map(x => [x.document.documentElement.getAttribute("windowtype"), x.outerWidth, x.outerHeight, x.screenX].join("/")).join(" ")]; };
+          const diagWin = [mcWin("Beginn")]; let nResize = 0; const onResize = () => nResize++; w.addEventListener("resize", onResize);
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
           const title = d.getElementById("mcTodayTitle");
           const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
@@ -16684,7 +16688,7 @@ def run_checks(m, version, profile, results):
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
           const ow = w.outerWidth;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
-            if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
+            if (phase == "aus schmal") { diagWin.push(mcWin("vor 1100")); const tR = performance.now(); w.resizeTo(1100, w.outerHeight); diagWin.push(mcWin("gleich nach 1100")); const erreicht = await until(() => w.outerWidth == 1100, 3000); diagWin.push(mcWin("1100 erreicht " + !!erreicht + " nach ms " + Math.round(performance.now() - tR))); await ruhig(1200); diagWin.push(mcWin("1100 ruhig")); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
             // mitten in der Bewegung und titleEnd sagt nichts über einen Ruck (CI 15.11. Lauf 43707298410, linux esr
             // „ein schmal“: 99 ms Lücke, Titel 2,2 px vor dem Ende, sonst alles im Takt). Dann zurückschalten und neu
@@ -16694,7 +16698,7 @@ def run_checks(m, version, profile, results):
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
-            const proc0 = await procCpu(); gcLog.length = 0; tRec = performance.now();
+            const proc0 = await procCpu(); gcLog.length = 0; tRec = performance.now(); diagWin.push(mcWin("vor " + phase)); const nR0 = nResize;
             btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, bt, rf, cp } = await record(); const gcIn = gcLog.splice(0), proc1 = await procCpu(); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
@@ -16730,6 +16734,7 @@ def run_checks(m, version, profile, results):
             ts.forEach((t, i) => { if (!i || !moving[i]) return; const dt = t - ts[i - 1], dc = cp[i] != null && cp[i - 1] != null ? cp[i] - cp[i - 1] : null;
               sum[0] += dt; if (dc != null) sum[1] += dc;
               if (dt > 25) lang.push([Math.round(t - tRec), Math.round(dt), dc == null ? null : Math.round(dc), rf[i] != null && rf[i - 1] != null ? rf[i] - rf[i - 1] : null]); });
+            diagWin.push(mcWin("nach " + phase + " resize-Ereignisse " + (nResize - nR0)));
             out[phase].diag = { lang, wallCpu: sum.map(Math.round), gc: gcIn,
               proc: proc0 && proc1 ? Object.fromEntries(Object.keys(proc1).map(k => [k, Math.round(((proc1[k] - (proc0[k] || 0)) / 1e6))])) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
@@ -16750,7 +16755,7 @@ def run_checks(m, version, profile, results):
             }
             if (verworfen.length) out[phase].verworfen = verworfen;
           }
-          w.resizeTo(ow, w.outerHeight); await ruhig(800);
+          w.resizeTo(ow, w.outerHeight); await ruhig(800); diagWin.push(mcWin("Ende, gewünscht " + ow)); w.removeEventListener("resize", onResize); out.diagWin = diagWin;
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
           Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");

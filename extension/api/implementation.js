@@ -183,6 +183,155 @@ function paneShortcut(pane, os) {
 function paneShortcutBlocked(pane, os, editing) {
   return os != "Darwin" && pane == "sidebar" && !!editing;
 }
+// Zugriffsbuchstaben (unterstrichener Buchstabe in Beschriftungen, Knöpfen, Menüs) unter Windows und Linux wie in
+// anderen Programmen dort erst mit Alt zeigen statt dauernd; die Tasten selbst wirken unverändert, nur der Strich
+// fehlt. macOS hat keine (ui.key.menuAccessKey 0), ebenso wenn die Systemeinstellung „Zugriffstasten immer
+// unterstreichen“ an ist (alwaysShown). Reine Funktionen, siehe tests/logik/zugriffstasten.test.mjs
+function accessCuesHidden(os, menuAccessKey, alwaysShown) {
+  return os != "Darwin" && menuAccessKey != 0 && !alwaysShown;
+}
+// Windows: SPI_GETKEYBOARDCUES steht als Bit 0x20 im ersten Byte von HKCU\Control Panel\Desktop\UserPreferencesMask
+// (readBinaryValue liefert die Bytes als Zeichen)
+function keyboardCuesFromMask(mask) {
+  return !!(mask && mask.charCodeAt(0) & 0x20);
+}
+// Zustand nach einem Ereignis: Alt gedrückt zeigt die Striche; Alt allein getippt lässt sie stehen („nach Alt“),
+// Alt mit einer anderen Taste (Zugriffstaste benutzt) nimmt sie beim Loslassen weg; Escape, Mausklick und Wechsel des
+// Fensters nehmen sie weg. AltGr (Strg+Alt) zählt nicht. ev: { type, key, altKey, ctrlKey }
+function accessCuesStep(state, ev) {
+  const s = { shown: !!state?.shown, combo: !!state?.combo };
+  if (ev.type == "keydown") {
+    if (ev.key == "Alt") {
+      return ev.ctrlKey ? s : { shown: true, combo: false };
+    }
+    if (ev.key == "Escape") {
+      return { shown: false, combo: false };
+    }
+    return ev.altKey ? { shown: s.shown, combo: true } : s;
+  }
+  if (ev.type == "keyup" && ev.key == "Alt") {
+    return s.combo ? { shown: false, combo: false } : s;
+  }
+  if (ev.type == "mousedown" || ev.type == "blur") {
+    return { shown: false, combo: false };
+  }
+  return s;
+}
+// Striche ausblenden: globales Benutzer-Stilblatt (gilt auch in Einstellungen, Kontoeinstellungen, Unterdialogen und
+// Verfassen), solange die Wurzel des Dokuments kein mc-access-cues trägt. Trifft Thunderbirds beide Wege: Beschriftung
+// mit Text (text.js, <span class="accesskey">) und mit value (-moz-label-content legt den Buchstaben als <u> in den
+// erzeugten Inhalt; dorthin reicht kein Stilblatt, darum steht dort solange der reine Text des value, Knöpfe und
+// Menüs bleiben gleich breit; nur fehlt ohne Alt das angehängte „(X)“, wo der Buchstabe nicht im Text vorkommt).
+// Tasten fängt je Fenster ein Zuhörer in der Einfangphase: Ereignisse aus Inhalts-Tabs im selben Prozess
+// (about:preferences …) laufen durch das Fenster, in dem ihr Browser steht
+const AccessCues = {
+  ATTR: "mc-access-cues",
+  SHEET: "data:text/css," + encodeURIComponent(":root:not([mc-access-cues]) label span.accesskey { text-decoration: none !important; }" +
+    ":root:not([mc-access-cues]) label[value][accesskey]:not([value=''])::before { content: attr(value) !important; }"),
+  os: null,
+  state: { shown: false, combo: false },
+  sheet: null,
+  handlers: new Map(),
+  systemCues() {
+    if (this.os != "WINNT") {
+      return false;
+    }
+    try {
+      const key = Cc["@mozilla.org/windows-registry-key;1"].createInstance(Ci.nsIWindowsRegKey);
+      key.open(key.ROOT_KEY_CURRENT_USER, "Control Panel\\Desktop", key.ACCESS_READ);
+      try {
+        return keyboardCuesFromMask(key.readBinaryValue("UserPreferencesMask"));
+      } finally {
+        key.close();
+      }
+    } catch {
+      return false; // gewollt: Wert fehlt, dann wie Windows ab Werk (Striche erst mit Alt)
+    }
+  },
+  wanted() {
+    return accessCuesHidden(this.os, Services.prefs.getIntPref("ui.key.menuAccessKey", 0), this.systemCues());
+  },
+  updateSheet() {
+    const sss = Cc["@mozilla.org/content/style-sheet-service;1"].getService(Ci.nsIStyleSheetService);
+    const uri = this.sheet || Services.io.newURI(this.SHEET);
+    const has = sss.sheetRegistered(uri, sss.USER_SHEET);
+    const want = this.os != null && this.wanted();
+    if (want && !has) {
+      sss.loadAndRegisterSheet(uri, sss.USER_SHEET);
+    } else if (!want && has) {
+      sss.unregisterSheet(uri, sss.USER_SHEET);
+    }
+    this.sheet = uri;
+  },
+  // alle Dokumente aller Fenster (auch Inhalts-Tabs und Unterdialoge)
+  mark(shown) {
+    for (const top of Services.wm.getEnumerator(null)) {
+      for (const bc of ThemeSheet.contexts(top)) {
+        bc.window?.document?.documentElement?.toggleAttribute(this.ATTR, shown);
+      }
+    }
+  },
+  onEvent(ev) {
+    if (ev.type == "activate") {
+      this.updateSheet(); // Systemeinstellung kann sich geändert haben
+      return;
+    }
+    const next = accessCuesStep(this.state, { type: ev.type == "deactivate" ? "blur" : ev.type, key: ev.key, altKey: ev.altKey, ctrlKey: ev.ctrlKey });
+    const changed = next.shown != this.state.shown;
+    this.state = next;
+    if (changed) {
+      this.mark(next.shown);
+    }
+  },
+  attach(w) {
+    if (this.handlers.has(w)) {
+      return;
+    }
+    const fn = ev => this.onEvent(ev);
+    for (const type of ["keydown", "keyup", "mousedown"]) {
+      w.addEventListener(type, fn, true);
+    }
+    w.addEventListener("activate", fn);
+    w.addEventListener("deactivate", fn);
+    this.handlers.set(w, fn);
+  },
+  detach(w) {
+    const fn = this.handlers.get(w);
+    if (!fn) {
+      return;
+    }
+    for (const type of ["keydown", "keyup", "mousedown"]) {
+      w.removeEventListener(type, fn, true);
+    }
+    w.removeEventListener("activate", fn);
+    w.removeEventListener("deactivate", fn);
+    this.handlers.delete(w);
+  },
+  start(os) {
+    this.stop();
+    this.os = os;
+    this.updateSheet();
+    if (os == "Darwin") {
+      return;
+    }
+    ExtensionSupport.registerWindowListener("mail-cards-access-cues", {
+      onLoadWindow: w => this.attach(w),
+      onUnloadWindow: w => this.detach(w),
+    });
+  },
+  stop() {
+    if (this.os != null && this.os != "Darwin") {
+      ExtensionSupport.unregisterWindowListener("mail-cards-access-cues");
+    }
+    for (const w of [...this.handlers.keys()]) {
+      this.detach(w);
+    }
+    this.mark(false);
+    this.state = { shown: false, combo: false };
+    this.os = null;
+    this.updateSheet();
+  },
+};
 // Faktor aus Thunderbirds Schriftgröße (≡ → Schriftgröße): gewählte durch
 // Standardgröße des Systems, 1 bei Standardgröße. Die Einstellung direkt
 // lesen: Thunderbirds eigener Beobachter kann nach unserem laufen
@@ -4807,7 +4956,10 @@ function hookTaskInfo(win, restorers, solo = null) {
     const b = el("button");
     b.type = "button";
     b.dataset.cmd = cmd;
-    b.textContent = { bold: "B", italic: "I", underline: "U", insertUnorderedList: "\u2022", insertOrderedList: "1." }[cmd] || "";
+    // (Symbole aus dem Stilblatt; Fett, Kursiv, Unterstrichen und Listen zeigen ihren Zustand)
+    if (cmd != "createLink") {
+      b.setAttribute("aria-pressed", "false");
+    }
     b.title = tr(label);
     b.setAttribute("aria-label", tr(label));
     b.addEventListener("mousedown", event => event.preventDefault());
@@ -4829,8 +4981,20 @@ function hookTaskInfo(win, restorers, solo = null) {
       }
       frame.contentWindow.focus();
       ndoc.execCommand(cmd, false, null);
+      noteState();
     });
     noteBar.append(b);
+  }
+  // eingeschaltete Formate an der Schreibmarke: Symbol in Systemfarbe
+  function noteState() {
+    const ndoc = frame.contentDocument;
+    for (const b of noteBar.querySelectorAll("button[aria-pressed]")) {
+      let on = false;
+      try {
+        on = ndoc?.designMode == "on" && ndoc.queryCommandState(b.dataset.cmd);
+      } catch {}
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    }
   }
   box.before(noteBar);
   const FORMATTED = "b, i, u, strong, em, a, ul, ol, h1, h2, h3, h4, blockquote, pre, font, span[style], p[style], div[style]";
@@ -4841,6 +5005,7 @@ function hookTaskInfo(win, restorers, solo = null) {
     if (ndoc?.designMode == "on" && accel && !event.altKey && !event.shiftKey && cmd) {
       event.preventDefault();
       ndoc.execCommand(cmd, false, null);
+      noteState();
     }
   };
   const onNoteClick = event => {
@@ -4858,6 +5023,8 @@ function hookTaskInfo(win, restorers, solo = null) {
       ndoc.execCommand("styleWithCSS", false, false);
     } catch {}
     noteBar.hidden = false;
+    ndoc.addEventListener("selectionchange", noteState);
+    noteState();
     doc.documentElement.setAttribute("mc-task-note-edit", "");
     place();
     let finished = false;
@@ -4867,6 +5034,7 @@ function hookTaskInfo(win, restorers, solo = null) {
       }
       finished = true;
       frame.contentWindow.removeEventListener("blur", onBlur);
+      ndoc.removeEventListener("selectionchange", noteState);
       ndoc.designMode = "off";
       noteBar.hidden = true;
       doc.documentElement.removeAttribute("mc-task-note-edit");
@@ -8180,15 +8348,33 @@ class CardEnhancer {
             ThemeSheet.apply(doc.defaultView);
           }
           dialogEdgeReset(doc.defaultView, url);
+          // Unterdialoge der Einstellungen (Schriften, Passwörter, Cookies, …):
+          // Kennzeichen für das gemeinsame Muster in spaces.css; ihr eigenes
+          // Dokument weiß sonst nicht, dass es in den Einstellungen steckt
+          // (dieselben Seiten öffnen auch als eigenes Fenster)
+          try {
+            const fe = doc.defaultView?.frameElement;
+            if (fe?.classList?.contains("dialogFrame") && fe.ownerDocument?.documentURI?.startsWith("about:preferences")) {
+              doc.documentElement?.setAttribute("mc-pref-dialog", "true");
+            }
+            // ihr Größengriff unsichtbar, Ziehen an der Ecke bleibt; der Griff
+            // ist ein anonymes Element, das nur ein Agent-Stilblatt erreicht
+            if (url.startsWith("about:preferences") && doc.defaultView) {
+              doc.defaultView.windowUtils.loadSheetUsingURIString("data:text/css,.dialogBox%20resizer%7Bopacity:0%20!important%7D", doc.defaultView.windowUtils.AGENT_SHEET);
+            }
+          } catch {}
           // Termin-Details: Fenster so groß, dass alles sichtbar ist
           if (url.startsWith("chrome://calendar/content/calendar-summary-dialog.xhtml") && doc.defaultView) {
             const dlg = doc.defaultView;
             // im selben Ladeschritt direkt nach Thunderbirds eigenem Aufbau (dessen
             // load-Handler steht erst nach DOMContentLoaded fest), also bevor das
             // Fenster erscheint – mit Verzögerung sprang es sichtbar auf die neue Größe
-            doc.documentElement.style.minWidth = "480px";
+            // Einladungen schmaler (halo-Design mit Karten, haloInvitationDialog)
+            const invite = !!dlg.arguments?.[0]?.isInvitation;
+            doc.documentElement.style.minWidth = invite ? "400px" : "480px";
             dlg.addEventListener("DOMContentLoaded", () => {
               dlg.addEventListener("load", () => {
+                this.haloInvitationDialog(dlg);
                 this.linkSummaryLocation(dlg);
                 this.fitSummaryDialog(dlg);
                 // Beschreibung steht hier in einem eigenen Inhaltsdokument
@@ -8264,6 +8450,9 @@ class CardEnhancer {
           if (url.startsWith("about:import") && doc.defaultView) {
             const iw = doc.defaultView;
             iw.addEventListener("load", () => {
+              try {
+                iw.browsingContext?.topChromeWindow?.__mcMarkImportTab?.();
+              } catch {}
               try {
                 PstImport.hookWizard(iw);
               } catch (e) {
@@ -8383,6 +8572,8 @@ class CardEnhancer {
     this.restorers.push(() => ExtensionSupport.unregisterWindowListener("mail-cards-findbar"));
     this.watchChatVariant();
     this.watchPromptTitles();
+    AccessCues.start(Services.appinfo.OS);
+    this.restorers.push(() => AccessCues.stop());
     // Datumsfelder (z. B. im Terminfenster) im Format des Systems: Thunderbirds
     // „Regionale Einstellungen des Systems verwenden“ als Vorgabe an – wer es
     // selbst eingestellt hat, behält seine Wahl
@@ -9461,7 +9652,8 @@ class CardEnhancer {
     this.sideEdgeUpdaters.add(updateSideEdge);
     const sideRO = new w.ResizeObserver(updateSideEdge);
     // (chat-view-toolbox: andere Breite der Chat-Knöpfe, z. B. neuer Statustext)
-    for (const id of ["calSidebar", "listPaneBox", "tabmail-container", "chat-view-toolbox"]) {
+    // (unifiedToolbarContent: Innenabstand für das Hinweis-Symbol einer Add-on-Installation, siehe Mail-Layout)
+    for (const id of ["calSidebar", "listPaneBox", "tabmail-container", "chat-view-toolbox", "unifiedToolbarContent"]) {
       const el = w.document.getElementById(id);
       if (el) {
         sideRO.observe(el);
@@ -11997,6 +12189,17 @@ class CardEnhancer {
         tab.browser?.contentDocument?.documentElement?.toggleAttribute("mc-search", has);
       }
     };
+    // Import/Export-Tab (about:import): mc-import am Fenster, dort entfällt
+    // das Suchfeld im Kopf (spaces.css)
+    const markImportTab = () => {
+      if (w.closed) {
+        return;
+      }
+      const info = w.document.getElementById("tabmail")?.currentTabInfo;
+      const spec = info?.mode?.name == "contentTab" ? info.browser?.currentURI?.spec || "" : "";
+      w.document.documentElement.toggleAttribute("mc-import", spec.startsWith("about:import"));
+    };
+    w.__mcMarkImportTab = markImportTab;
     const markTab = () => {
       hookSearchForwarding();
       hookSuggestWidth();
@@ -12058,6 +12261,8 @@ class CardEnhancer {
         mode == "mail3PaneTab" || mode == "mailMessageTab"
       );
       w.document.documentElement.setAttribute("mc-tab", mode || "");
+      markImportTab();
+      w.setTimeout(markImportTab, 400); // Adresse des neuen Tabs steht evtl. erst später
       markSearch();
       if (mode == "calendar") {
         w.document.getElementById("month-view")?.__mcMoreRefresh?.();
@@ -13222,7 +13427,7 @@ class CardEnhancer {
       // Einfügungen einer älteren Fassung (Update oder Neustart der Erweiterung,
       // deren Aufräumen nicht lief) ersetzen statt eine zweite Überschrift
       // mit zweiter Sonne daneben zu setzen
-      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayGrip"]) {
+      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayFoot", "mcTodayGrip"]) {
         for (const el of d.querySelectorAll("#" + id)) {
           el.remove();
         }
@@ -13345,25 +13550,31 @@ class CardEnhancer {
       });
       placeTodayGrip = placeGrip;
       // in die Toolbar-Zeile; darüber reicht die Today-Pane bis ganz oben
-      // (#mcTodayTop in ihrer Breite) – wie die Seitenleiste links
+      // (#mcTodayTop in ihrer Breite) – wie die Seitenleiste links. Oben steht
+      // nur der Today-Knopf (unter Windows/Linux rechts die Fensterknöpfe)
       const row = d.getElementById("unifiedToolbarContainer");
       const top = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
       top.id = "mcTodayTop";
-      // Überschrift „Today Pane“ oben in der Toolbar-Zeile, neben dem Knopf
+      row?.prepend(top);
+      // „Today“ mit Sonne bzw. Wetter mittig zwischen Mini-Kalender und
+      // Terminliste (über der Karte); Klick springt zum heutigen Tag
       const title = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       title.id = "mcTodayTitle";
       // Text und Sonne/Wetter als eigene Elemente: jedes mit eigenem Tooltip
       const titleText = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       titleText.className = "mc-tt-text";
-      titleText.textContent = tr("Today Pane");
+      titleText.textContent = tr("Today");
       const weatherIcon = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       weatherIcon.id = "mcTodayWeather";
       title.append(titleText, weatherIcon);
-      top.append(title);
-      row?.prepend(top);
+      const agendaList = d.getElementById("agenda");
+      if (agendaList?.parentNode) {
+        agendaList.before(title);
+      } else {
+        panel?.prepend(title);
+      }
       // Wetter statt der festen Sonne (Option, Standard aus)
       Weather.attach(w, title);
-      // Klick auf die Überschrift springt zum heutigen Tag, Liste nach oben
       title.setAttribute("role", "button");
       title.tabIndex = 0;
       title.title = tr("Go to Today");
@@ -13377,8 +13588,11 @@ class CardEnhancer {
       title.addEventListener("click", goToday);
       title.addEventListener("keydown", goToday);
       (row || d.body).append(btn);
-      // „+“ oben rechts in der Today-Pane, gleiche Größe und Höhe wie der
-      // Today-Knopf – fragt nach Termin oder Aufgabe (statt unten unter der Liste)
+      // „+“ fest mittig am unteren Rand der Today-Pane in eigenem Streifen
+      // (#mcTodayFoot): die Liste rollt darüber und läuft aus, das „+“ bewegt
+      // sich nie – fragt nach Termin oder Aufgabe (Popover nach oben)
+      const foot = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      foot.id = "mcTodayFoot";
       const plus = d.createElementNS("http://www.w3.org/1999/xhtml", "button");
       plus.id = "mcTodayNew";
       plus.type = "button";
@@ -13386,12 +13600,15 @@ class CardEnhancer {
       plus.setAttribute("aria-label", plus.title);
       plus.addEventListener("click", event => {
         event.stopPropagation();
-        newPopup?.below(plus);
+        newPopup?.above(plus);
       });
-      btn.after(plus);
+      foot.append(plus);
+      (panel || d.body).append(foot);
       this.restorers.push(() => {
-        plus.remove();
+        foot.remove();
         row?.removeAttribute("data-mc-tp-open");
+        row?.removeAttribute("data-mc-tp-slide");
+        row?.style.removeProperty("--mc-tp-full");
         row?.removeAttribute("data-mc-tp-none");
       });
       // Verlauf am Kartenboden nur, solange unten noch Termine verborgen sind
@@ -13451,22 +13668,6 @@ class CardEnhancer {
         setVar(row, "--mc-caption-w", `${caption}px`);
         const tail = rowTail(d);
         setVar(row, "--mc-row-tail", `${tail}px`);
-        // neben Knopf und Fensterknöpfen zu wenig Platz: nur die Sonne
-        // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. ≡/Fensterknöpfe
-        const room = width - 60 - (60 + Math.max(caption, tail));
-        title.toggleAttribute("data-narrow", room < 110);
-        // nicht einmal für die Sonne Platz (Windows/Linux: ≡ und Fensterknöpfe
-        // liegen über der Today-Pane): Überschrift als eigene Zeile oben in der
-        // Today-Pane statt unsichtbar unter „+“
-        const below = width > 0 && room < 32;
-        if (below != (title.parentNode == panel)) {
-          if (below) {
-            panel.prepend(title);
-          } else {
-            top.append(title);
-          }
-        }
-        title.toggleAttribute("data-below", below);
       };
       w.__mcTodayTopSync = sync;
       const ro = panel ? new w.ResizeObserver(sync) : null;
@@ -15105,6 +15306,8 @@ class CardEnhancer {
         popup.classList.add("mc-up");
         lastAnchor = anchor;
         const width = 294; // Breite des Popovers samt Rand für den Schatten
+        // am Bildschirmrand schiebt Gecko es ein – Pfeil danach nachmessen
+        popup.addEventListener("popupshown", () => aimArrow(anchor), { once: true });
         popup.openPopup(anchor, "before_start", Math.round(anchor.getBoundingClientRect().width / 2 - width / 2), 12);
       };
       // Pfeil über die Mitte des Knopfs – nach dem Öffnen gemessen, so stimmt
@@ -15445,6 +15648,7 @@ class CardEnhancer {
     w.addEventListener("unload", () => this.mainWindows.delete(w), { once: true });
     this.restorers.push(() => w.document.documentElement.removeAttribute("mc-mail"));
     this.restorers.push(() => w.document.documentElement.removeAttribute("mc-tab"));
+    this.restorers.push(() => { w.document.documentElement.removeAttribute("mc-import"); delete w.__mcMarkImportTab; });
     this.restorers.push(() => w.clearInterval(interval));
   }
 

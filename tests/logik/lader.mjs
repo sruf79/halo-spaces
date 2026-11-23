@@ -22,7 +22,7 @@ export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "p
   "PstFs", "PstImport", "ArchiveAccount", "hookArchiveAccount", "overflowPills", "searchLack",
   "hookMultiweekScroll", "hookMultiweekBuffer", "appleEventLayout", "hookDateTimePickers", "EMOJI_RULES",
   "calDayKey", "calSearchMatch", "calSearchGroups", "occurrenceScope", "shiftSeriesTime", "findCode",
-  "log", "LogoCache", "MacPhotos", "AvatarResolver", "EarlyTheme", "ThemeSheet", "cropSvg", "paneShortcut", "paneShortcutBlocked", "bildAnteil", "BILD_MAX_MS", "animiere"];
+  "log", "LogoCache", "MacPhotos", "AvatarResolver", "EarlyTheme", "ThemeSheet", "cropSvg", "paneShortcut", "paneShortcutBlocked", "accessCuesHidden", "keyboardCuesFromMask", "accessCuesStep", "bildAnteil", "BILD_MAX_MS", "animiere"];
 
 // Attrappe: Funktion (aufrufbar, konstruierbar) hinter einem Proxy
 function attrappe(name = "attrappe") {

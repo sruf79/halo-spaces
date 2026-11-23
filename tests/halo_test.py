@@ -5258,6 +5258,111 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Suchfelder in Dialogen und Einstellungen: Saved Logins, Cookies und „Files & Attachments“ als graue 30-px-Kapsel mit Lupe, ohne Rand und Hover, Fokusring erst beim Fokus", search_dialogs, results)
 
+    def pref_subdialogs():
+        # Unterdialoge der Einstellungen nach einem gemeinsamen Muster (Variante A des Designers): Panel Radius 18 mit
+        # 20 px Rand, Überschrift links 17 px halbfett, Schrift 13 px, Listen und Tabellen als graue Karte ohne Rahmen
+        # (Kopf 30 px, 11,5 px grau halbfett, Zeilen 28 px, Auswahl grau), Häkchen- und Optionsgruppen als graue Karte,
+        # Hilfetext grau, je Dialog ein Hauptknopf, Größengriff unsichtbar (Ziehen an der Ecke bleibt). Vorher: Titel
+        # mittig 12 px, Schrift 11/12 px, Listen weiß mit Rahmen und Spaltenlinien, blaue Auswahl, sichtbarer Griff
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300);
+          w.openPreferencesTab("paneGeneral");
+          await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("preferencesContainer") && tm.currentTabInfo.browser.contentWindow.gPrivacyPane, "Einstellungen-Tab geladen", 10000);
+          const tab = tm.currentTabInfo, cw = tab.browser.contentWindow, cd = cw.document, out = {};
+          const px = v => Math.round(parseFloat(v) * 10) / 10;
+          const open = async (fn, probe) => { fn();
+            const fr = await bis(() => [...cd.querySelectorAll(".dialogFrame")].find(f => f.contentDocument?.readyState == "complete" && f.contentDocument.documentElement.hasAttribute("mc-pref-dialog") && f.contentDocument.getElementById(probe)?.getBoundingClientRect().height), probe + " offen mit Muster", 8000);
+            await ruhig(500); return fr; };
+          const zu = async () => { cw.gSubDialog._topDialog?.close(); await bis(() => ![...cd.querySelectorAll(".dialogFrame")].some(f => f.getBoundingClientRect().height > 30), "Dialog zu", 3000); await ruhig(300); };
+          const frameOf = fr => { const box = fr.closest(".dialogBox"), t = box.querySelector(".dialogTitle"), b = box.getBoundingClientRect(), fd = fr.contentDocument;
+            return { radius: csOf(box).borderTopLeftRadius, resize: csOf(box).resize, title: [csOf(t).textAlign, px(csOf(t).fontSize), csOf(t).fontWeight, Math.round(t.getBoundingClientRect().left - b.left)],
+              inset: Math.round(fr.getBoundingClientRect().left - b.left), font: px(csOf(fd.querySelector("dialog") || fd.querySelector(":root > vbox, :root > body > vbox") || fd.documentElement).fontSize),
+              secondary: colorOf(fd, "var(--mt-text-secondary)"), control: colorOf(fd, "var(--mt-control)", "backgroundColor"), selected: colorOf(fd, "var(--mt-selected-unfocused)", "backgroundColor"),
+              accent: colorOf(fd, "var(--mt-accent)", "backgroundColor") }; };
+          const card = e => { const s = csOf(e); return [s.borderTopWidth, px(s.borderTopLeftRadius), s.backgroundColor]; };
+          try {
+            cw.gotoPref("panePrivacy"); await ruhig(800);
+            // Gespeicherte Passwörter: Tabelle, Hilfetext über dem Suchfeld, Close als Hauptknopf, Größengriff
+            let fr = await open(() => cw.gPrivacyPane.showPasswords(), "signonsTree");
+            let fd = fr.contentDocument, tree = fd.getElementById("signonsTree"), col = tree.querySelector("treecol");
+            out.pw = frameOf(fr);
+            out.pw.tree = [...card(tree), Math.round(tree.querySelector("treecols").getBoundingClientRect().height), px(csOf(col).fontSize), csOf(col).fontWeight, csOf(col).color, csOf(col).borderInlineEndWidth, tree.rowHeight];
+            const intro = fd.getElementById("signonsIntro");
+            out.pw.intro = [csOf(intro).color, intro.getBoundingClientRect().bottom <= fd.getElementById("filter").getBoundingClientRect().top];
+            out.pw.close = csOf(fd.getElementById("closeButton")).backgroundColor;
+            // Größengriff: mit dem Agent-Stilblatt unsichtbar – ohne es sähe die Ecke anders aus (der Griff wäre da)
+            const box = fr.closest(".dialogBox"), corner = async () => { const r = box.getBoundingClientRect();
+              const bm = await cw.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(r.right - 16, r.bottom - 16, 16, 16), 2, "white");
+              const cv = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height; const cx = cv.getContext("2d"); cx.drawImage(bm, 0, 0);
+              return [...cx.getImageData(0, 0, cv.width, cv.height).data]; };
+            const sheet = "data:text/css,.dialogBox%20resizer%7Bopacity:0%20!important%7D";
+            const hidden = await corner();
+            cw.windowUtils.removeSheetUsingURIString(sheet, cw.windowUtils.AGENT_SHEET); await ruhig(200);
+            // (der Griff erscheint erst mit dem nächsten Zeichnen: einige Bilder lang auf ihn warten)
+            let shown = await corner();
+            for (let i = 0; i < 20 && shown.every((v, k) => Math.abs(v - hidden[k]) < 10); i++) { await wait(100); shown = await corner(); }
+            cw.windowUtils.loadSheetUsingURIString(sheet, cw.windowUtils.AGENT_SHEET); await ruhig(200);
+            // (dunkel ist der Griff nur schwach sichtbar: größte Abweichung eines Farbwerts)
+            out.pw.grip = Math.max(...hidden.map((v, i) => Math.abs(v - shown[i])));
+            await zu();
+            // Zertifikate (größenveränderlich): Inhalt passt ganz in den Rahmen, der Hauptknopf ist nicht unten abgeschnitten
+            fr = await open(() => cw.gPrivacyPane.showCertificates(), "certmanagertabs"); fd = fr.contentDocument;
+            out.certs = [fd.documentElement.scrollHeight, fd.documentElement.clientHeight, Math.round(fd.querySelector("dialog").getButton("accept").getBoundingClientRect().bottom)];
+            await zu();
+            // Ausnahmen: nur „Save Changes“ ist Hauptknopf, „Allow“ ein Textknopf
+            fr = await open(() => cw.gPrivacyPane.showRemoteContentExceptions(), "permissionsTree"); fd = fr.contentDocument;
+            out.perm = [csOf(fd.getElementById("btnApplyChanges")).backgroundColor, csOf(fd.getElementById("btnAllow")).backgroundColor, frameOf(fr).accent, csOf(fd.getElementById("permissionsText")).color];
+            await zu();
+            // Benachrichtigung: zwei Häkchen-Gruppen als graue Karten, Zwischenüberschrift grau halbfett
+            cw.gotoPref("paneGeneral"); await ruhig(800);
+            fr = await open(() => cw.gGeneralPane.customizeMailAlert(), "previewText"); fd = fr.contentDocument;
+            out.alert = frameOf(fr);
+            out.alert.boxes = ["subject", "sender", "previewText"].map(id => { const s = csOf(fd.getElementById(id)); return [s.backgroundColor, px(s.borderTopLeftRadius), px(s.borderBottomLeftRadius), Math.round(fd.getElementById(id).getBoundingClientRect().height)]; });
+            const head = fd.getElementById("enabledActionsDescription");
+            out.alert.head = [px(csOf(head).fontSize), csOf(head).fontWeight, csOf(head).color];
+            out.alert.actions = [...fd.querySelectorAll("#enabledActions > checkbox")].map(c => csOf(c).backgroundColor);
+            await zu();
+            // Sprachen: Liste als graue Karte, Auswahl grau statt blau
+            fr = await open(() => cw.gGeneralPane.showMessengerLanguagesSubDialog({ search: false }), "selectedLocales"); fd = fr.contentDocument;
+            const list = fd.getElementById("selectedLocales"); list.selectedIndex = 0; await ruhig(200);
+            out.lang = [...card(list), csOf(list.selectedItem).backgroundColor, csOf(list.selectedItem).color, colorOf(fd, "var(--mt-text)")];
+            out.langFrame = frameOf(fr);
+            await zu();
+            // Kategorie (Dialog mit 100vh): Knöpfe ganz sichtbar; Offline: Optionsgruppen als gleich breite Kartenzeilen
+            fr = await open(() => cw.gSubDialog.open("chrome://calendar/content/preferences/editCategory.xhtml", { features: "resizable=no" }, { title: "New Category", category: "", color: null }), "categoryName"); fd = fr.contentDocument;
+            const okb = fd.querySelector("dialog").getButton("accept");
+            out.cat = [Math.round(okb.getBoundingClientRect().bottom), fd.documentElement.clientHeight];
+            await zu();
+            fr = await open(() => cw.gGeneralPane.showOffline(), "whengoingOnlinestate"); fd = fr.contentDocument;
+            out.offline = [...fd.querySelectorAll("#whengoingOnlinestate radio, #whenStartingUp radio:not([hidden])")].map(r => [Math.round(r.getBoundingClientRect().width), csOf(r).backgroundColor]);
+            out.offlineControl = colorOf(fd, "var(--mt-control)", "backgroundColor");
+            await zu();
+          } finally { tm.closeTab(tab); await ruhig(300); }
+          return out;""")
+        def frame_ok(f):
+            return (f["radius"] == "18px" and f["title"][0] in ("start", "left") and f["title"][1] == 17
+                    and f["title"][2] == "600" and abs(f["title"][3] - 20) <= 1 and f["inset"] == 16 and f["font"] == 13)
+        pw, al, la = res["pw"], res["alert"], res["langFrame"]
+        # (Benachrichtigung ist nicht größenveränderlich; Passwörter und Sprachen behalten das Ziehen an der Ecke)
+        ok = frame_ok(pw) and frame_ok(al) and frame_ok(la) and pw["resize"] == la["resize"] == "both"
+        t = pw["tree"]
+        ok = ok and t[0] == "0px" and t[1] == 12 and same_color(t[2], pw["control"]) and t[3] == 30 and t[4] == 11.5 and t[5] == "600" \
+            and same_color(t[6], pw["secondary"]) and t[7] == "0px" and t[8] == 28
+        ok = ok and same_color(pw["intro"][0], pw["secondary"]) and pw["intro"][1] and same_color(pw["close"], pw["accent"]) and pw["grip"] >= 10
+        p = res["perm"]
+        ok = ok and same_color(p[0], p[2]) and not same_color(p[1], p[2]) and same_color(p[3], pw["secondary"])
+        b = al["boxes"]
+        ok = ok and all(same_color(x[0], al["control"]) and x[3] >= 38 for x in b) and b[0][1] == 12 and b[0][2] == 0 \
+            and b[1][1] == 0 and b[1][2] == 0 and b[2][1] == 0 and b[2][2] == 12
+        ok = ok and al["head"][:2] == [12, "600"] and same_color(al["head"][2], al["secondary"]) and al["actions"] and all(same_color(c, al["control"]) for c in al["actions"])
+        lg = res["lang"]
+        ok = ok and lg[0] == "0px" and lg[1] == 12 and same_color(lg[2], la["control"]) and same_color(lg[3], la["selected"]) and same_color(lg[4], lg[5])
+        ok = ok and res["cat"][0] <= res["cat"][1] - 2 and res["certs"][0] <= res["certs"][1] + 1 and res["certs"][2] <= res["certs"][1] - 2
+        ow = [x[0] for x in res["offline"]]
+        ok = ok and len(ow) >= 5 and max(ow) - min(ow) <= 1 and all(same_color(x[1], res["offlineControl"]) for x in res["offline"])
+        return ok, f"{res}"
+    check("Einstellungen: Unterdialoge nach einem Muster – Panel Radius 18 mit 20 px Rand, Überschrift links 17 px halbfett, Schrift 13 px, Listen und Tabellen als graue Karte (Kopf 30 px grau, Zeilen 28 px, Auswahl grau), Häkchen-Gruppen als Karte, Hilfetext grau, ein Hauptknopf, kein sichtbarer Größengriff", pref_subdialogs, results)
+
     def support_page():
         # Fehlerbehebungsseite (about:support): Knöpfe als 28-px-Kapsel mit der üblichen Knopffläche statt eckigem Toolkit-Grau
         res = m.js(COMPOSE_CHECK_JS + r"""
@@ -5339,6 +5444,78 @@ def dialog_checks(m, results):
                     and same_color(r["color"], r["text"]))
         return ok1(res["imp"]) and ok1(res["exp"]), f"{res}"
     check("Import und Export: Fläche in Fensterfarbe wie die übrigen Tabs, dunkel kein Blauschwarz", import_export, results)
+
+    def import_wizard_style():
+        # Import-Assistent im halo-Stil: kein Suchfeld im Kopf (Seitenleisten-Knopf bleibt, im Mail-Tab ist die Suche wieder da),
+        # eine Seite ohne weiße Karte, Schritte als graue Kreise 22 px (aktueller in Textfarbe), kurze Haarlinien,
+        # Titel 22 px halbfett mit grauem Symbol, Quellen in grauer Karte (Radius 10) mit Zeilen, Hilfe grau ohne
+        # Unterstrich in der Zeile der Knöpfe (30 px), schmal ohne Überlappung; PST-Anzahl in der Zeile des Ordners;
+        # Export: Hinweis in grauer Karte, „Export“ in der Zeile der Hilfe
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300); const out = {};
+          const findT = () => tm.tabInfo.find(x => x.browser?.currentURI?.spec?.startsWith("about:import"));
+          const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+          const shownC = e => !!e && csOf(e).display != "none" && e.getBoundingClientRect().width > 0;
+          const midY = r => r.top + r.height / 2;
+          w.toImport(); let t = await bis(findT, "Tab about:import", 6000);
+          try {
+            const dd = t.browser.contentDocument;
+            await bis(() => dd.getElementById("stepNav") && dd.defaultView.__mcTheme && dd.getElementById("mcPstSource"), "Assistent", 8000);
+            await bis(() => !shownC(search()), "Suchfeld weg", 3000).catch(() => {}); await ruhig(400);
+            const $ = s => dd.querySelector(s), r = e => e.getBoundingClientRect();
+            const nav = $("#stepNav li.current button"), next = $("#stepNav li:nth-child(2) button"), list = $("#start-sources .source-list");
+            const rows = [...list.querySelectorAll(":scope > label")], h1 = $("#startSource"), foot = $("#importFooter");
+            const cont = $("#tabPane-start .buttons-container .continue"), links = [...foot.querySelectorAll("a:not([hidden])")];
+            out.imp = { search: shownC(search()), side: shownC(d.getElementById("spacesPinnedButton")),
+              body: csOf(dd.body).backgroundColor, window: colorOf(dd, "var(--mt-window)", "backgroundColor"),
+              section: csOf($("#start-sources")).backgroundColor,
+              nav: [Math.round(r(nav).height), Math.round(r(nav).width), csOf(nav).backgroundColor, csOf(next).backgroundColor],
+              line: Math.round(parseFloat(csOf($("#stepNav li:nth-child(2)"), "::before").width)),
+              text: colorOf(dd, "var(--mt-text)", "color"), control: colorOf(dd, "var(--mt-control)", "backgroundColor"),
+              secondary: colorOf(dd, "var(--mt-text-secondary)", "color"),
+              h1: [csOf(h1).fontSize, csOf(h1).fontWeight, csOf(h1, "::before").stroke],
+              list: [csOf(list).backgroundColor, csOf(list).borderTopLeftRadius], rows: rows.length,
+              sep: rows.slice(1).every(l => csOf(l).backgroundImage.includes("gradient")),
+              links: links.map(a => [csOf(a).textDecorationLine, csOf(a).color]),
+              row: [Math.round(Math.abs(midY(r(foot)) - midY(r(cont)))), Math.round(r(cont).height), Math.round(r(foot).right - r(cont).left)] };
+            // schmal (Mindestbreite des Assistenten): Hilfe bricht um, nichts überlappt oder ragt hinaus
+            $("#main").style.maxInlineSize = "400px"; await ruhig(300);
+            const lastLink = links.at(-1);
+            out.narrow = { gap: Math.round(r(cont).left - Math.max(...links.map(a => r(a).right))), out: Math.round(r(cont).right - r($("#main")).right),
+                           wrap: r(lastLink).top > r(links[0]).top - 1 };
+            $("#main").style.maxInlineSize = "";
+          } finally { tm.closeTab(t); await ruhig(400); }
+          out.mailSearch = shownC(search());
+          // PST: Anzahl rechts in der Zeile des Ordners
+          const cw = await w.__mcPstWizard({ name: "Probe", mail: [{ name: "Inbox", count: 12, depth: 0, path: ["Inbox"], items: [] }] });
+          t = await bis(findT, "Tab PST", 6000);
+          try { const dc = cw.document; await bis(() => dc.querySelector("#halopst-items .mc-pst-count")?.getBoundingClientRect().width, "Anzahl", 5000); await ruhig(300);
+            const row = dc.querySelector("#halopst-items .mc-pst-folders > label");
+            out.pst = { dy: Math.round(Math.abs(midY(row.querySelector(".mc-pst-count").getBoundingClientRect()) - midY(row.querySelector(".mc-pst-name").getBoundingClientRect()))),
+                        card: csOf(row.parentElement).backgroundColor };
+          } finally { tm.closeTab(t); await ruhig(400); }
+          // Export
+          w.toExport(); t = await bis(findT, "Tab Export", 6000);
+          try { const de = t.browser.contentDocument; await bis(() => de.getElementById("exportButton")?.getBoundingClientRect().width && de.defaultView.__mcTheme, "Export", 6000); await ruhig(400);
+            const b = de.getElementById("exportButton").getBoundingClientRect(), f = de.getElementById("importFooter").getBoundingClientRect();
+            out.exp = { dy: Math.round(Math.abs(midY(b) - midY(f))), card: csOf(de.querySelector("#tabPane-export p.description")).backgroundColor, search: shownC(search()) };
+          } finally { tm.closeTab(t); await ruhig(300); }
+          return out;""")
+        i, n, p, e = res["imp"], res["narrow"], res["pst"], res["exp"]
+        ok = (not i["search"] and i["side"] and res["mailSearch"] and not e["search"]
+              and same_color(i["body"], i["window"]) and i["section"] in ("transparent", "rgba(0, 0, 0, 0)")
+              and i["nav"][:2] == [22, 22] and same_color(i["nav"][2], i["text"]) and same_color(i["nav"][3], i["control"]) and i["line"] == 22
+              and i["h1"][:2] == ["22px", "600"] and same_color(i["h1"][2], i["secondary"])
+              and same_color(i["list"][0], i["control"]) and i["list"][1] == "10px" and i["rows"] == 5 and i["sep"]
+              and i["links"] and all(x[0] == "none" and same_color(x[1], i["secondary"]) for x in i["links"])
+              and i["row"][0] <= 2 and i["row"][1] == 30 and i["row"][2] < 0
+              and n["gap"] >= 0 and n["out"] <= 0 and n["wrap"]
+              and p["dy"] <= 2 and same_color(p["card"], i["control"])
+              and e["dy"] <= 2 and same_color(e["card"], i["control"]))
+        return ok, f"{res}"
+    check("Import-Assistent: kein Suchfeld im Kopf, eine Seite mit grauen Schritt-Kreisen 22 px, Titel 22 px halbfett, "
+          "Quellen in grauer Karte mit Zeilen, Hilfe grau in der Zeile der Knöpfe; PST-Anzahl in der Ordnerzeile; Export ebenso",
+          import_wizard_style, results)
 
     def dark_window_surfaces():
         # Dunkel: Fensterflächen einheitlich #1E1E1E wie macOS – Mail-Hauptfenster (Liste, Leseansicht), Kalender,
@@ -6816,6 +6993,51 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: Ansicht → „Show Status Bar“ unter der Today-Pane blendet die Statusleiste aus und wieder ein, Häkchen nach dem Zustand", menubar_status_bar, results)
 
+    def menubar_full_width():
+        # Windows/Linux: die eingeblendete Menüleiste ist eine Zeile über die volle Fensterbreite ganz oben (auch über
+        # der Bereiche-Leiste), Bereiche-Leiste, Toolbar-Zeile und Inhalt rücken um genau ihre Höhe nach unten; vorher
+        # stand sie unter der Toolbar-Zeile nur über der Ordnerliste, die Bereiche-Leiste rückte nicht mit (Befund
+        # Windows-Rundgang 18.11.2026). Eingeblendet wie mit Alt: Thunderbird nimmt bei Alt (DOMMenuBarActive) nur
+        # „inactive“ weg (messenger-customization.js AutoHideMenubar), dasselbe Ereignis hier. macOS: native Leiste.
+        res = m.js(r"""
+          const out = { mac: Services.appinfo.OS == "Darwin" };
+          if (out.mac) return out;
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm.getAttribute("inactive");
+          const R = id => { const e = d.getElementById(id), b = e?.getBoundingClientRect(); return b ? [Math.round(b.left * 10) / 10, Math.round(b.top * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; };
+          const lage = () => ({ bar: R("spacesToolbar"), row: R("unifiedToolbarContainer"), body: R("messengerBody"), today: R("today-pane-panel") });
+          try {
+            await toMail();
+            out.spaces = !d.getElementById("spacesToolbar").hidden;
+            await stabil(lage);
+            out.vorher = lage();
+            tbm.dispatchEvent(new w.Event("DOMMenuBarActive"));
+            await bis(() => tbm.getAttribute("inactive") != "true", "Menüleiste eingeblendet", 2000);
+            await stabil(lage);
+            out.an = lage(); out.mb = R("toolbar-menubar"); out.file = R("menu_File"); out.breite = w.innerWidth;
+            out.farbe = getComputedStyle(tbm).backgroundColor; out.fenster = getComputedStyle(d.getElementById("navigation-toolbox")).backgroundColor;
+          } finally {
+            if (inactive != null) tbm.setAttribute("inactive", inactive); else tbm.removeAttribute("inactive");
+          }
+          await stabil(lage);
+          out.danach = lage();
+          return out;""")
+        if res.get("mac"):
+            return True, "macOS: native Menüleiste, nicht im Fenster"
+        mb, v, a = res.get("mb"), res.get("vorher", {}), res.get("an", {})
+        h = mb[3] if mb else 0
+        # (Today Pane nur, wenn sie zu sehen ist)
+        ruecken = {k: round(a[k][1] - v[k][1], 1) for k in ("row", "body", "today") if a.get(k) and v.get(k) and a[k][2] > 0 and v[k][2] > 0}
+        # Bereiche-Leiste: beginnt genau an der Unterkante der Menüleiste (Windows setzt sie sonst 0,5 px tiefer, ein
+        # halber Bildpunkt verdoppelte den Schein der Seitenleiste in einer Zeile)
+        unten = round(mb[1] + mb[3], 1) if mb else None
+        ok = (bool(mb) and res.get("spaces") and abs(mb[0]) <= 0.5 and mb[1] <= 1 and abs(mb[2] - res["breite"]) <= 1 and 18 <= h <= 26
+              and {"row", "body"} <= set(ruecken) and all(abs(d - h) <= 0.5 for d in ruecken.values())
+              and a.get("bar") and abs(a["bar"][1] - unten) <= 0.1
+              and res["file"][0] < v["bar"][2] and res["farbe"] == res["fenster"]
+              and res.get("danach") == v)
+        return ok, f"Leiste {mb}, Fenster {res.get('breite')} px, gerückt {ruecken}, Bereiche-Leiste oben {a.get('bar', [0, 0])[1]} (Menüleiste unten {unten}), File {res.get('file')}, Farbe {res.get('farbe')}/{res.get('fenster')}, danach wie vorher {res.get('danach') == v}"
+    check("Menüleiste (Windows/Linux): eingeblendet wie mit Alt eine Zeile über die volle Fensterbreite ganz oben, Bereiche-Leiste, Toolbar-Zeile, Inhalt und Today Pane rücken um ihre Höhe, danach wie vorher", menubar_full_width, results)
+
     def menubar_customize_toolbar():
         # Ansicht → „Customize Toolbar…“ in der Gruppe der Leisten (nach „Show Status Bar“): öffnet Thunderbirds
         # Anpassung der Symbolleiste (vorher nur über das Kontextmenü der Symbolleiste, das Untermenü „Toolbars“ fehlt);
@@ -8290,7 +8512,8 @@ def calendar_checks(m, results):
             out.url = dw ? dw.location.href.split("/").pop() : null;
             out.quick = d.getElementById("mcQuickPanel")?.state || null;
             if (dw) { const doc = dw.document;
-              out.buttons = ["acceptButton", "tentativeButton", "declineButton"].map(id => vis(doc.getElementById(id))); }
+              // Antworten unten im halo-Design (Werkzeugleiste entfällt, Einladungsfenster im halo-Design)
+              out.buttons = ["mc-inv-accept", "mc-inv-tentative", "mc-inv-decline"].map(id => vis(doc.getElementById(id))); }
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             w.focus(); await pause(300);
@@ -8302,6 +8525,205 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Doppelklick auf eine Einladung öffnet das Einladungsfenster (Zusagen, Vielleicht, Absagen), kein Schnellfenster",
           invitation_double_click, results)
+
+    def invitation_window_design():
+        # Einladungsfenster im halo-Design (Variante A des Designers, Maintainer 15.11.2026; nach der Antwort Variante
+        # „nach-a“, 17.11.2026): keine Werkzeugleiste und keine farbige Hinweisleiste, sondern oben eine ruhige graue Zeile
+        # mit Kalendersymbol; Titel in grauer Karte mit Kalenderfarbe als Strich links; Zeitkarte mit grauen,
+        # rechtsbündigen Beschriftungen ohne Doppelpunkt (Starts, Ends, Location, Alert als Auswahl); Kalender mit
+        # Farbpunkt; Gruppe „Invitees“ mit runden Kürzeln, Name, darunter Organizer, You oder Adresse, rechts Zusage
+        # (grün) bzw. offen (grau), beim Organisator kein Zeichen; Beschreibung als Karte; unten „…“ als runder grauer
+        # Symbolknopf (darin Antworten mit und ohne Nachricht und Save and Close, nichts entfällt), rechts Decline und
+        # Tentative grau, Accept als Hauptknopf (30 px). Schon beantwortet: Zeile mit grünem Häkchen, gewählter Knopf
+        # „Accepted“ grau eingedrückt, kein Hauptknopf. Schmales Fenster: kein Knopf abgeschnitten. Antworten werden
+        # abgefangen (dlg.reply), nichts wird gesendet. Mit HALO_SHOTS Bilder des Fensters offen und zugesagt.
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(CAL_CHECK_JS + r"""
+          const shots = %s;
+          const { CalAttendee } = ChromeUtils.importESModule("resource:///modules/CalAttendee.sys.mjs");
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const me = acc.identities[0].email;
+          const c = testCalendar(); c.setProperty("imip.identity.key", acc.identities[0].key);
+          const person = (mail, name, o = {}) => { const a = new CalAttendee(); a.id = "mailto:" + mail; a.commonName = name; Object.assign(a, o); return a; };
+          const make = async (title, mine) => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = cal.dtz.now(); s.hour = 16; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+            e.setProperty("LOCATION", "Raum 2.07"); e.setProperty("DESCRIPTION", "Erfundene Einladung von Anna Beispiel.");
+            e.organizer = person("anna@example.invalid", "Anna Beispiel", { isOrganizer: true });
+            e.addAttendee(person("ben@example.invalid", "Ben Muster", { role: "REQ-PARTICIPANT", participationStatus: "ACCEPTED" }));
+            e.addAttendee(person(me, "Halo Test", { role: "REQ-PARTICIPANT", participationStatus: mine, rsvp: "TRUE" }));
+            return c.addItem(e); };
+          const R = el => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }; };
+          const open = async item => { const known = new Set([...Services.wm.getEnumerator(null)]);
+            w.openEventDialogForViewing(item);
+            const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-summary-dialog") && x.document.readyState == "complete"), 8000);
+            if (!dw) return null;
+            // springt nicht: Lage, Größe und Titelkarte vom ersten fertigen Bild an unverändert
+            const seen = []; const t0 = Date.now();
+            while (Date.now() - t0 < 1800) {
+              const head = dw.document.getElementById("mc-inv-head");
+              if (dw.document.readyState == "complete" && dw.outerWidth > 100 && head) {
+                const r = head.getBoundingClientRect();
+                const st = JSON.stringify([dw.screenX, dw.screenY, dw.outerWidth, dw.outerHeight, Math.round(r.left), Math.round(r.top)]);
+                if (seen.at(-1)?.[1] != st) seen.push([Date.now() - t0, st]);
+              }
+              // (Abtasten je Bild: hier soll Zeit vergehen, Ruhe gibt es während des Öffnens nicht)
+              await takt(16);
+            }
+            dw.mcSeen = seen;
+            await till(() => dw.document.documentElement.hasAttribute("mc-invite"), 4000);
+            let last = "", calm = 0;
+            for (let i = 0; i < 40 && calm < 3; i++) { await pause(100); const st = [dw.outerWidth, dw.outerHeight].join(); calm = st == last ? calm + 1 : 0; last = st; }
+            await ruhig(600); return dw; };
+          const shoot = async (dw, name) => { if (!shots) return;
+            const bmp = await dw.browsingContext.currentWindowGlobal.drawSnapshot(null, 2, "white");
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bmp.width; cv.height = bmp.height; cv.getContext("2d").drawImage(bmp, 0, 0);
+            const blob = await new Promise(r => cv.toBlob(r)); await IOUtils.write(PathUtils.join(shots, `einladung-fenster-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+          const measure = dw => { const doc = dw.document, q = s => doc.querySelector(s), bg = el => el && csOf(el).backgroundColor;
+            const o = { invite: doc.documentElement.hasAttribute("mc-invite"), toolbar: vis(q("#summary-toolbox")), note: vis(q("#status-notifications .notificationbox-stack notification-message, #status-notifications notification-message")) };
+            const st = q("#mc-inv-status");
+            o.status = st && vis(st) ? { text: st.textContent.trim(), bg: bg(st), icon: vis(st.querySelector(".mc-inv-status-icon")), sign: st.querySelector(".mc-inv-st")?.dataset.st || null,
+              color: csOf(st.querySelector(".mc-inv-status-text")).color, top: R(st).t } : null;
+            o.control = colorOf(doc, "var(--mt-control)", "backgroundColor");
+            o.secondary = colorOf(doc, "var(--mt-text-secondary)");
+            o.accent = colorOf(doc, "var(--mt-accent)", "backgroundColor");
+            o.calColor = colorOf(doc, c.getProperty("color") || "#A8C2E1", "backgroundColor");
+            const head = q("#mc-inv-head"), stripe = head?.querySelector(".mc-inv-stripe"), title = head?.querySelector(".mc-inv-title");
+            o.head = head && vis(head) ? { bg: bg(head), radius: csOf(head).borderTopLeftRadius, title: title?.textContent, size: title && csOf(title).fontSize, weight: title && csOf(title).fontWeight,
+              stripe: stripe && vis(stripe) ? { bg: bg(stripe), w: R(stripe).w, left: R(stripe).r <= R(head).l } : null, top: R(head).t, l: R(head).l, r: R(head).r } : null;
+            o.tbTitleVisible = vis(q(".calendar-summary-table td.item-title"));
+            const table = q(".calendar-summary-table");
+            o.table = table ? { bg: bg(table), radius: csOf(table).borderTopLeftRadius, l: R(table).l, r: R(table).r, top: R(table).t } : null;
+            o.rows = [...doc.querySelectorAll(".calendar-summary-table tr")].filter(tr => vis(tr.querySelector("th")) || vis(tr.querySelector("td"))).map(tr => {
+              const th = tr.querySelector("th"), td = tr.querySelector("td");
+              return { label: th ? csOf(th, "::before").content.replace(/^"|"$/g, "") : "", align: th && csOf(th).textAlign, color: th && csOf(th, "::before").color,
+                       thR: th && R(th).r, value: (td?.textContent || "").trim().slice(0, 30) }; });
+            o.alarm = vis(q(".item-alarm"));
+            const calCard = q("#mc-inv-cal");
+            o.cal = calCard && vis(calCard) ? { name: calCard.querySelector(".mc-inv-calname")?.textContent, dot: bg(calCard.querySelector(".mc-inv-dot")), bg: bg(calCard), top: R(calCard).t } : null;
+            const grp = q("#mc-inv-group");
+            o.people = grp && vis(grp) ? { head: grp.querySelector(".mc-inv-label")?.textContent, bg: bg(grp.querySelector(".mc-inv-people")), top: R(grp).t,
+              rows: [...grp.querySelectorAll(".attendee-label[mc-inv]")].filter(vis).map(l => ({ av: (() => { const a = l.querySelector(".mc-inv-av"); return a ? { w: R(a).w, h: R(a).h, round: csOf(a).borderTopLeftRadius, text: a.textContent } : null; })(),
+                name: l.querySelector(".mc-inv-name")?.textContent, sub: l.querySelector(".mc-inv-mail")?.textContent,
+                st: (() => { const s = l.querySelector(".mc-inv-st"); return s && vis(s) ? { st: s.dataset.st, bg: bg(s), r: R(s).r } : null; })(),
+                tip: !!l.getAttribute("title"), id: l.getAttribute("attendeeid") })) } : null;
+            o.tbAttendeesVisible = vis(q(".item-attendees .calendar-caption")) || vis(q(".item-organizer-row th"));
+            const desc = q(".item-description-box");
+            o.desc = desc && vis(desc) ? { bg: bg(desc), caption: vis(desc.querySelector(".calendar-caption")), top: R(desc).t } : null;
+            const bar = q("#mc-inv-buttons");
+            o.bar = bar && vis(bar) ? { line: csOf(bar).borderTopStyle, buttons: [...bar.querySelectorAll("button")].filter(vis).map(b => ({ id: b.id, text: b.textContent.trim(), ...R(b),
+                bg: bg(b), img: csOf(b).backgroundImage != "none", round: csOf(b).borderTopLeftRadius, disabled: b.disabled, pressed: b.getAttribute("aria-pressed") })) } : null;
+            o.win = { w: dw.innerWidth, h: dw.innerHeight };
+            return o; };
+          const out = {};
+          const made = [];
+          let dw = null;
+          try {
+            made.push(await make("Workshop Gestaltung", "NEEDS-ACTION"));
+            await toCalendar();
+            dw = await open(made[0]); if (!dw) return { dialog: false };
+            Object.assign(out, { open: measure(dw), still: dw.mcSeen });
+            await shoot(dw, "offen");
+            // Menü „…“: Antworten mit und ohne Nachricht, Save and Close
+            const more = dw.document.getElementById("mc-inv-more");
+            if (more) { more.click(); const pop = dw.document.getElementById("mc-inv-menu"); await till(() => pop?.state == "open", 3000);
+              out.menu = { state: pop?.state, items: [...pop.querySelectorAll(":scope > menu, :scope > menuitem")].map(x => [x.localName, x.getAttribute("label"), x.querySelectorAll("menuitem").length]) };
+              pop.hidePopup(); await till(() => pop.state == "closed", 2000); }
+            // Knöpfe antworten über Thunderbirds reply() – abgefangen, nichts wird gesendet oder gespeichert
+            const calls = []; dw.reply = (mode, stat) => calls.push([mode, stat]); dw.saveAndClose = mode => calls.push(["save", mode]);
+            for (const id of ["mc-inv-decline", "mc-inv-tentative", "mc-inv-accept"]) dw.document.getElementById(id)?.click();
+            const pop = dw.document.getElementById("mc-inv-menu");
+            for (const mi of pop ? [...pop.querySelectorAll("menuitem")] : []) mi.doCommand();
+            out.calls = calls;
+            // schmales Fenster: kein Knopf abgeschnitten
+            // (so schmal es geht: die Mindestbreite des Fensters begrenzt)
+            dw.resizeTo(300, dw.outerHeight); await ruhig(800);
+            out.narrow = { w: dw.innerWidth, buttons: [...dw.document.querySelectorAll("#mc-inv-buttons button")].filter(vis).map(b => { const r = R(b); return [b.id, r.l, r.r, b.scrollWidth <= b.clientWidth + 1]; }) };
+            dw.close(); await till(() => dw.closed, 4000);
+            // schon zugesagt
+            made.push(await make("Workshop Zugesagt", "ACCEPTED"));
+            dw = await open(made[1]); if (!dw) return { ...out, dialog2: false };
+            out.done = measure(dw);
+            await shoot(dw, "zugesagt");
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            w.focus(); await pause(300);
+            for (const it of made) { try { await c.deleteItem(it); } catch {} }
+            c.deleteProperty("imip.identity.key");
+          }
+          return out;""" % ("PathUtils.normalize(%r)" % shots if shots else "''"))
+        if shots:
+            os.makedirs(shots, exist_ok=True)
+        if res.get("dialog") is False or res.get("dialog2") is False:
+            return False, f"Einladungsfenster nicht offen: {res}"
+        o, dn = res.get("open") or {}, res.get("done") or {}
+        bad = []
+        def need(cond, what):
+            if not cond:
+                bad.append(what)
+        for name, x in (("offen", o), ("zugesagt", dn)):
+            need(x.get("invite") and not x.get("toolbar") and not x.get("note"), f"{name}: Werkzeugleiste bzw. Hinweisleiste sichtbar")
+            stt = x.get("status") or {}
+            need(stt.get("text") and rgba_alpha(stt.get("bg")) == 0 and same_color(stt.get("color"), x.get("secondary")), f"{name}: graue Zeile oben fehlt")
+            h = x.get("head") or {}
+            need(h.get("title") in ("Workshop Gestaltung", "Workshop Zugesagt") and same_color(h.get("bg"), x.get("control")) and h.get("radius") == "12px"
+                 and h.get("size") == "17px" and int(h.get("weight") or 0) >= 600, f"{name}: Titelkarte")
+            need(h.get("l") == 16 and h.get("r") == x.get("win", {}).get("w", 0) - 16, f"{name}: Karten über die Breite ({h.get('l')}–{h.get('r')})")
+            need((h.get("stripe") or {}).get("left") and same_color((h.get("stripe") or {}).get("bg"), x.get("calColor")) and (h.get("stripe") or {}).get("w") in (3, 4), f"{name}: Kalenderstrich")
+            need(not x.get("tbTitleVisible") and not x.get("tbAttendeesVisible"), f"{name}: Thunderbirds Titelzeile bzw. Teilnehmerkasten sichtbar")
+            t = x.get("table") or {}
+            need(same_color(t.get("bg"), x.get("control")) and t.get("radius") == "12px" and t.get("l") == h.get("l") and t.get("r") == h.get("r"), f"{name}: Zeitkarte")
+            rows = x.get("rows") or []
+            labels = [r["label"] for r in rows]
+            need(len(rows) >= 4 and all(r["align"] in ("end", "right") and same_color(r["color"], x.get("secondary")) and not r["label"].endswith(":") for r in rows)
+                 and len({r["thR"] for r in rows}) == 1, f"{name}: Beschriftungen {labels}")
+            need(x.get("alarm"), f"{name}: Erinnerung als Auswahl fehlt")
+            cc = x.get("cal") or {}
+            need(cc.get("name") == "Halo Test" and same_color(cc.get("dot"), x.get("calColor")) and same_color(cc.get("bg"), x.get("control")), f"{name}: Kalenderkarte")
+            p = x.get("people") or {}
+            pr = p.get("rows") or []
+            need(len(pr) == 3 and same_color(p.get("bg"), x.get("control")) and p.get("head"), f"{name}: Invitees")
+            if len(pr) == 3:
+                org, ben, you = pr
+                need(org["name"] == "Anna Beispiel" and org["sub"] and org["st"] is None and org["av"] and org["av"]["text"] == "AB", f"{name}: Organisator {org}")
+                need(ben["sub"] == "ben@example.invalid" and (ben["st"] or {}).get("st") == "ACCEPTED", f"{name}: Teilnehmer {ben}")
+                need(you["sub"] and you["st"], f"{name}: eigene Zeile {you}")
+                need(all(r["av"] and r["av"]["w"] == r["av"]["h"] == 28 and r["av"]["round"] == "50%" and r["tip"] for r in pr), f"{name}: Kürzel/Tooltip")
+            ds = x.get("desc") or {}
+            need(same_color(ds.get("bg"), x.get("control")) and not ds.get("caption"), f"{name}: Beschreibung als Karte")
+            order = [stt.get("top"), h.get("top"), t.get("top"), cc.get("top"), p.get("top"), ds.get("top")]
+            need(all(v is not None for v in order) and order == sorted(order), f"{name}: Reihenfolge {order}")
+            bar = x.get("bar") or {}
+            btns = bar.get("buttons") or []
+            ids = [b["id"] for b in btns]
+            need(ids == ["mc-inv-more", "mc-inv-decline", "mc-inv-tentative", "mc-inv-accept"], f"{name}: Knöpfe {ids}")
+            need(bar.get("line") == "solid", f"{name}: Linie über den Knöpfen")
+            if len(btns) == 4:
+                mo = btns[0]
+                need(mo["w"] == mo["h"] == 30 and mo["round"] == "50%" and same_color(mo["bg"], x.get("control")), f"{name}: „…“ {mo}")
+                need(all(b["h"] == 30 for b in btns) and btns[3]["r"] == x["win"]["w"] - 16 and btns[1]["l"] > mo["r"] + 16, f"{name}: Lage der Knöpfe {btns}")
+        b = {k["id"]: k for k in ((o.get("bar") or {}).get("buttons") or [])}
+        if b:
+            need(same_color(b["mc-inv-accept"]["bg"], o.get("accent")) and b["mc-inv-accept"]["img"], "offen: Accept nicht Hauptknopf")
+            need(all(same_color(b[k]["bg"], o.get("control")) for k in ("mc-inv-decline", "mc-inv-tentative")), "offen: Decline/Tentative nicht grau")
+        need(((o.get("status") or {}).get("icon")) and not (o.get("status") or {}).get("sign"), "offen: Kalendersymbol in der Zeile")
+        bd = {k["id"]: k for k in ((dn.get("bar") or {}).get("buttons") or [])}
+        if bd:
+            need(not any(same_color(k["bg"], dn.get("accent")) for k in bd.values()), "zugesagt: Hauptknopf trotz Antwort")
+            need(bd["mc-inv-accept"]["pressed"] == "true" and bd["mc-inv-accept"]["text"] != b.get("mc-inv-accept", {}).get("text")
+                 and not same_color(bd["mc-inv-accept"]["bg"], dn.get("control")), "zugesagt: gewählter Knopf nicht eingedrückt")
+        need((dn.get("status") or {}).get("sign") == "ACCEPTED", "zugesagt: Zeichen in der Zeile")
+        menu = res.get("menu") or {}
+        need(menu.get("state") == "open" and [i[2] for i in menu.get("items", [])] == [2, 2, 2, 0], f"Menü „…“ {menu}")
+        calls = res.get("calls") or []
+        need(calls == [["AUTO", "DECLINED"], ["AUTO", "TENTATIVE"], ["AUTO", "ACCEPTED"],
+                       ["AUTO", "ACCEPTED"], ["NONE", "ACCEPTED"], ["AUTO", "TENTATIVE"], ["NONE", "TENTATIVE"], ["AUTO", "DECLINED"], ["NONE", "DECLINED"], ["save", "NONE"]],
+             f"Antworten {calls}")
+        need(len(res.get("still") or []) == 1, f"springt beim Öffnen {res.get('still')}")
+        nr = res.get("narrow") or {}
+        need(nr.get("buttons") and nr.get("w", 999) <= 420 and all(bl >= 0 and br <= nr["w"] and fit for _, bl, br, fit in nr["buttons"]), f"schmal {nr}")
+        return not bad, f"{bad} {res}"
+    check("Einladungsfenster: halo-Design ohne Werkzeugleiste (graue Zeile, Titelkarte mit Kalenderstrich, Zeitkarte, Kalender, Invitees mit Kürzeln und Zusage, „…“-Menü, Accept als Hauptknopf; beantwortet eingedrückt ohne Hauptknopf)",
+          invitation_window_design, results)
 
     def summary_description():
         # Lesefenster (Termin → Öffnen): Beschreibung im eigenen Inhaltsdokument (iframe.item-description) dunkel
@@ -10250,8 +10672,11 @@ def calendar_checks(m, results):
             const out = { C, title: !!d.getElementById("mcAgendaTitle"),
               head: [w.getComputedStyle(name).color, w.getComputedStyle(name).fontWeight, w.getComputedStyle(year).color,
                      w.getComputedStyle(mm.querySelector(".months-back-button")).color, w.getComputedStyle(mm.querySelector(".months-forward-button")).color],
-              // zwischen Mini-Kalender und Liste steht nichts mehr (die Karte beginnt 8 px unter der Linie)
-              gap: Math.round(agenda.getBoundingClientRect().top - d.getElementById("agenda-container").getBoundingClientRect().top) };
+              // zwischen Mini-Kalender und Liste steht nur noch „Today“ (keine Monatszeile), die Karte beginnt
+              // höchstens 12 px darunter bzw. unter der Linie
+              between: [...d.getElementById("agenda-container").children].filter(k => k != agenda && k.compareDocumentPosition(agenda) & 4 && k.getBoundingClientRect().height > 0).map(k => k.id),
+              gap: Math.round(agenda.getBoundingClientRect().top - (d.getElementById("mcTodayTitle")?.closest("#agenda-container")
+                ? d.getElementById("mcTodayTitle").getBoundingClientRect().bottom : d.getElementById("agenda-container").getBoundingClientRect().top)) };
             // Mini-Kalender: Farben je Spalte bei Wochenbeginn Sonntag (0) und Montag (1); die 2. und 3. Woche liegen
             // immer ganz im Monat, genommen wird die ohne heute (rot)
             out.days = {};
@@ -10289,7 +10714,7 @@ def calendar_checks(m, results):
         longs = res.get("long") or []
         ok = (res.get("title") is False and bool(C) and C.get("fourth") not in (C.get("third"), C.get("text"), "")
               and res.get("head") == [C["second"], "600", C["second"], C["second"], C["second"]]
-              and 0 <= (res.get("gap") or -1) <= 12
+              and 0 <= (res.get("gap") or -1) <= 12 and res.get("between") == ["mcTodayTitle"]
               and len(days) == 4 and all(v["ok"] and v["we"] == 2 and v["other"] == C["fourth"] for v in days.values())
               and [v["wkst"] for v in days.values()] == ["0", "0", "1", "1"]
               and sorted(x["allDay"] for x in longs) == [False, True]
@@ -11989,6 +12414,7 @@ def server_checks(m, results):
             servers.imap.add("Sent", f"From: Halo Test <halo@example.invalid>\nTo: Kunde <kunde@example.invalid>\nSubject: Angebot Fenster\n"
                              f"Date: {five}\nMessage-ID: <srv-follow@example.invalid>\n\nWie besprochen.\n", flags=["\\Seen"])
             res = m.js(r"""
+              const SHOT = %s;
               const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
               const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
               const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
@@ -12002,18 +12428,30 @@ def server_checks(m, results):
               a3.displayFolder(inbox.URI); await ruhig(1200);
               const bar = await until(() => a3.document.getElementById("mcFollowUp"), 5000);
               const out = { bar: bar?.textContent || null };
-              // Aussehen wie unsere übrigen Hinweise: Knopf als Kapsel in Akzentfarbe, ✕ klein und rund ohne Fläche,
-              // Text 12 px (vorher setzten sich Thunderbirds Knöpfe durch: graue breite Kapseln, größere Schrift)
+              // Aussehen wie die Hinweiskarte über der Mail (E22, Variante A 17.11.2026; vorher hellblau mit blauem Knopf):
+              // graue Karte (--mt-hint-bg) Radius 10, Text 12 px in Textfarbe, „Follow Up“ graue Textkapsel 24 px mit
+              // Lichtkante der Knopf-Familie (keine Akzentfarbe), Schließen grauer Kreis 24 px mit halo-×
               if (bar) {
                 const cs = el => a3.getComputedStyle(el), r = el => el.getBoundingClientRect();
                 const go = bar.querySelector(".mc-fu-go"), x = bar.querySelector(".mc-fu-close");
-                const probe = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.background = "AccentColor"; bar.append(probe);
-                out.look = { accent: cs(probe).backgroundColor, goBg: cs(go).backgroundColor, goH: Math.round(r(go).height), goRadius: cs(go).borderTopLeftRadius,
-                             xBg: cs(x).backgroundColor, xW: Math.round(r(x).width), xH: Math.round(r(x).height),
+                const mk = v => { const e = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.background = v; e.style.color = v; bar.append(e); return e; };
+                const probe = mk("AccentColor"), pHint = mk("var(--mt-hint-bg)"), pCtl = mk("var(--mt-control)"), pText = mk("var(--mt-text)");
+                out.look = { accent: cs(probe).backgroundColor, hint: cs(pHint).backgroundColor, ctl: cs(pCtl).backgroundColor, textColor: cs(pText).color,
+                             barBg: cs(bar).backgroundColor, barRadius: cs(bar).borderTopLeftRadius,
+                             goBg: cs(go).backgroundColor, goColor: cs(go).color, goShadow: cs(go).boxShadow, goH: Math.round(r(go).height), goRadius: cs(go).borderTopLeftRadius,
+                             xBg: cs(x).backgroundColor, xImg: cs(x).backgroundImage, xW: Math.round(r(x).width), xH: Math.round(r(x).height), xRadius: cs(x).borderTopLeftRadius,
                              text: cs(bar.querySelector(".mc-fu-text")).fontSize, barH: Math.round(r(bar).height),
                              // Luft bis zur Mailliste darunter (vorher 2 px, Hinweis klebte an der ersten Kachel)
                              gap: Math.round(r(a3.document.getElementById("threadTree")).top - r(bar).bottom) };
-                probe.remove();
+                for (const e of [probe, pHint, pCtl, pText]) e.remove();
+                if (SHOT) {
+                  // Bild des Hinweises samt erster Mail-Kachel (nur Testprofil)
+                  const pr = r(a3.document.getElementById("threadPane")), br = r(bar);
+                  const bm = await a3.browsingContext.currentWindowGlobal.drawSnapshot(new a3.DOMRect(pr.left, br.top - 8, Math.min(pr.width, 520), br.height + 80), 2, "white");
+                  const cv = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+                  cv.getContext("2d").drawImage(bm, 0, 0); out.png = cv.toDataURL("image/png").split(",")[1];
+                  out.dark = a3.matchMedia("(prefers-color-scheme: dark)").matches;
+                }
               }
               // Schalter „Follow-Up Suggestions“ aus: Hinweis sofort weg (ohne Ordnerwechsel), an: wieder da
               Services.prefs.setBoolPref("extensions.mailcards.followUp", false); await ruhig(300);
@@ -12023,15 +12461,23 @@ def server_checks(m, results):
               bar?.querySelector(".mc-fu-close").click(); a3.document.querySelector("#mcFollowUp .mc-fu-close")?.click(); await ruhig(300);
               out.afterDismiss = !!a3.document.getElementById("mcFollowUp") && a3.document.getElementById("mcFollowUp").textContent.includes("Angebot Fenster");
               Services.prefs.clearUserPref("extensions.mailcards.followUpDismissed"); FU.cache = null;
-              return out;""" % (ADDON_ID, key))
+              return out;""" % ("true" if os.environ.get("HALO_SHOTS") else "false", ADDON_ID, key))
+            if res.get("png"):
+                import base64
+                os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+                path = os.path.join(os.environ["HALO_SHOTS"], f"nachfassen-{'dunkel' if res.get('dark') else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(res.pop("png")))
+                print(f"Bild {path}", flush=True)
             ok = ("Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
                   and res.get("off") is False and res.get("on") is True)
             lk = res.get("look") or {}
-            ok = ok and (lk.get("goBg") == lk.get("accent") and lk.get("goH") == 24 and lk.get("goRadius") in ("999px", "12px")
-                         and lk.get("xBg") in ("transparent", "rgba(0, 0, 0, 0)") and lk.get("xW", 99) <= 24 and lk.get("xH", 99) <= 24
-                         and lk.get("text") == "12px" and lk.get("gap", 0) >= 8)
+            ok = ok and (lk.get("barBg") == lk.get("hint") and lk.get("barRadius") == "10px"
+                         and lk.get("goBg") == lk.get("ctl") and lk.get("goBg") != lk.get("accent") and lk.get("goColor") == lk.get("textColor")
+                         and "inset" in (lk.get("goShadow") or "") and lk.get("goH") == 24 and lk.get("goRadius") in ("999px", "12px")
+                         and lk.get("xBg") == lk.get("ctl") and "close-12.svg" in (lk.get("xImg") or "") and lk.get("xW") == 24 and lk.get("xH") == 24
+                         and lk.get("xRadius") in ("50%", "12px") and lk.get("text") == "12px" and lk.get("gap", 0) >= 8)
             return ok, f"{res}"
-        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, Knopf in Akzentfarbe und kleines ✕, 8 px Luft zur Mailliste, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
+        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort als graue Karte wie die Hinweiskarte über der Mail, „Follow Up“ graue Textkapsel 24 px mit Lichtkante, Schließen grauer Kreis 24 px, 8 px Luft zur Mailliste, Schließen blendet aus, Schalter wirkt sofort", follow_up, results)
 
         def subscribe_dialog():
             # Abonnieren-Dialog (nur mit IMAP-Konto): öffnet, zeigt den nicht abonnierten Ordner „Projekte“, ohne harte Rahmen
@@ -13541,17 +13987,40 @@ def run_checks(m, version, profile, results):
             if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
             out.wechsel = { schmal, breit: st() };
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            // Hinweis-Symbol einer Add-on-Installation (steht in derselben Zeile wie die Knöpfe): solange es sichtbar
+            // ist, weichen Pillen; danach kommen sie bei gleicher Fensterbreite zurück (vorher blieb z. B. „Archiv“
+            // nach Installieren über einen Add-on-Tab eingeklappt, die Zeile selbst änderte ihre Breite ja nicht)
+            await toMail(); if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+            w.resizeTo(1500, 900); await ruhig(1500);
+            const box = d.getElementById("notification-popup-box"), icon = d.getElementById("addons-notification-icon");
+            // (nutzbare Breite: in der Mail steht das Symbol schwebend über der Zeile, die Knopfleiste macht ihm mit ihrem
+            // Innenabstand Platz)
+            const breiteKnoepfe = () => { const c = d.getElementById("unifiedToolbarContent"), cs = getComputedStyle(c);
+                                          return Math.round(c.clientWidth - parseFloat(cs.paddingInlineStart) - parseFloat(cs.paddingInlineEnd)); };
+            const vorher = { ...st(), zeile: breiteKnoepfe() };
+            box.hidden = false; icon.setAttribute("showing", "true");
+            await ruhig(1500);
+            const mit = { ...st(), zeile: breiteKnoepfe() };
+            box.hidden = true; icon.removeAttribute("showing");
+            await ruhig(1500);
+            out.hinweis = { vorher, mit, nachher: { ...st(), zeile: breiteKnoepfe() } };
           } finally {
+            d.getElementById("notification-popup-box").hidden = true; d.getElementById("addons-notification-icon")?.removeAttribute("showing");
             await toMail(); if (w.TodayPane.isVisible != tpWas) { tpCmd.doCommand(); await ruhig(1000); }
             w.resizeTo(1500, 900); await ruhig(800);
           }
           return out;""")
         # (der Kalender hat wenige Pillen – weicht dort schmal keine, zählt nur „wieder breit nichts gewichen“)
         cases = [(res.get(k) or {}, k != "calendar") for k in ("mail", "calendar", "wechsel")]
-        ok = all((not muss or (c.get("schmal", {}).get("hidden") and c.get("schmal", {}).get("ov")))
-                 and c.get("breit", {}).get("hidden") == [] and c.get("breit", {}).get("ov") is False for c, muss in cases)
+        h = res.get("hinweis") or {}
+        hv, hm, hn = h.get("vorher") or {}, h.get("mit") or {}, h.get("nachher") or {}
+        ok = (all((not muss or (c.get("schmal", {}).get("hidden") and c.get("schmal", {}).get("ov")))
+                  and c.get("breit", {}).get("hidden") == [] and c.get("breit", {}).get("ov") is False for c, muss in cases)
+              # das Symbol nahm der Knopfzeile Platz, danach wieder dieselbe Breite und dieselben Pillen wie vorher
+              and hm.get("zeile", 0) < hv.get("zeile", 0) and len(hm.get("hidden", [])) > len(hv.get("hidden", []))
+              and hn.get("zeile") == hv.get("zeile") and hn.get("hidden") == hv.get("hidden") and hn.get("ov") == hv.get("ov"))
         return ok, f"{res}"
-    check("Toolbar: Überlauf – wieder breit kommen alle Pillen zurück und „»“ verschwindet (Mail, Kalender, nach Bereichswechsel; GitHub #67)", toolbar_overflow_back, results)
+    check("Toolbar: Überlauf – wieder breit kommen alle Pillen zurück und „»“ verschwindet (Mail, Kalender, nach Bereichswechsel, nach Hinweis-Symbol einer Add-on-Installation; GitHub #67)", toolbar_overflow_back, results)
 
     def toolbar_min_window():
         # Mail-Space auf Mindestbreite (Fenster so schmal wie möglich, geöffnete Mail, mit und ohne Today-Pane, mit
@@ -14444,7 +14913,8 @@ def run_checks(m, version, profile, results):
 
     def appearance_tiles():
         # Erscheinungsbild als Bildauswahl wie „Message list view style“: drei Kacheln Hell, Dunkel, Auto (in dieser
-        # Reihenfolge) mit Fenstergrafik 68×44 nebeneinander, die gewählte entspricht dem Theme; Klick stellt um
+        # Reihenfolge) mit Fenstergrafik nebeneinander, seit Seltene Symbole Teil 2 (15.11.2026) so groß wie die
+        # übrigen Bilder der Darstellung (118×76), die gewählte entspricht dem Theme; Klick stellt um
         res = m.js(r"""
           const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
           const THEMES = { auto: "default-theme@mozilla.org", light: "thunderbird-compact-light@mozilla.org", dark: "thunderbird-compact-dark@mozilla.org" };
@@ -14482,12 +14952,251 @@ def run_checks(m, version, profile, results):
         ts = res.get("tiles") or []
         cl = res.get("clicked") or {}
         ok = (not res.get("menulist") and [x["v"] for x in ts] == ["light", "dark", "auto"]
-              and all(x["w"] == 68 and x["h"] == 44 and x["img"] and x["label"] for x in ts) and len({x["top"] for x in ts}) == 1
+              and all(x["w"] == 118 and x["h"] == 76 and x["img"] and x["label"] for x in ts) and len({x["top"] for x in ts}) == 1
               and res.get("selected") == res.get("theme") and cl.get("now") == cl.get("target") and cl.get("sel") == cl.get("target")
               # (ältere Versionen, z. B. die ESR, haben „View style“ noch nicht: fehlende Beschriftung zählt nicht, eine muss da sein)
               and any(x and x != "fehlt" for x in res.get("labels") or []) and not any(x.rstrip().endswith(":") for x in res.get("labels") or []))
         return ok, f"{res}"
     check("Einstellungen: Erscheinungsbild als Bildauswahl – Kacheln Hell, Dunkel, Auto mit Fenstergrafik nebeneinander, gewählt ist das aktive Theme, Klick stellt um, Beschriftungen ohne Doppelpunkt", appearance_tiles, results)
+
+    # Bilder speichern, die eine Prüfung als base64 in out["png"] (Name → Daten) zurückgibt (nur mit HALO_SHOTS)
+    def save_pngs(prefix, res):
+        pngs = res.pop("png", None) or {}
+        if os.environ.get("HALO_SHOTS") and pngs:
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            mode = "dunkel" if res.get("dark") else "hell"
+            for k, v in pngs.items():
+                if v:
+                    path = os.path.join(os.environ["HALO_SHOTS"], f"{prefix}-{k}-{mode}.png")
+                    open(path, "wb").write(base64.b64decode(v))
+                    print(f"Bild {path}", flush=True)
+
+    SNAP_JS = r"""
+      const SHOT = %s;
+      // Ausschnitt eines Dokuments (Elemente, je 8 px Rand) als PNG; mehrere Elemente untereinander in einem Bild
+      const snap = async (win, els) => { if (!SHOT) return null; const parts = [];
+        for (const el of els.filter(Boolean)) { el.scrollIntoView({ block: "center" }); await ruhig(150);
+          const r = el.getBoundingClientRect(), rr = new win.DOMRect(Math.max(0, r.left - 8), Math.max(0, r.top - 8), r.width + 16, r.height + 16);
+          parts.push(await win.browsingContext.currentWindowGlobal.drawSnapshot(rr, 2, "white")); }
+        if (!parts.length) return null;
+        const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+        cv.width = Math.max(...parts.map(p => p.width)); cv.height = parts.reduce((s, p) => s + p.height, 0);
+        const ctx = cv.getContext("2d"); let y = 0; for (const p of parts) { ctx.drawImage(p, 0, y); y += p.height; }
+        return cv.toDataURL("image/png").split(",")[1]; };""" % ("true" if os.environ.get("HALO_SHOTS") else "false")
+
+    def appearance_pictures():
+        # Seltene Symbole Teil 2 (Freigabe „Ja A passt“, 15.11.2026): die Bilder der Darstellung (Card view, Table view,
+        # Unthreaded, Threaded, Grouped by Sort) sind kleine halo-Fenster 118×76 statt Thunderbirds „pictograph“-Bilder,
+        # Hell/Dunkel/Auto gleich groß; kein Kasten um die Wahl, die gewählte zeigt einen Ring in der Systemfarbe mit
+        # Abstand zum Bild, der Name steht darunter mittig in Textfarbe, gewählt halbfett. Themes unter Add-ons: Vorschau
+        # als abgerundetes Bild mit feiner Kante in der Karte statt randlos mit Strich darunter. Mit HALO_SHOTS Bilder
+        res = m.js(SNAP_JS + r"""
+          w.resizeTo(1400, 1000);
+          w.openPreferencesTab("paneAppearance");
+          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("mcAppearance");
+            return x?.readyState == "complete" && e?.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
+          await ruhig(600);
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, pw = t.browser.contentWindow, cs = e => pw.getComputedStyle(e);
+          const probe = (v, p = "color") => { const e = cd.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style[p] = v; cd.documentElement.append(e); const c = cs(e)[p]; e.remove(); return c; };
+          const out = { dark: pw.matchMedia("(prefers-color-scheme: dark)").matches, accent: probe("AccentColor"), text: probe("var(--mt-text)"), png: {} };
+          const ids = ["mcAppearance-light", "mcAppearance-dark", "mcAppearance-auto", "appearanceStyleCards", "appearanceStyleTable",
+                       "defaultFlagUnthreaded", "defaultFlagThreaded", "defaultFlagGrouped"];
+          out.tiles = ids.map(id => { const r = cd.getElementById(id); if (!r) return { id, fehlt: true };
+            const i = r.querySelector(".radio-icon"), l = r.querySelector(".radio-label"), b = i.getBoundingClientRect(), lb = l.getBoundingClientRect(), s = cs(i), rs = cs(r);
+            return { id, sel: !!r.selected, w: Math.round(b.width), h: Math.round(b.height), data: s.listStyleImage.startsWith('url("data:image/svg'),
+              pict: /pictograph/.test(s.listStyleImage), rad: s.borderTopLeftRadius, ring: [s.outlineStyle, parseFloat(s.outlineWidth), parseFloat(s.outlineOffset), s.outlineColor],
+              edge: s.boxShadow, box: [rs.borderTopWidth, rs.backgroundColor, rs.boxShadow, rs.outlineStyle],
+              label: [cs(l).fontWeight, cs(l).color, cs(l).fontSize], mid: Math.round(Math.abs((lb.left + lb.right) / 2 - (b.left + b.right) / 2)), under: Math.round(lb.top - b.bottom) }; });
+          out.png.darstellung = await snap(pw, [cd.getElementById("mcAppearance"), cd.getElementById("appearanceViewStyle"), cd.getElementById("defaultViewFlags")]);
+          tm.closeTab(t); await ruhig(400);
+          // Add-ons: Themes
+          w.openAddonsMgr("addons://list/theme");
+          const ad = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector("addon-card img.card-heading-image") && x; }, "Themes", 8000);
+          await ruhig(800);
+          const aw = ad.defaultView;
+          out.themes = [...ad.querySelectorAll("addon-card img.card-heading-image")].filter(i => i.getBoundingClientRect().width).map(i => {
+            const s = aw.getComputedStyle(i), b = i.getBoundingClientRect(), c = i.closest(".card").getBoundingClientRect();
+            return { rad: s.borderTopLeftRadius, bottom: s.borderBottomWidth, edge: s.boxShadow, inset: Math.round(b.left - c.left), w: Math.round(b.width) }; });
+          out.png.themes = await snap(aw, [ad.querySelector("addon-card .card")]);
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        save_pngs("selten2", res)
+        ts, th = res.get("tiles") or [], res.get("themes") or []
+        def tile(x):
+            if x.get("fehlt"):
+                return not x["id"].startswith("mcAppearance")  # ältere Thunderbird-Versionen haben nicht alle Bilder
+            ring = x["ring"]
+            return (x["w"] == 118 and x["h"] == 76 and x["data"] and not x["pict"] and x["rad"] == "8px" and x["edge"] != "none"
+                    and x["box"][0] == "0px" and x["box"][1] == "rgba(0, 0, 0, 0)" and x["box"][2] == "none" and x["box"][3] == "none"
+                    and ((ring[0] == "solid" and ring[1] >= 2 and ring[2] >= 2 and same_color(ring[3], res["accent"])) if x["sel"] else ring[0] == "none")
+                    and int(x["label"][0]) == (600 if x["sel"] else 400) and same_color(x["label"][1], res["text"]) and x["label"][2] == "13px"
+                    and x["mid"] <= 1 and 4 <= x["under"] <= 12)
+        ok = (len(ts) == 8 and all(tile(x) for x in ts) and sum(1 for x in ts if x.get("sel") and x["id"].startswith("mcAppearance")) == 1
+              and bool(th) and all(x["rad"] == "8px" and x["bottom"] == "0px" and x["edge"] != "none" and x["inset"] >= 8 for x in th))
+        return ok, f"{res}"
+    check("Einstellungen: Bilder der Darstellung (Karten, Tabelle, Unterhaltungen, Hell/Dunkel/Auto) als halo-Fenster 118×76 ohne Kasten, "
+          "Wahl als Ring in der Systemfarbe, Name darunter, gewählt halbfett; Theme-Vorschau unter Add-ons abgerundet mit feiner Kante", appearance_pictures, results)
+
+    def rare_icons():
+        # Seltene Symbole Teil 2: Ordner-Eigenschaften „Farbe zurücksetzen“ als runder grauer Symbolknopf 26 px mit dem halo-
+        # Pfeil zurück; Export-Hinweis mit grauem halo-i; Panel „Kontakt bearbeiten“ mit grauem halo-Adressbuch; globale
+        # Suche ohne Treffer mit grauer halo-Lupe 40 px statt Thunderbirds Lupe mit Kreuz; App-Menü (Mitmachen, Export fürs
+        # Handy), Punkt an Empfängern außerhalb des Adressbuchs und Sortierpfeil der Listen (Filter, OpenPGP) als halo-Symbole
+        res = m.js(READING_JS + SNAP_JS + r"""
+          const HTML = "http://www.w3.org/1999/xhtml";
+          const probeIn = (dc, v, p = "color") => { const e = dc.createElementNS(HTML, "div"); e.style[p] = v; dc.documentElement.append(e); const c = cs(e)[p]; e.remove(); return c; };
+          const icon = el => { if (!el) return null; const s = cs(el), b = el.getBoundingClientRect();
+            return { img: (s.content + " " + s.listStyleImage).replace(/.*?(mailcards\/icons\/[\w-]+\.svg|chrome:[^")]+).*/, "$1"), stroke: s.stroke, fill: s.fill,
+                     w: Math.round(b.width), h: Math.round(b.height) }; };
+          const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches, png: {} };
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          // Ordner-Eigenschaften
+          const folder = root.getChildNamed("Kopf");
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.openDialog("chrome://messenger/content/folderProps.xhtml", "", "chrome,modal=no,titlebar,resizable=no", { folder, serverType: "none", msgWindow: w.msgWindow, name: folder.prettyName });
+          const fw = await bis(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.startsWith("chrome://messenger/content/folderProps.xhtml") && x.document.readyState == "complete"), "Ordner-Eigenschaften", 8000);
+          try { await ruhig(1200); const fd = fw.document, b = fd.getElementById("resetColor"), s = cs(b);
+            out.reset = { ...icon(b), radius: s.borderTopLeftRadius, bg: s.backgroundColor, control: probeIn(fd, "var(--mt-control)", "backgroundColor"), sh: s.boxShadow,
+                          inner: icon(b.querySelector(".button-icon")), text: probeIn(fd, "var(--mt-text)") };
+            out.png.ordnerfarbe = await snap(fw, [b.parentElement]);
+          } finally { fw.close(); await ruhig(500); }
+          // Export
+          w.toExport();
+          const it = await bis(() => tm.tabInfo.find(x => x.browser?.currentURI?.spec?.startsWith("about:import")), "Tab about:import", 6000);
+          try { const dd = it.browser.contentDocument;
+            const img = await bis(() => { const i = dd.querySelector("#tabPane-export p.description img.info"); return i && i.getBoundingClientRect().width && i; }, "Export-Hinweis", 6000);
+            await ruhig(500); out.info = { ...icon(img), secondary: probeIn(dd, "var(--mt-text-secondary)") };
+            out.png.export = await snap(it.browser.contentWindow, [img.parentElement]);
+          } finally { tm.closeTab(it); await ruhig(400); }
+          // Kontakt bearbeiten (Panel aus dem Mailkopf)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = book.childCards.find(c => c.primaryEmail == "paula@example.invalid");
+          if (!card) { card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            card.displayName = "Paula Panel"; card.primaryEmail = "paula@example.invalid"; card = book.addCard(card); }
+          try { const doc = await showMail("Halo Kontakt");
+            const menu = doc.getElementById("emailAddressPopup"), from = doc.querySelector("#fromRecipient0");
+            (from.querySelector(".recipient-single-line, .recipient-multi-line-name") || from).click();
+            await bis(() => menu.state == "open", "Adressmenü offen", 3000);
+            doc.getElementById("editContactItem").doCommand(); menu.hidePopup();
+            const panel = await bis(() => { const p = doc.getElementById("editContactPanel"); return p?.state == "open" && p; }, "Panel Kontakt bearbeiten", 4000);
+            try { await ruhig(500); out.contact = { ...icon(doc.getElementById("editContactPanelIcon")), secondary: probeIn(doc, "var(--mt-text-secondary)") };
+              // (Panel ist ein eigenes Popup-Fenster: drawSnapshot des Dokuments erfasst es nicht, daher kein Bild)
+            } finally { panel.hidePopup(); await ruhig(300); }
+          } finally { book.deleteCards([card]); }
+          // globale Suche ohne Treffer
+          const { GlodaMsgSearcher } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaMsgSearcher.sys.mjs");
+          const gt = tm.openTab("glodaFacet", { searcher: new GlodaMsgSearcher(null, "haloohnetreffer") });
+          try { const gd = await bis(() => { const x = gt.browser?.contentDocument; return x?.readyState == "complete" && x.querySelector("img.empty")?.getBoundingClientRect().width && x; }, "Suche ohne Treffer", 8000);
+            await ruhig(600); out.empty = { ...icon(gd.querySelector("img.empty")), tertiary: probeIn(gd, "var(--mt-text-tertiary)") };
+            out.png.suche = await snap(gt.browser.contentWindow, [gd.querySelector("span.empty")]);
+          } finally { tm.closeTab(gt); await ruhig(500); }
+          // App-Menü, Punkt am Empfänger, Sortierpfeil (Regeln an Klassen bzw. Variablen, im Hauptfenster nachgebaut)
+          const rs = cs(d.documentElement);
+          out.vars = ["--icon-handshake", "--icon-mobile-export-sm", "--icon-mobile-export-lg"].map(v => rs.getPropertyValue(v).replace(/.*?(mailcards\/icons\/[\w-]+\.svg|chrome:[^")]+).*/, "$1"));
+          const box = d.createXULElement("hbox"); d.documentElement.append(box);
+          try { const pill = d.createElementNS(HTML, "img"); pill.className = "pill-indicator"; box.append(pill);
+            // (treecol baut Beschriftung und Sortierpfeil beim Einhängen selbst; fehlt er, ein eigenes Bild mit der Klasse)
+            const sorts = ["ascending", "descending"].map(k => { const col = d.createXULElement("treecol"); col.setAttribute("sortDirection", k); box.append(col);
+              let im = col.querySelector(".treecol-sortdirection"); if (!im) { im = d.createXULElement("image"); im.className = "treecol-sortdirection"; col.append(im); } return im; });
+            out.pill = icon(pill); out.sort = sorts.map(icon);
+          } finally { box.remove(); }
+          return out;""")
+        save_pngs("selten2", res)
+        def gray(x, key):
+            return bool(x) and same_color(x["stroke"], x[key])
+        r, i, c, e = res.get("reset") or {}, res.get("info") or {}, res.get("contact") or {}, res.get("empty") or {}
+        ok = (bool(r) and (r["inner"] or {}).get("img") == "mailcards/icons/restore.svg" and r["w"] == 26 and r["h"] == 26
+              and r["radius"] in ("50%", "13px", "999px") and same_color(r["bg"], r["control"]) and "inset" in r["sh"]
+              and same_color((r["inner"] or {}).get("stroke", ""), r["text"])
+              and i.get("img") == "mailcards/icons/info.svg" and gray(i, "secondary")
+              and c.get("img") == "mailcards/icons/address-book.svg" and gray(c, "secondary")
+              and e.get("img") == "mailcards/icons/search-empty-40.svg" and gray(e, "tertiary") and e.get("w") == 40
+              and res.get("vars") == ["mailcards/icons/handshake.svg", "mailcards/icons/mobile-export.svg", "mailcards/icons/mobile-export-24.svg"]
+              and (res.get("pill") or {}).get("img") == "mailcards/icons/dot-12.svg"
+              and [x.get("img") for x in res.get("sort") or [{}, {}]] == ["mailcards/icons/ascending-12.svg", "mailcards/icons/descending-12.svg"])
+        return ok, f"{res}"
+    check("Symbole: Farbe zurücksetzen (Ordner-Eigenschaften) als runder grauer Symbolknopf, Export-Hinweis, Kontakt bearbeiten und "
+          "Suche ohne Treffer mit grauen halo-Symbolen, App-Menü, Empfänger-Punkt und Sortierpfeil als halo-Symbole", rare_icons, results)
+
+    def access_cues():
+        # Zugriffsbuchstaben unter Windows und Linux erst mit Alt unterstrichen (wie andere Programme dort), am Mac
+        # unverändert (keine). Am Mac schaltet die Prüfung Thunderbirds Zugriffstasten (ui.key.menuAccessKey 18) und den
+        # Ablauf wie unter Linux vorübergehend ein, damit dieselbe Logik auch hier greift. Geprüft in den Einstellungen
+        # (General): Beschriftungen mit Text (span.accesskey) und mit value (Knöpfe, erzeugter Inhalt) ohne Strich,
+        # mit gedrückter Alt-Taste mit Strich, nach Alt allein weiter, nach einem Klick wieder ohne; die Tasten bleiben gesetzt
+        res = m.js(SNAP_JS + r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global;
+          const AC = Cu.evalInSandbox("AccessCues", g);
+          const sss = Cc["@mozilla.org/content/style-sheet-service;1"].getService(Ci.nsIStyleSheetService);
+          const sheetOn = () => sss.sheetRegistered(Services.io.newURI(AC.SHEET), sss.USER_SHEET);
+          const os = Services.appinfo.OS, P = Services.prefs, KEY = "ui.key.menuAccessKey";
+          const out = { os, png: {}, dark: w.matchMedia("(prefers-color-scheme: dark)").matches, macSheet: os == "Darwin" ? sheetOn() : null };
+          const hadKey = P.prefHasUserValue(KEY), oldKey = P.getIntPref(KEY, 0);
+          let t = null;
+          try {
+            if (os == "Darwin") { P.setIntPref(KEY, 18); AC.start("Linux"); }
+            out.sheet = sheetOn();
+            w.focus(); await until(() => Services.focus.activeWindow == w, 3000);
+            // (mit --only kann das Hauptfenster noch beim Aufbau sein – erst die Tableiste abwarten)
+            await bis(() => tm.tabContainer?.allTabs?.length && tm.currentTabInfo?.tabNode, "Tableiste bereit", 10000);
+            w.openPreferencesTab("paneGeneral");
+            const cd = await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument;
+              return x?.readyState == "complete" && x.querySelector("label span.accesskey")?.getBoundingClientRect().width && x; }, "Einstellungen mit Zugriffstasten", 10000);
+            t = tm.currentTabInfo; const cw = cd.defaultView; await ruhig(800);
+            const vis = e => e.getBoundingClientRect().width > 0;
+            const textSpans = [...cd.querySelectorAll("label span.accesskey")].filter(vis).slice(0, 6);
+            // value-Beschriftungen (Knöpfe, Feldnamen): Thunderbird legt den Buchstaben als <u> in den erzeugten Inhalt (::before,
+            // nur über InspectorUtils erreichbar); ohne Alt steht dort der reine Text (kein <u>), Breite unverändert
+            const valueLabels = [...cd.querySelectorAll("label[value][accesskey]")].filter(l => vis(l)
+              && l.getAttribute("value").toLowerCase().includes(l.getAttribute("accesskey").toLowerCase())).slice(0, 4);
+            const marks = lab => { const found = []; const walk = n => { for (const c of InspectorUtils.getChildrenForNode(n, true, false)) {
+              if (c.nodeType == 1 && c.localName == "u") found.push(cw.getComputedStyle(c).textDecorationLine); else if (c.nodeType == 1) walk(c); } };
+              walk(lab); return found.join(",") || "kein"; };
+            const line = e => cw.getComputedStyle(e).textDecorationLine;
+            const read = () => ({ text: textSpans.map(line), value: valueLabels.map(marks), w: valueLabels.map(l => Math.round(l.getBoundingClientRect().width * 10) / 10),
+                                  attr: cd.documentElement.hasAttribute(AC.ATTR) });
+            out.valueLabels = valueLabels.map(l => l.getAttribute("value"));
+            out.labels = textSpans.map(s => s.closest("label")?.textContent.trim().slice(0, 24));
+            out.keys = textSpans.map(s => !!s.closest("label")?.getAttribute("accesskey"));
+            const shotEls = [textSpans[0]?.closest("label")?.parentElement, valueLabels[0]?.parentElement];
+            out.ohne = read(); out.png.ohne = await snap(cw, shotEls);
+            const tip = Cc["@mozilla.org/text-input-processor;1"].createInstance(Ci.nsITextInputProcessor);
+            tip.beginInputTransactionForTests(cw);
+            const ALT = new cw.KeyboardEvent("", { key: "Alt", code: "AltLeft", keyCode: 18 });
+            tip.keydown(ALT); await ruhig(200);
+            out.alt = read(); out.png.alt = await snap(cw, shotEls);
+            tip.keyup(ALT); await ruhig(200);
+            out.nachAlt = read();
+            // Klick (hier auf die Überschrift der Seite, ohne Wirkung) nimmt die Striche wieder weg; Escape ebenso, schlösse
+            // aber hier den Einstellungs-Tab (Ablauf in tests/logik/zugriffstasten.test.mjs)
+            const head = [...cd.querySelectorAll("h1, h2")].find(vis), hr = head.getBoundingClientRect();
+            const br = t.browser.getBoundingClientRect();
+            const wu = w.windowUtils, mx = br.left + hr.left + 4, my = br.top + hr.top + hr.height / 2;
+            // (neuere Fassungen: window.synthesizeMouseEvent statt windowUtils.sendMouseEvent)
+            for (const type of ["mousedown", "mouseup"]) w.synthesizeMouseEvent ? w.synthesizeMouseEvent(type, mx, my, { button: 0, clickCount: 1 }, {})
+              : wu.sendMouseEvent(type, mx, my, 0, 1, 0);
+            await ruhig(200);
+            out.klick = read();
+          } finally {
+            out.tabOffen = !!t && tm.tabInfo.includes(t);
+            if (out.tabOffen) { tm.closeTab(t); await ruhig(500); }
+            if (os == "Darwin") { AC.start(os); if (hadKey) P.setIntPref(KEY, oldKey); else P.clearUserPref(KEY); out.macSheetDanach = sheetOn(); }
+          }
+          return out;""")
+        save_pngs("zugriffstasten", res)
+        o, a, n, e = res.get("ohne") or {}, res.get("alt") or {}, res.get("nachAlt") or {}, res.get("klick") or {}
+        def frei(x):  # kein Strich: Text-Beschriftungen ohne Unterstreichung, value-Beschriftungen ohne <u>
+            return bool(x.get("text")) and bool(x.get("value")) and all(v == "none" for v in x["text"]) and all(v == "kein" for v in x["value"]) and not x.get("attr")
+        def strich(x):
+            return bool(x.get("text")) and bool(x.get("value")) and all(v == "underline" for v in x["text"] + x["value"]) and x.get("attr")
+        ok = (res.get("sheet") is True and len(o.get("text") or []) >= 2 and all(res.get("keys") or [False])
+              and frei(o) and strich(a) and strich(n) and frei(e) and o.get("w") == a.get("w")
+              and (res["os"] != "Darwin" or (res.get("macSheet") is False and res.get("macSheetDanach") is False)))
+        return ok, f"{res}"
+    check("Zugriffstasten: unter Windows und Linux erst mit Alt unterstrichen (Einstellungen, Text- und value-Beschriftungen), "
+          "nach Alt allein weiter sichtbar, nach einem Klick wieder ohne; am Mac kein Stilblatt", access_cues, results)
 
     def prefs_menulist():
         # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen
@@ -15079,10 +15788,11 @@ def run_checks(m, version, profile, results):
 
     def capsule_hover():
         # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch, mittig in
-        # --mt-cap-line; steht die Maus auf der Kapsel, verschwinden ihre Trennstriche (die der
+        # --mt-cap-line; steht die Maus auf einem Knopf, verschwinden nur die Striche neben ihm (die der
         # Nachbarkapsel bleiben), der Knopf unter der Maus bekommt eine runde Fläche (radial-gradient)
         # statt einer Fläche bis an den Kapselrand; ebenso Filter | … über der Mailliste (Trennstrich dort: GitHub #47)
-        res = m.js(MESSAGE_JS + '''
+        shot = "true" if os.environ.get("HALO_SHOTS") else "false"
+        res = m.js(MESSAGE_JS + f"const SHOT = {shot};" + '''
           const cs = (e, p) => w.getComputedStyle(e, p);
           const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
           const [arch, del, junk, fwd] = ["archive", "delete", "junk", "forward-inline"].map(li);
@@ -15107,6 +15817,27 @@ def run_checks(m, version, profile, results):
             out.hover = { del: cs(del, "::before").opacity, junk: cs(junk, "::before").opacity, fwd: cs(fwd, "::before").opacity,
                           img: cs(btn).backgroundImage.slice(0, 16), bg: cs(btn).backgroundColor, disabled: btn.disabled };
           } finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
+          // wie Apple Mail: nur die Striche neben dem Knopf unter der Maus weichen (links bzw. rechts davon),
+          // die übrigen der Kapsel bleiben – je Knopf die Deckkraft aller Striche der Kapsel
+          out.each = {};
+          const groups = [["archive", "delete", "junk"], ["reply", "reply-all", "forward-inline"]];
+          for (const g of groups) {
+            const lis = g.map(li);
+            if (!lis.every(e => e && e.getBoundingClientRect().width > 0)) { out.each[g[0]] = null; continue; }
+            for (const e of lis) {
+              const b = e.querySelector("button"), lk = [e, b].filter(Boolean);
+              for (const x of lk) InspectorUtils.addPseudoClassLock(x, ":hover");
+              try { await ruhig(150); out.each[e.getAttribute("item-id")] = lis.slice(1).map(x => cs(x, "::before").opacity).join("");
+                    if (SHOT) {
+                      // mit HALO_SHOTS ein Bild der Kapsel je überfahrenem Knopf
+                      const a = lis[0].getBoundingClientRect(), z = lis[lis.length - 1].getBoundingClientRect();
+                      const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(a.left - 6, a.top - 6, z.right - a.left + 12, a.height + 12), 2, "white");
+                      const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+                      cv.getContext("2d").drawImage(bm, 0, 0); (out.png ??= {})[e.getAttribute("item-id")] = cv.toDataURL("image/png").split(",")[1];
+                    } }
+              finally { for (const x of lk) InspectorUtils.removePseudoClassLock(x, ":hover"); }
+            }
+          }
           const cap = d.querySelector("#mcListHeader .mc-lh-tools");
           const tools = cap?.querySelector(":scope > .mc-lh-more");
           const filt = cap?.querySelector(":scope > .mc-lh-filter");
@@ -15132,12 +15863,23 @@ def run_checks(m, version, profile, results):
           } finally { w.resizeTo(oldW, oldH); await ruhig(300); }''')
         if res.get("missing"):
             return False, f"Toolbar-Knöpfe fehlen {res}"
+        pngs = res.pop("png", None) or {}
+        if os.environ.get("HALO_SHOTS") and pngs:
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            for name, data in pngs.items():
+                path = os.path.join(os.environ["HALO_SHOTS"], f"kapsel-trennstriche-{name}.png")
+                open(path, "wb").write(base64.b64decode(data))
+                print(f"Bild {path}", flush=True)
         r, h, l = res["rest"], res["hover"], res.get("list") or {}
         ok_rest = (r["w"] == "1px" and r["h"] == "20px" and abs(r["dy"]) <= 0.5 and same_color(r["color"], res["capLine"])
                    and r["del"] == "1" and r["junk"] == "1")
         # deaktivierte Knöpfe (keine Mail gewählt) bekommen keine Fläche, die Trennstriche verschwinden trotzdem
-        ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
+        ok_hover = (h["del"] == "0" and h["junk"] == "1" and h["fwd"] == "1"
                     and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
+        # je Knopf: links nur der rechte Strich weg, Mitte beide, rechts nur der linke (Deckkraft Strich 1, Strich 2)
+        ok_each = res.get("each") == {"archive": "01", "delete": "00", "junk": "10",
+                                      "reply": "01", "reply-all": "00", "forward-inline": "10"}
         # Listenkopf: Kreis 32 px, 3 px vom Kapselrand, mit Lichtkante (Fläche des Knopfs selbst, 18.11.2026)
         ok_list = (bool(l) and l["img"] == "none" and rgba_alpha(l["bg"]) > 0 and l["w"] == 32 and l["h"] == 32 and l["radius"] >= 16
                    and abs(l["top"] - 3) <= 0.5 and l.get("sh", "").startswith("rgba(255, 255, 255") and "inset" in l.get("sh", ""))
@@ -15145,9 +15887,9 @@ def run_checks(m, version, profile, results):
         ok_sep = (bool(sp) and sp["content"] not in ("none", "normal") and sp["w"] == "1px" and sp["h"] == "20px"
                   and abs(sp["dy"]) <= 0.5 and abs(sp["dx"]) <= 0.5 and sp["op"] == "1"
                   and same_color(sp["color"], res["capLine"]) and l.get("sep") == "0")
-        return (ok_rest and ok_hover and ok_list and ok_sep,
-                f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} filter|…={ok_sep} {res}")
-    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+        return (ok_rest and ok_hover and ok_each and ok_list and ok_sep,
+                f"ruhe={ok_rest} hover={ok_hover} je-knopf={ok_each} liste={ok_list} filter|…={ok_sep} {res}")
+    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren nur die Striche neben dem Knopf weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
 
     def capsule_plastic():
         # Knopf-Familie in der Mail-Symbolleiste (Variante A, plastische Kapseln B, 17.11.2026): jedes Kapselstück
@@ -16029,6 +16771,69 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Today-Pane: Fläche oben in der Toolbar-Zeile bündig mit der Pane darunter (linke und rechte Kante)", today_top_flush, results)
 
+    def today_head_tidy():
+        # Today-Pane-Kopf aufgeräumt (Mac und Windows gleich): oben in der Zeile über der Pane nur der Today-Knopf links
+        # (unter Windows/Linux rechts die Fensterknöpfe), kein Titel, kein „+“; „Today“ (mit Sonne bzw. Wetter) mittig
+        # zwischen Mini-Kalender und Liste und anklickbar; „+“ fest mittig unten in eigenem Streifen unter der Karte –
+        # die Liste rollt darüber, das „+“ bewegt sich dabei nicht (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)
+        # Einstellungen öffnen ohne auf openPreferencesTab() zu warten: seine Zusage erfüllt sich nur beim Laden eines neuen
+        # Tabs – ist aus einer früheren Prüfung schon ein Einstellungen-Tab offen (voller Lauf), wechselt Thunderbird nur
+        # dorthin und die Zusage bleibt für immer offen (unter Linux hing die Prüfung so bis zur Skriptgrenze von 90 s;
+        # mit diesem Warten CI 19.11. Lauf 44567895659 in allen drei Linux-Jobs grün)
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), added = [];
+          for (let i = 0; i < 36; i++) { const e = new CalEvent(); e.title = "Halo Kopf " + i; e.calendar = c; const s = today(); s.isDate = false; s.hour = 8 + (i % 10); s.day += i % 7;
+            const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); }
+          const out = {};
+          try {
+          const cmd = d.getElementById("calendar_toggle_todaypane_command");
+          const go = { mail: toMail, tasks: async () => tm.openTab("tasks", {}), book: async () => tm.openTab("addressBookTab", {}),
+                       chat: async () => tm.openTab("chat", {}), prefs: async () => { w.openPreferencesTab();
+                         await bis(() => tm.currentTabInfo?.mode?.name == "preferencesTab" && tm.currentTabInfo.browser?.contentDocument?.getElementById("preferencesContainer"), "Einstellungen", 6000); } };
+          const R = e => { const r = e?.getBoundingClientRect(); return r?.width ? r : null; };
+          for (const [name, fn] of Object.entries(go)) {
+            await fn(); await ruhig(1200);
+            if (!w.TodayPane?.isVisible) { cmd.doCommand(); await ruhig(1200); }
+            const panel = d.getElementById("today-pane-panel"), row = d.getElementById("unifiedToolbarContainer");
+            const pr = R(panel), rr = R(row), tg = R(d.getElementById("mcTodayToggle")), title = d.getElementById("mcTodayTitle"), ti = R(title);
+            const plus = d.getElementById("mcTodayNew"), pl = R(plus), agenda = d.getElementById("agenda"), ag = R(agenda);
+            const mm = R(d.getElementById("today-minimonth-box"));
+            if (!pr || !rr) { out[name] = { pane: false }; continue; }
+            // eigene Elemente in der Zeile über der Pane (außer der Fläche #mcTodayTop): nur der Today-Knopf
+            const inRow = [...row.querySelectorAll("[id^='mc']")].filter(e => e.id != "mcTodayTop" && !e.closest("#unifiedToolbarContent")
+              && !e.closest("#mcListHeader") && (r => r && r.left >= pr.left - 1 && r.top < rr.bottom && r.bottom > rr.top)(R(e))).map(e => e.id);
+            const v = { inRow, toggle: tg ? Math.round(tg.left - pr.left) : null,
+              title: ti ? { text: title.querySelector(".mc-tt-text")?.textContent, mid: Math.round((ti.left + ti.width / 2 - (pr.left + pr.width / 2)) * 10) / 10,
+                            belowMini: mm ? Math.round(ti.top - mm.bottom) : null, aboveCard: ag ? Math.round(ag.top - ti.bottom) : null,
+                            hit: (el => el == title || title.contains(el))(d.elementFromPoint(ti.left + ti.width / 2, ti.top + ti.height / 2)) } : null,
+              plus: pl ? { mid: Math.round((pl.left + pl.width / 2 - (pr.left + pr.width / 2)) * 10) / 10, size: [Math.round(pl.width), Math.round(pl.height)],
+                           underCard: ag ? Math.round(pl.top - ag.bottom) : null, toBottom: Math.round(pr.bottom - pl.bottom), inPane: pl.top >= pr.top && pl.bottom <= pr.bottom + 0.5,
+                           hit: d.elementFromPoint(pl.left + pl.width / 2, pl.top + pl.height / 2) == plus } : null };
+            // Liste rollen: das „+“ bleibt stehen, die Liste läuft unten aus (Verlauf, solange unten noch Termine verborgen sind)
+            agenda.scrollTop = 0; await ruhig(300);
+            const more = agenda.scrollHeight > agenda.clientHeight + 2;
+            const before = R(plus)?.top; v.fade = !more || agenda.hasAttribute("data-mc-more");
+            agenda.scrollTop = 120; agenda.dispatchEvent(new w.Event("scroll")); await ruhig(300);
+            v.scroll = { more, moved: agenda.scrollTop, plusShift: Math.round(((R(plus)?.top ?? 0) - (before ?? 0)) * 10) / 10 };
+            agenda.scrollTop = 0;
+            out[name] = v;
+          }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          await toMail(); await ruhig(600);
+          return out;
+          } finally { for (const e of added) { try { await c.deleteItem(e); } catch {} } }""")
+        def gut(v):
+            t, p = v.get("title") or {}, v.get("plus") or {}
+            return (v.get("inRow") == ["mcTodayToggle"] and v.get("toggle") is not None and 0 <= v["toggle"] <= 14
+                    and t.get("text") == "Today" and abs(t.get("mid", 99)) <= 1 and t.get("hit")
+                    and t.get("belowMini") is not None and 0 <= t["belowMini"] <= 12 and t.get("aboveCard") is not None and 4 <= t["aboveCard"] <= 12
+                    and abs(p.get("mid", 99)) <= 1 and p.get("size") == [40, 38] and p.get("inPane") and p.get("hit")
+                    and p.get("underCard") is not None and 8 <= p["underCard"] <= 16 and p.get("toBottom") is not None and 6 <= p["toBottom"] <= 14
+                    and v.get("fade") and v["scroll"]["plusShift"] == 0)
+        ok = len(res) == 5 and all(gut(v) for v in res.values()) and any(v["scroll"]["more"] and v["scroll"]["moved"] > 0 for v in res.values())
+        return ok, f"{res}"
+    check("Today-Pane: Kopf aufgeräumt – oben nur der Today-Knopf, „Today“ mittig zwischen Mini-Kalender und Liste, „+“ fest mittig unten unter der Liste (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)", today_head_tidy, results)
+
     def toolbar_icons_only_any_style():
         # GitHub #62: mit „Symbol und Text“, „Text unter Symbol“ oder „Nur Text“ in „Symbolleiste anpassen“ wurden die
         # Knöpfe breiter bzw. höher und überdeckten den Titel der Today-Pane; jetzt immer nur Symbole (Maintainer
@@ -16346,8 +17151,15 @@ def run_checks(m, version, profile, results):
     check("Today-Pane: „+“ → Neuer Termin / Neue Aufgabe ganz auf dem Bildschirm", today_plus_event, results)
 
     def today_animation():
-        res = m.js('''
-          await toMail(); await ruhig(1500);
+        # Breit mit gewählter Mail (1500 px): Mailliste gibt mit Pane nach, Abstand nach „Verfassen“ ändert sich – dort
+        # sprangen die Knöpfe rechts davon am Ende des Ausblendens um 13 px (im vollen Lauf, wenn eine frühere Prüfung
+        # eine Mail gewählt ließ); schmal (1100 px) in der Kontoübersicht wie im Einzellauf (steht die Mail an ihrer Mindestbreite, hält das Fenster seine Breite)
+        # Am Ende kommt das Fenster auf seine Breite von vor der Prüfung zurück (w0), nicht auf 1500 px: sonst liefen die
+        # folgenden Prüfungen in einer anderen Lage (CI 22.11., Lauf 45014199971: „Seitenleiste (Mail): Ein-/Ausblenden
+        # ohne Ruck“ fand die Mailliste 39 px gestaucht vor und wurde rot)
+        res = m.js(MESSAGE_JS + '''
+          const w0 = w.outerWidth;
+          w.resizeTo(1500, w.outerHeight); await until(() => w.outerWidth == 1500, 3000); await ruhig(1500);
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
           const title = d.getElementById("mcTodayTitle");
           const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
@@ -16372,13 +17184,22 @@ def run_checks(m, version, profile, results):
           const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
           const procCpu = async () => { try { const i = await ChromeUtils.requestProcInfo(); const o = { main: i.cpuTime };
             for (const c of i.children || []) o[c.type] = (o[c.type] || 0) + c.cpuTime; return o; } catch (e) { return null; } };
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], bt = [], rf = [], cp = []; let bild = performance.now(); const t0 = performance.now(); while (performance.now() - t0 < 600) { rf.push(reflows()); bt.push(bild); const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now()); cp.push(cpuNow());
-            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
+          // „+“ (fest unten in der Today-Pane) und Today-Knopf (absolut in der Zeile): Lage und sichtbare Breite – das „+“
+          // ist nur innerhalb der Pane zu sehen (sie schneidet beim Gleiten ab)
+          const plus = d.getElementById("mcTodayNew");
+          const pt = () => { const r = plus?.getBoundingClientRect(); if (!r?.width || getComputedStyle(plus).display == "none" || !w.TodayPane?.isVisible && !panel.__mcAnimating) return null;
+            const pr = panel.getBoundingClientRect();
+            return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, pr.right) - Math.max(r.left, pr.left)) * 10) / 10]; };
+          const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
+
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = [], bt = [], rf = [], cp = []; let bild = performance.now(); const t0 = performance.now(); while (performance.now() - t0 < 600) { rf.push(reflows()); bt.push(bild); const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now()); cp.push(cpuNow());
+            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
-            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            bild = await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, bt, rf, cp }; };
+            // (Überschrift „Today“ liegt in der Pane und gleitet mit ihr; data-mc-anim: Bild der Animation)
+            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim"), Math.round(panel.getBoundingClientRect().left * 10) / 10]);
+            bild = await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg, bt, rf, cp }; };
           // Bewegungskurve und Dauer der Animation (animateTodayPane: 250 ms, cubic-bezier(0.25, 0.1, 0.25, 1)): der weiteste
           // Weg (Anteil der Breite), den die Pane in einer Zeitspanne zurücklegen darf – an der steilsten Stelle der Kurve
           const kurve = (() => { const X = s => 3 * (1 - s) * (1 - s) * s * 0.25 + 3 * (1 - s) * s * s * 0.25 + s * s * s, Y = s => 3 * (1 - s) * (1 - s) * s * 0.1 + 3 * (1 - s) * s * s + s * s * s;
@@ -16399,9 +17220,9 @@ def run_checks(m, version, profile, results):
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
-          const ow = w.outerWidth;
+          const ow = w.outerWidth; out.breitW = ow; out.sel = a3.threadTree.selectedIndex;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
-            if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
+            if (phase == "aus schmal") { a3.displayFolder(root.URI); await bis(() => a3.gFolder?.URI == root.URI, "Kontoübersicht", 4000); await ruhig(800); w.resizeTo(1100, w.outerHeight); await until(() => w.outerWidth == 1100, 3000); await ruhig(1200); out.schmalW = w.outerWidth; out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
             // mitten in der Bewegung und titleEnd sagt nichts über einen Ruck (CI 15.11. Lauf 43707298410, linux esr
             // „ein schmal“: 99 ms Lücke, Titel 2,2 px vor dem Ende, sonst alles im Takt). Dann zurückschalten und neu
@@ -16410,9 +17231,11 @@ def run_checks(m, version, profile, results):
             for (;;) {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
-            const pre = snap(), preW = sWidth();
+            const pre = snap(), preW = sWidth(), preP = pt(), preG = gt();
             const proc0 = await procCpu(); gcLog.length = 0; tRec = performance.now();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, bt, rf, cp } = await record(); const gcIn = gcLog.splice(0), proc1 = await procCpu(); await ruhig(300);
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, pl, tg, bt, rf, cp } = await record(); const gcIn = gcLog.splice(0), proc1 = await procCpu(); await ruhig(300);
+            // „+“ und Today-Knopf: Lage vor dem Klick, je Bild, nach der Ruhe
+            pl.unshift(preP); tg.unshift(preG); const finP = pt(), finG = gt(), finK = snap();
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -16449,11 +17272,38 @@ def run_checks(m, version, profile, results):
               if (dt > 25) lang.push([Math.round(t - tRec), Math.round(dt), dc == null ? null : Math.round(dc), rf[i] != null && rf[i - 1] != null ? rf[i] - rf[i - 1] : null]); });
             out[phase].diag = { lang, wallCpu: sum.map(Math.round), gc: gcIn,
               proc: proc0 && proc1 ? Object.fromEntries(Object.keys(proc1).map(k => [k, Math.round(((proc1[k] - (proc0[k] || 0)) / 1e6))])) : null };
+            // Nachsprung (Board „Toolbar-Buttons springen am Ende der Animation“): nach dem letzten Bild, in dem sich die Pane
+            // bewegt, rückt kein Knopf der Leiste, weder Today-Knopf noch „+“, noch um mehr als 1 px. Das „+“ gleitet mit
+            // der Pane herein bzw. hinaus wie Today-Knopf und Überschrift: beim Einblenden schon vor dem letzten Bild zu sehen
+            // (sprang früher erst am Ende ins Bild), beim Ausblenden im ersten Bild noch da (war sofort weg), am Ende weg;
+            // kein Schritt größer als der der Pane, Today-Knopf und „+“ überlappen sich nie
+            const iMove = moving.lastIndexOf(true);   // (Index in ws; in kk/pl/tg eins weiter, dort steht vorn die Lage vor dem Klick)
+            const postK = iMove < 0 ? [] : [...kk.slice(iMove + 1), finK];
+            const nachK = Math.max(0, ...Object.keys(finK).map(k => Math.max(0, ...postK.map(f => k in f ? Math.abs(f[k] - finK[k]) : 0))));
+            const postG = iMove < 0 ? [] : [...tg.slice(iMove + 1), finG];
+            const nachG = Math.max(0, ...postG.map(g => Math.abs(g[0] - finG[0])));
+            const postP = iMove < 0 ? [] : [...pl.slice(iMove + 1), finP];
+            const vis = p => (p && p[1] >= 1 ? p : null);   // (ganz abgeschnitten = nicht zu sehen)
+            const nachP = Math.max(0, ...postP.map(p => (!vis(p) != !vis(finP)) ? 99 : vis(p) ? Math.abs(p[0] - finP[0]) + Math.abs(p[1] - finP[1]) : 0));
+            const stepOf = a => Math.max(0, ...a.slice(1).map((v, i) => v && a[i] ? Math.abs(v[0] - a[i][0]) : 0));
+            const seen = pl.slice(1, iMove + 1).filter(p => p && p[1] >= 1).length;
+            const overlap = Math.max(0, ...pl.map((p, i) => p && p[1] >= 1 ? tg[i][1] - p[0] : 0));
+            out[phase].plus = { seen, first: pl[1], fin: finP, step: Math.round(stepOf(pl) * 10) / 10, toggleStep: Math.round(stepOf(tg) * 10) / 10, overlap: Math.round(overlap * 10) / 10 };
+            out[phase].nach = { knoepfe: nachK, today: nachG, plus: nachP };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
             if (phase.startsWith("ein")) out[phase].tl = [lastAnim, tl.at(-1), tl.length, getComputedStyle(row).getPropertyValue("--mc-row-tail")];
-            if (phase.startsWith("ein") && lastAnim) out[phase].titleEnd = Math.round(Math.abs(lastAnim[0] - (title?.getBoundingClientRect().left ?? 0)) * 10) / 10;
+            // Die Überschrift liegt in der Pane und gleitet mit ihr: im letzten Bild der Animation fehlt der Pane noch ihr
+            // letzter, kleiner Schritt der Kurve (0,6–1,2 px), die Überschrift steht dort also absolut nie ganz am Endplatz.
+            // Gemessen wird daher ihre Lage in der Pane (kein Ruck, wenn am Ende min-width und data-mc-anim wegfallen) und
+            // dass sie absolut nicht weiter rückt als die Pane in ihrem letzten Schritt
+            if (phase.startsWith("ein") && lastAnim) {
+              const tNow = title?.getBoundingClientRect().left ?? 0, pNow = panel.getBoundingClientRect().left;
+              out[phase].titleEnd = Math.round(Math.abs((lastAnim[0] - lastAnim[2]) - (tNow - pNow)) * 10) / 10;
+              out[phase].titleEndAbs = Math.round(Math.abs(lastAnim[0] - tNow) * 10) / 10;
+              out[phase].paneEnd = Math.round(Math.abs(lastAnim[2] - pNow) * 10) / 10;
+            }
             // Lücke nach dem letzten Bild der Animation (tl und ts gehören zum selben Bild)
             const iLast = tl.findLastIndex(([, a]) => a);
             if (phase.startsWith("ein") && iLast >= 0 && iLast + 1 < ts.length) out[phase].endGapMs = Math.round(ts[iLast + 1] - ts[iLast]);
@@ -16467,7 +17317,7 @@ def run_checks(m, version, profile, results):
             }
             if (verworfen.length) out[phase].verworfen = verworfen;
           }
-          w.resizeTo(ow, w.outerHeight); await ruhig(800);
+          w.resizeTo(w0, w.outerHeight); await until(() => w.outerWidth == w0, 3000); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
           Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
@@ -16494,19 +17344,24 @@ def run_checks(m, version, profile, results):
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
         soft = bool(res.get("software"))
-        def glatt(v, ende=True):
+        def glatt(v, ende=True, ein=True):
             takt = v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
             schritte = 6 if not soft else min(6, max(2, (250 - v["maxFrameMs"]) // max(17, v["medianFrameMs"])))
             return (v["steps"] >= schritte and not v["zuWeit"] and v["reflowMedian"] <= 1000 and v["searchJump"] <= v["maxJump"] + 2
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
-                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
+                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1 and v.get("titleEndAbs", 0) <= v.get("paneEnd", 0) + 1)
+                    and v["plus"]["step"] <= v["maxJump"] + 2 and v["plus"]["toggleStep"] <= v["maxJump"] + 2 and v["plus"]["overlap"] <= 0
+                    and v["plus"]["seen"] >= 2 and bool(v["plus"]["fin"]) == ein and (ein or (v["plus"]["first"] or [0, 0])[1] >= 1)
+                    and (not ende or max(v["nach"].values()) <= 1)
                     and (soft or takt))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
-        ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
+        # Ausgangslage wie verlangt: breit 1500 px mit gewählter Mail, schmal wirklich 1100 px
+        lage = res.get("breitW") == 1500 and res.get("sel") == 0 and abs((res.get("schmalW") or 0) - 1100) <= 2
+        ok = lage and all(glatt(res[p], ein=p.startswith("ein")) and all(glatt(x, False, p.startswith("ein")) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
-    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
+    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck, „+“ gleitet mit der Pane herein und hinaus, nach dem letzten Bild springt kein Knopf nach", today_animation, results)
 
     def today_tasks_end():
         # Aufgaben: am Ende des Ein-/Ausblendens springen Suchfeld (Lage, Breite), „+“ und Überschrift nicht noch einmal –
@@ -16547,7 +17402,8 @@ def run_checks(m, version, profile, results):
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der
         # alten Breite wieder; Mail ohne Thunderbirds blauen Balken an der zugeklappten Trennlinie; Today-Pane fest
-        # 280 px, nach rechts gezogen sofort aus, „+“ gleich weg (auch beim Klick auf den Knopf); Spaces-Knopf bleibt
+        # 280 px, nach rechts gezogen sofort aus, „+“ gleich weg (beim Klick auf den Knopf endet der offene Zustand sofort,
+        # das „+“ gleitet dann mit der Pane hinaus – Prüfung „Today-Pane: Ein-/Ausblenden flüssig …“); Spaces-Knopf bleibt
         # stehen und wechselt nur den Pfeil
         V = lambda r: r["value"] if isinstance(r, dict) and "value" in r else r
         def drag(x, y, dx, release=True):
@@ -17590,6 +18446,11 @@ Neu
                   w.resizeTo(width, 900);
                   Services.prefs.setIntPref("mail.threadpane.listview", view); Services.prefs.setIntPref("mail.pane_config.dynamic", layout);
                   const a3 = await toMail(); await wait(1500);
+                  // Auskunft (Diagnose CI 22.11.2026, Linux: Mailliste 39 px gestaucht): Fensterbreite gewünscht/erreicht,
+                  // Breite der Mailansicht, Today-Pane offen und breit
+                  const tpP = d.getElementById("today-pane-panel");
+                  out[`${name}/lage`] = { soll: width, ist: w.outerWidth, inner: w.innerWidth, screen: w.screen.availWidth, sizemode: d.documentElement.getAttribute("sizemode"),
+                    browser: Math.round(a3.browsingContext.embedderElement.getBoundingClientRect().width), today: tpP && !tpP.collapsed && !tpP.hidden ? Math.round(tpP.getBoundingClientRect().width) : 0 };
                   const fp = a3.document.getElementById("folderPane"), tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
                   const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
                   const measure = async () => {
@@ -17629,8 +18490,9 @@ Neu
         # schaffte und die Prüfung dann vom Rechner abhing: 11× rot seit 9.11., bis zu drei Messungen je Phase)
         def ruck(v):
             return any(v["back"]) or v["lastStep"] > last_max or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"]))
-        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < 6 or ruck(v))]
-        return not bad, "; ".join(bad) or f"{res}"
+        lage = {k: v for k, v in res.items() if k.endswith("/lage")}
+        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and k not in lage and (v["steps"] < 6 or ruck(v))]
+        return not bad, ("; ".join(bad) + f" – Lage {lage}" if bad else f"{res}")
     check("Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck in den letzten Bildern (vertikal und klassisch, enges und breites Fenster)", sidebar_no_jump, results)
 
     def address_book():
@@ -20181,6 +21043,14 @@ Neu
             return items_;
           };
           let created = null;
+          // Formatleiste: bündig mit der Karte darüber (Ränder ±1 px), 30 px hoch, sechs Symbolknöpfe ohne Buchstaben
+          // (vorher ragte sie 14 px rechts über die Karte, die Knöpfe zeigten B, I, U, •, 1.)
+          const barGeo = () => { const bar = d.getElementById("mcTaskNoteBar"), card = d.getElementById("calendar-task-details-box");
+            const a = bar.getBoundingClientRect(), c = card.getBoundingClientRect();
+            return { dl: Math.round(a.left - c.left), dr: Math.round(a.right - c.right), h: Math.round(a.height),
+              text: [...bar.children].map(b => b.textContent).join(""),
+              icons: [...bar.children].map(b => /format-|link\.svg/.test(w.getComputedStyle(b, "::before").backgroundImage)),
+              inside: [...bar.children].every(b => { const r = b.getBoundingClientRect(); return r.left >= a.left - 0.5 && r.right <= a.right + 0.5 && r.width >= 24; }) }; };
           // (nach jedem Speichern neu wählen: Thunderbird baut die Liste neu auf)
           const pick = async () => {
             await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Felder"), "Aufgabe in der Liste", 6000);
@@ -20215,7 +21085,7 @@ Neu
             await bis(() => f0.contentDocument?.body?.textContent.includes("Notiz"), "Notiz schmal", 3000);
             f0.contentDocument.body.dispatchEvent(new f0.contentWindow.MouseEvent("click", { bubbles: true }));
             await bis(() => !d.getElementById("mcTaskNoteBar")?.hidden, "Formatleiste schmal", 3000); await ruhig(300);
-            out.narrowEdit = geo();
+            out.narrowEdit = geo(); out.narrowBar = barGeo();
             f0.contentWindow.dispatchEvent(new f0.contentWindow.FocusEvent("blur"));
             await until(() => d.getElementById("mcTaskNoteBar")?.hidden, 3000);
             for (const x of [...await items("Halo Schmal Leer"), ...await items("Halo Schmal Voll")]) { try { await c.deleteItem(x); } catch {} }
@@ -20253,8 +21123,12 @@ Neu
             nd.body.dispatchEvent(new nwin.MouseEvent("click", { bubbles: true }));
             const bar = d.getElementById("mcTaskNoteBar");
             out.edit = [nd.designMode, !!bar && !bar.hidden, bar ? [...bar.children].map(b => b.dataset.cmd) : null];
+            out.bar = barGeo();
             nwin.focus(); nd.execCommand("selectAll", false, null);
             bar.querySelector('[data-cmd="bold"]').click();
+            // eingeschaltet: Fett an der Schreibmarke zeigt sein Symbol in Systemfarbe
+            out.pressed = await until(() => bar.querySelector('[data-cmd="bold"]').getAttribute("aria-pressed") == "true", 2000)
+              && w.getComputedStyle(bar.querySelector('[data-cmd="bold"]')).color != w.getComputedStyle(bar.querySelector('[data-cmd="italic"]')).color;
             nwin.dispatchEvent(new nwin.FocusEvent("blur"));
             out.html = await spaeter(async () => { const x = await cur(); return /<(b|strong)\b/i.test(x?.descriptionHTML || "") && x.descriptionText.includes("Notiz fett") ? x.descriptionHTML : null; });
             out.editOff = await until(() => frame.contentDocument.designMode == "off" && d.getElementById("mcTaskNoteBar")?.hidden, 3000);
@@ -20287,10 +21161,13 @@ Neu
               and res.get("doneRow") == ["Completed On", False] and res.get("cancelled") and res.get("doneGone")
               and res.get("attach") == "example.org/plan.pdf" and res.get("addLink") == "Add Link…" and res.get("attachGone")
               and res.get("edit") == ["on", True, ["bold", "italic", "underline", "insertUnorderedList", "insertOrderedList", "createLink"]]
+              and all(b and abs(b["dl"]) <= 1 and abs(b["dr"]) <= 1 and b["h"] == 30 and b["text"] == "" and all(b["icons"]) and len(b["icons"]) == 6 and b["inside"]
+                      for b in (res.get("bar"), res.get("narrowBar")))
+              and res.get("pressed")
               and res.get("html") and res.get("editOff")
               and res.get("newTask") and res.get("newDialogs") == 0 and res.get("newTitle"))
         return ok, f"{res}"
-    check("Aufgaben: Detailspalte statt Bearbeiten-Dialog – All Day als Schalter, Status mit „Completed On“, Beschreibung mit Formatleiste (als HTML gespeichert), Anhänge mit „Remove“ und „Add Link…“, neue Aufgabe ohne Dialog mit Titel zum Eintippen", task_detail_fields, results)
+    check("Aufgaben: Detailspalte statt Bearbeiten-Dialog – All Day als Schalter, Status mit „Completed On“, Beschreibung mit Formatleiste (bündig mit der Karte, Symbole, als HTML gespeichert), Anhänge mit „Remove“ und „Add Link…“, neue Aufgabe ohne Dialog mit Titel zum Eintippen", task_detail_fields, results)
 
     def task_bar_cancel():
         # Rechtsklick auf den Fortschrittsstrich, „Cancelled“: auch eine erledigte Aufgabe wird abgesagt (vorher blieb sie
@@ -22020,15 +22897,15 @@ Neu
           out.books = (await until(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("mcBooksHeader"), 8000))?.textContent;
           await step("settings", async () => { w.openPreferencesTab(); await ruhig(1500); });
           out.attr = bar?.getAttribute("placeholder");
-          out.today = [d.getElementById("mcTodayTitle")?.textContent, d.getElementById("today-pane-header")?.dataset.mcTitle];
+          out.today = [d.getElementById("mcTodayTitle")?.textContent];  // („Today“ zwischen Mini-Kalender und Liste)
           for (const t of [...tm.tabInfo]) { if (!before.has(t)) tm.closeTab(t); }
           await toMail(); await ruhig(300); out.back = text();
           return out;''')
         expect = {
             "de": ["durchsuchen", "Kalender durchsuchen", "Aufgaben durchsuchen", "Kontakte durchsuchen",
-                   "Einstellungen durchsuchen", "Adressbücher", "Heute-Leiste"],
+                   "Einstellungen durchsuchen", "Adressbücher", "Heute"],
             "en": ["Search ", "Search Calendar", "Search Tasks", "Search Contacts", "Search Settings",
-                   "Address Books", "Today Pane"],
+                   "Address Books", "Today"],
         }.get(res["locale"].split("-")[0])
         got = [res["mail"], res["calendar"], res["tasks"], res["addressbook"], res["settings"], res["books"]]
         ok = (res["slotted"] and not res["l10n"] and not res["attr"] and res["back"] == res["mail"]
@@ -22036,7 +22913,7 @@ Neu
         if expect:
             # Mail: je nach Ordner „Search Inbox“ bzw. „Search All Mailboxes“ (eigene Prüfung)
             ok = (ok and expect[0] in (got[0] or "") and got[1:] == expect[1:6]
-                  and all(t in (None, expect[6]) for t in res["today"]) and expect[6] in res["today"])
+                  and res["today"] == [expect[6]])
         else:  # andere Sprache: Thunderbirds eigener Platzhalter, nur Überschrift prüfen
             ok = bool(res["books"])
         return ok, f"{res}"
@@ -22805,8 +23682,9 @@ Neu
           const cb = cd.getElementById("cookieExceptions"); cb.scrollIntoView({ block: "center" }); cb.click();
           fr = await until(() => [...cd.querySelectorAll(".dialogFrame")].find(f => f.contentDocument?.readyState == "complete" && f.contentDocument.querySelector("tree")), 8000);
           if (fr) { await ruhig(800); const dd = fr.contentDocument; const t = dd.querySelector("tree");
-            const probe = dd.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.color = "var(--mt-pane-line)"; dd.documentElement.append(probe);
-            out.tree = [cs(t).borderTopLeftRadius, parseFloat(cs(t).borderTopWidth) <= 1, cs(t).borderTopColor == cs(probe).color];
+            // (seit dem gemeinsamen Muster der Unterdialoge: graue Karte Radius 12 ohne Rahmen statt Haarlinie mit 8 px)
+            const probe = dd.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-control)"; dd.documentElement.append(probe);
+            out.tree = [cs(t).borderTopLeftRadius, parseFloat(cs(t).borderTopWidth) == 0, cs(t).backgroundColor == cs(probe).backgroundColor];
             probe.remove(); cw.gSubDialog._topDialog?.close(); await ruhig(600); }
           cw.gotoPref("paneCalendar"); await ruhig(1500);
           const fs = vis("#paneDeck fieldset"); const dp = cd.getElementById("datePrefsBox");
@@ -22821,12 +23699,13 @@ Neu
         side_ok = res["side"][1:3] == ["13px", "13px"] and (res["side"][0] or sys.platform != "darwin")
         ok = (res["font"] == ["13px", "13px", "12px"] and side_ok
               and res["lists"] == [["8px", True, True]] * 2 and res["handlers"] == [True, "auto"]
-              and res.get("offline") and res["offline"][0] is True and res["offline"][1] <= 30
+              # Optionen untereinander als Zeilen der grauen Karte (38 px wie die Häkchen-Gruppen der Unterdialoge)
+              and res.get("offline") and res["offline"][0] is True and 38 <= res["offline"][1] <= 40
               and res["doh"] and res["doh"][0] and res["doh"][1] == "rgba(0, 0, 0, 0)" and res["doh"][2]
               and res["dohBox"] == ["12px", True, "10px", True, True] and res["pwSep"] == "none"
               and res["dohStatus"][1:3] == ["none", 0] and res["dohStatus"][3] > 0
               and res["legendsPrivacy"] == ["13px"] and res["ocsp"][0] <= 30 and res["ocsp"][1] == [True, True]
-              and res.get("tree") == ["8px", True, True]
+              and res.get("tree") == ["12px", True, True]
               and res["cal"][:2] == ["separator", "none"] and res["cal"][2] <= 20
               and res["qr"] == ["none", "12px", True, "11px", "none"])
         return ok, f"{res}"
@@ -23260,7 +24139,8 @@ Neu
           await until(() => { const i = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img"); return i && i.complete && i.naturalWidth > 0; }, 5000);
           const item = pd.getElementById("mcCat-paneMcHalo"), img = item?.querySelector("img");
           const out = { label: item?.querySelector(".category-name")?.textContent, icon: img ? [img.src.slice(0, 5), img.naturalWidth > 0] : null,
-                        // Symbol ohne eigene weiße Kachel auf den Ring zugeschnitten – so groß wie die übrigen Kacheln
+                        // Symbol ohne die weiße Kachel aus der Datei auf den Ring zugeschnitten – so groß wie die übrigen Kacheln
+                        // (die neutrale Kachel darunter kommt aus spaces.css, siehe „Symbole der Seitenleiste …“)
                         crop: !!img?.src.includes(encodeURIComponent('viewBox="3 3 58 58"')), size: img ? Math.round(img.getBoundingClientRect().width) : null,
                         other: Math.round(pd.querySelector("#category-general .category-icon").getBoundingClientRect().width),
                         footerHidden: !!pd.querySelector("#pref-category-box .sidebar-footer-list")?.hidden,
@@ -23275,7 +24155,7 @@ Neu
           return out;""")
         manifest = json.load(open(os.path.join(ROOT, "extension", "manifest.json")))
         p = res.get("pane", {})
-        ok = (res["label"] == "halo.spaces" and res["icon"] == ["data:", True] and res["footerHidden"] and rgba_alpha(res["tile"]) == 0
+        ok = (res["label"] == "halo.spaces" and res["icon"] == ["data:", True] and res["footerHidden"] and rgba_alpha(res["tile"]) == 1
               and res["crop"] and res["size"] == res["other"]
               and p.get("embed") and p.get("remote") and p.get("url") == "/options/options.html?in=prefs" and p["rect"]["h"] > 500
               and p["rect"]["l"] == p["cat"]["l"] + p["cat"]["w"] and p.get("hash") == "#mcHalo" and res["back"]
@@ -23404,33 +24284,53 @@ Neu
     check("Einstellungen: „Own keywords“ ändern nach geschlossenem zweitem Hauptfenster – keine Fehler aus dessen Kalender-Stichwörtern", emoji_pref_closed_window, results)
 
     def pref_symbols():
-        # Einstellungen: neun neu gezeichnete weiße Symbole (Variante B) auf eigenen Kachelfarben mit Verlauf; „General“ mit
-        # Schiebereglern statt Zahnrad; im Dunkeln feine helle Innenkante; halo.spaces-Symbol bleibt ohne Kachel
+        # Einstellungen: neu gezeichnete weiße Symbole auf eigenen Kachelfarben mit Verlauf; im Dunkeln feine helle Innenkante.
+        # Variante B (Maintainer 16.11.2026): General mit dem halo-Zahnrad (Mitte ausgespart) statt Schiebereglern, Calendar als
+        # gefülltes Blatt mit ausgesparter Kopflinie und Feldern, Export for Mobile als gefülltes Telefon mit ausgespartem Pfeil,
+        # Rules mit Strich 2.3; halo.spaces mit dem Logo auf eigener neutraler Kachel (hell weiß mit dunkler, dunkel #1C1C1E mit
+        # heller Innenkante, ohne Verlauf, sonst bliebe die Mitte des Logos als Scheibe sichtbar); „Settings“ unten links in den
+        # Kontoeinstellungen mit demselben Zahnrad auf derselben grauen Kachel
         res = m.js(PREFS_OPEN_JS + r"""
-          const cs = e => pw.getComputedStyle(e);
+          const cs = e => e.ownerDocument.defaultView.getComputedStyle(e);
           const sel = { general: "#category-general .category-icon", appearance: "#category-appearance .category-icon", composition: "#category-compose .category-icon, #category-composition .category-icon",
             calendar: "#category-calendar .category-icon", privacy: "#category-privacy .category-icon", chat: "#category-chat .category-icon",
-            export: "#category-qrexport .category-icon", account: "#mcCat-paneMcAccounts .category-icon", addons: "#mcCat-paneMcAddons .category-icon" };
+            export: "#category-qrexport .category-icon", account: "#mcCat-paneMcAccounts .category-icon", addons: "#mcCat-paneMcAddons .category-icon",
+            rules: "#mcCat-paneMcRules .category-icon" };
           const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches };
+          // Merkmal je Symbol im data:-Bild (Variante B): Zahnrad-Umriss, ausgesparte Kopflinie, Telefon-Maske, Strich 2.3
+          const mark = { general: "M18.86%2010.61", calendar: "y=%228.6%22%20width=%2218%22%20height=%221.3%22", export: "mask%20id=%22e%22", rules: "stroke-width=%222.3%22" };
           for (const [k, s] of Object.entries(sel)) {
             const e = pd.querySelector(s);
             if (!e) { out[k] = null; continue; }
             const c = cs(e), r = e.getBoundingClientRect();
             out[k] = { bg: c.backgroundColor, grad: /linear-gradient/.test(c.backgroundImage), shadow: c.boxShadow, size: Math.round(r.width),
-                       glyph: /^url\("data:image\/svg\+xml/.test(c.content) && c.content.includes("%23fff") };
+                       glyph: /^url\("data:image\/svg\+xml/.test(c.content) && c.content.includes("%23fff") && (!mark[k] || c.content.includes(mark[k])) };
           }
-          const halo = pd.querySelector("#mcCat-paneMcHalo .category-icon");
-          out.halo = { grad: /linear-gradient/.test(cs(halo).backgroundImage), shadow: cs(halo).boxShadow };
+          const halo = pd.querySelector("#mcCat-paneMcHalo .category-icon"), hr = halo.getBoundingClientRect();
+          out.halo = { bg: cs(halo).backgroundColor, grad: /linear-gradient/.test(cs(halo).backgroundImage), shadow: cs(halo).boxShadow,
+                       size: Math.round(hr.width), radius: cs(halo).borderTopLeftRadius, logo: /^data:image\/svg/.test(halo.src || "") };
           out.footer = ["#accountButton", "#addonsButton"].map(s => { const e = pd.querySelector(s + " .sidebar-footer-icon"); return e ? /data:image\/svg/.test(cs(e).content) : null; });
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          // Kontoeinstellungen als eigener Tab: Fußzeile „Settings“ (#prefsButton) und „Add-ons and Themes“
+          w.MsgAccountManager(null);
+          const ad = await until(() => tm.currentTabInfo.browser?.contentDocument?.querySelector("#accountTreeBox #prefsButton .sidebar-footer-icon") && tm.currentTabInfo.browser.contentDocument, 8000);
+          out.konten = ad ? ["#prefsButton", "#addonsButton"].map(s => { const e = ad.querySelector(s + " .sidebar-footer-icon"); if (!e) return null;
+            const c = cs(e); return { bg: c.backgroundColor, size: Math.round(e.getBoundingClientRect().width), gear: c.content.includes(mark.general) }; }) : null;
+          if (ad) tm.closeTab(tm.currentTabInfo);
+          await ruhig(400);
           return out;""")
         want = {"general": "rgb(142, 142, 147)", "appearance": "rgb(15, 163, 184)", "composition": "rgb(255, 149, 0)", "calendar": "rgb(255, 59, 48)", "privacy": "rgb(10, 132, 255)",
-                "chat": "rgb(175, 82, 222)", "export": "rgb(52, 199, 89)", "account": "rgb(94, 92, 230)", "addons": "rgb(255, 45, 85)"}
+                "chat": "rgb(175, 82, 222)", "export": "rgb(52, 199, 89)", "account": "rgb(94, 92, 230)", "addons": "rgb(255, 45, 85)", "rules": "rgb(142, 142, 147)"}
         bad = [k for k, c in want.items() if not (res.get(k) and res[k]["bg"] == c and res[k]["grad"] and res[k]["glyph"] and res[k]["size"] == 24
                                                  and (("rgba(255, 255, 255, 0.16)" in res[k]["shadow"]) == bool(res["dark"])))]
-        ok = not bad and not res["halo"]["grad"] and res["halo"]["shadow"] == "none" and res["footer"] == [True, True]
-        return ok, f"{bad} {res}"
-    check("Einstellungen: Symbole der Seitenleiste neu gezeichnet (weiß auf eigenen Kachelfarben mit Verlauf, General mit Schiebereglern), im Dunkeln helle Innenkante", pref_symbols, results)
+        h = res["halo"]
+        halo_ok = (h["bg"] == ("rgb(28, 28, 30)" if res["dark"] else "rgb(255, 255, 255)") and not h["grad"] and h["size"] == 24 and h["radius"] == "6px"
+                   and h["logo"] and ("rgba(255, 255, 255, 0.16)" if res["dark"] else "rgba(0, 0, 0, 0.12)") in h["shadow"] and "0.5px inset" in h["shadow"])
+        k = res.get("konten") or [None, None]
+        konten_ok = (k[0] == {"bg": "rgb(142, 142, 147)", "size": 24, "gear": True} and bool(k[1]) and k[1]["bg"] == "rgb(255, 45, 85)" and not k[1]["gear"])
+        ok = not bad and halo_ok and konten_ok and res["footer"] == [True, True]
+        return ok, f"{bad} halo={halo_ok} konten={konten_ok} {res}"
+    check("Einstellungen: Symbole der Seitenleiste neu gezeichnet (weiß auf eigenen Kachelfarben mit Verlauf, General und „Settings“ der Kontoeinstellungen mit Zahnrad, halo.spaces-Logo auf neutraler Kachel), im Dunkeln helle Innenkante", pref_symbols, results)
 
     def update_source():
         # Update-Weg der Nutzer: Thunderbird kennt aus dem Paket die update_url (raw.githubusercontent.com, Zweig main),
@@ -23457,7 +24357,7 @@ Neu
         # Einstellungsseite minimalistisch: Abhängiges erst bei Bedarf (Ort nur mit Wetter, Stichwörter nur mit Emojis),
         # Wahl für den fünften Platz als eigene Gruppe nach Kalender, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
         # Die Seite läuft hier in einem Testfenster mit nachgebildeter Schnittstelle (die echte liegt im Erweiterungsprozess)
-        res = m.js(r"""
+        res = m.js(SNAP_JS + r"""
           const saved = [];
           const settings = { mac: true, darkReader: true, fullConversation: true, unreadTint: false, undoSend: 10, senderLogos: true,
             macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, calendarEmoji: true,
@@ -23490,9 +24390,14 @@ Neu
               // Überschriften ohne sichtbare Zeile darunter (eingeklappte mit Pfeil ausgenommen), GitHub #58
               bare: [...od.querySelectorAll("h2")].filter(h => !h.querySelector(".disclosure") && ![...(h.nextElementSibling?.querySelectorAll(".row") || [])].some(r => !r.hidden && r.getBoundingClientRect().height > 0)).map(h => h.textContent),
               glow: shown("sidebarGlow"),
+              // erste Gruppe „Appearance & Spaces“ (Maintainer 20.11.2026: zusammengefasst, ganz oben): Zeilen der Gruppe
+              firstRows: [...(od.querySelector("h2")?.nextElementSibling?.querySelectorAll(":scope > .row") || [])].map(r => r.id.replace("row-", "")),
               // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
               removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
                         "hideCollectedAddresses", "spacesOrderCustom", "fifthSpaceIcon"].filter(k => od.getElementById("row-" + k)) } };
+            // mit HALO_SHOTS ein Bild der ersten beiden Gruppen (Kopf der Seite)
+            const hs = [...od.querySelectorAll("h2")].slice(0, 2);
+            out.png = { kopf: await snap(ow, hs.flatMap(h => [h, h.nextElementSibling])) };
             // fünfter Platz (seit 20.11.2026 hier, Maintainer 17.11.2026): eigene Gruppe nach Kalender, Auswahl mit Chat zuerst,
             // Erweiterung ohne installierte nicht wählbar, Adresse erst bei „Website“
             const fs = od.getElementById("s-fifthSpace");
@@ -23529,20 +24434,21 @@ Neu
             out.reset.saved = saved.filter(e => e[0] == "spacesOrderReset");
             return out;
           } finally { Services.obs.removeObserver(obs, "document-element-inserted"); ow.close(); }""")
+        save_pngs("einstellungen-seite", res)
         if not res.get("page"):
             return False, f"{res}"
         st = res["start"]
         fifth = res.get("fifth", {})
         ok = (not st["place"] and st["emoji"] and not st["chat"] and st["instead"] and not st["url"] and not st["debug"]
-              and st["heads"][:4] == ["Spaces", "Mail", "Calendar", "Fifth space"]
+              and st["heads"][:4] == ["Appearance & Spaces", "Mail", "Calendar", "Fifth space"]
+              and "Appearance" not in st["heads"] and "Spaces" not in st["heads"]
+              and st.get("firstRows") == ["sidebarGlow", "earlyTheme"]
               and fifth.get("options") == [["chat", False], ["addon", True], ["web", False], ["none", False]] and fifth.get("value") == "chat"
               and fifth.get("head") == "Fifth space" and fifth.get("url") is True and fifth.get("addon") is False and fifth.get("urlBack") is False
               and fifth.get("saved") == [["fifthSpace", "web"], ["fifthSpace", "chat"]]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
-              # „Spaces“ steht seit dem Schalter „Light glow in the sidebar“ (Maintainer 13.11.2026: Option in den
-              # halo.spaces-Einstellungen) zu Recht da; leer darf sie wie jede Überschrift nicht sein (GitHub #58)
-              and st.get("bare") == [] and st["empty"] == 0
-              and ("Spaces" not in st["heads"] or st.get("glow"))
+              # leer darf keine Überschrift sein (GitHub #58); der Lichtschein steht sichtbar in der ersten Gruppe
+              and st.get("bare") == [] and st["empty"] == 0 and st.get("glow")
               and st.get("removed") == [] and "Updates" not in st["heads"]
               and res.get("tsKeys") == ["calendarOffline", "spacesOrderReset", "debug"]
               and res.get("reset") == {"tag": "button", "text": "Reset", "saved": [["spacesOrderReset", True]]}
@@ -23553,7 +24459,7 @@ Neu
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, Gruppen Spaces, Mail, Calendar, Fifth space zuerst, Wahl des fünften Platzes mit Adresse erst bei Website, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, Gruppen „Appearance & Spaces“ (Lichtschein, Design ohne Flackern), Mail, Calendar, Fifth space zuerst, Wahl des fünften Platzes mit Adresse erst bei Website, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_chat_more():
         # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“): Thunderbirds Chat-Einstellungen nur bei „Chat“ auf dem
@@ -24060,10 +24966,11 @@ Neu
                    width: Services.prefs.getIntPref("extensions.mailcards.listWidth", -1) > 0 || Cu.evalInSandbox("LIST_WIDTH_DEFAULT", g) > 0 };''' % ADDON_ID)
         keys = [k for _, ks in res["sections"] for k in ks]
         last = res["sections"][-1][1] if res["sections"] else []
-        # Reihenfolge der Gruppen: Spaces zuerst (Maintainer 17.11.2026), dann die Spaces in der Reihenfolge der Leiste,
-        # danach Übergreifendes, Fehlerbehebung zuletzt
+        # Reihenfolge der Gruppen: „Appearance & Spaces“ zuerst (Maintainer 17. und 20.11.2026), dann die Spaces in der
+        # Reihenfolge der Leiste, Fehlerbehebung zuletzt
         titles = [title for title, _ in res["sections"]]
-        ok = (titles == ["Spaces", "Mail", "Calendar", "Fifth space", "Appearance", "Troubleshooting"]
+        ok = (titles == ["Appearance & Spaces", "Mail", "Calendar", "Fifth space", "Troubleshooting"]
+              and res["sections"][0][1] == ["sidebarGlow", "earlyTheme"]
               and not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
               and last == ["calendarOffline", "spacesOrderReset", "debug"] and keys.count("calendarOffline") == 1
               and not {"bundledTheme", "appleIcons"} & set(keys) and res.get("removedInTable") == [] and res.get("escape") == [True, True, True]
@@ -24071,7 +24978,7 @@ Neu
               and res["emoji"] is True and not res["emojiStored"] and res["width"])
         return ok, f"{res}"
     check("Einstellungen: Seite ohne Breite der Mailliste, doppelte Kontakte, Vorschauzeilen und Geburtstage, ohne die am 17.11.2026 entfernten Optionen "
-          "(Design und Symbole nur noch über about:config), Gruppen in der Reihenfolge Spaces, Mail, Calendar, Fifth space, Appearance, Troubleshooting, "
+          "(Design und Symbole nur noch über about:config), Gruppen in der Reihenfolge „Appearance & Spaces“, Mail, Calendar, Fifth space, Troubleshooting, "
           "Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
           options_page_slim, results)
 
@@ -25739,6 +26646,10 @@ Neu
             const px = (img, x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
             const diff = (a, b, x, y) => { const p = px(a, x, y), q = px(b, x, y); return Math.max(...p.map((v, k) => Math.abs(v - q[k]))); };
             out.btn = {};
+            // Trennstriche (Schicht 1 × 20 px am linken Rand des Stücks): in Ruhe und je überfahrenem Knopf
+            const sepIds = ["hdrTrashButton", "hdrJunkButton", "hdrSmartReplyButton", "hdrForwardButton", "starMessageButton"];
+            const lines = () => sepIds.filter(x => { const y = md.getElementById(x); return y && !y.hidden && mwin.getComputedStyle(y).backgroundSize.startsWith("1px"); });
+            out.linesRest = lines(); out.lines = {};
             for (const id of ids) {
               const e = md.getElementById(id);
               if (!e || e.hidden || !e.getBoundingClientRect().width) continue;
@@ -25752,6 +26663,7 @@ Neu
               for (const x of lock) InspectorUtils.addPseudoClassLock(x, ":hover");
               await ruhig(150);
               const hov = await shot(r);
+              out.lines[id] = lines();
               for (const x of lock) InspectorUtils.removePseudoClassLock(x, ":hover");
               await ruhig(100);
               // Kreis = Pixel, die beim Überfahren dunkler bzw. heller werden; Mitte Zeile, Rand oben und unten
@@ -25792,6 +26704,19 @@ Neu
             width, center = v["r"] - v["l"] + 1, (v["l"] + v["r"] + 1) / 2
             if not (28 <= width <= 33 and abs(center - v["iconMid"]) <= 1 and v["top"] == 0 and v["bottom"] == 0 and 26 <= v["rows"] <= 34):
                 bad.append(f"{k}: {v}")
+        # Trennstriche wie in der Mail-Symbolleiste: unter der Maus weichen nur die Striche neben dem Knopf
+        # (der Strich hängt am rechten Stück seines Stoßes), die übrigen der Kapsel bleiben
+        left = {"hdrTrashButton": "hdrArchiveButton", "hdrJunkButton": "hdrTrashButton", "hdrSmartReplyButton": "hdrReplyToSenderButton",
+                "hdrForwardButton": "hdrSmartReplyButton", "starMessageButton": "otherActionsButton"}
+        rest_lines = res.get("linesRest") or []
+        # (Stern: mit Drucken und Verschieben eigene Kapsel Stern | Pfeil, dann ohne Strich davor)
+        for need in ("hdrTrashButton", "hdrJunkButton", "hdrForwardButton"):
+            if need not in rest_lines:
+                bad.append(f"Trennstrich vor {need} fehlt in Ruhe {rest_lines}")
+        for k, got in (res.get("lines") or {}).items():
+            want = [x for x in rest_lines if x != k and left[x] != k]
+            if got != want:
+                bad.append(f"Trennstriche bei {k}: {got} statt {want}")
         tb, s0, s1 = res.get("tbStar"), res.get("star") or {}, res.get("starOn") or {}
         # Umriss gleich dem Toolbar-Stern, 22 px, grau; markiert gefüllt und orange (Toolbar: --mi-star-fill in --mt-star)
         if not (tb and s0.get("mask") == tb and s0.get("w") == 22 and s0.get("grey", 0) > 20 and s0.get("orange") == 0):
@@ -25800,7 +26725,7 @@ Neu
             bad.append(f"Stern markiert: {s1}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: beim Überfahren jeder Knopf mit grauem Kreis mittig hinter dem Symbol, kein Rechteck; "
-          "Stern wie in der Mail-Toolbar", message_window_hover_dots, results)
+          "Stern wie in der Mail-Toolbar; Trennstriche nur neben dem Knopf unter der Maus weg", message_window_hover_dots, results)
 
     def calendar_list_light():
         # Kalenderliste (Kalender und Aufgaben): Haken je Modus einheitlich, hell weiß und dunkel #1E1E1E, auch bei Gelb und

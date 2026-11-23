@@ -2830,16 +2830,27 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   opacity: 0.5;
 }
 
-/* Formatleiste unter der Notiz, nur beim Bearbeiten (Fett, Kursiv, Unterstrichen, Listen, Link) */
+/* Formatleiste unter der Notiz, nur beim Bearbeiten (Fett, Kursiv,
+   Unterstrichen, Listen, Link): graue Kapsel der Knopf-Familie bündig mit der
+   Karte darüber (vorher fit-content plus Innenabstand, 14 px über die Karte
+   hinaus), 30 px hoch wie die Knöpfe, mit feiner Lichtkante; sechs gleich
+   breite Symbolknöpfe in Textfarbe, Trennstriche zwischen den Gruppen
+   (Schrift | Listen | Link); unter der Maus ein runder Kreis mit Lichtkante,
+   gedrückt dunkler ohne Licht, eingeschaltet (Fett an der Schreibmarke usw.)
+   Symbol in Systemfarbe. Thunderbirds messenger.css setzt Knöpfe mit
+   Mindestbreite 5.5em und Rand, daher !important */
 #mcTaskNoteBar {
+  --mc-nb-h: var(--mt-btn-h, 30px);
+  --mc-nb-dot: calc(var(--mc-nb-h) - 6px);
   display: flex;
   flex: none;
-  gap: 2px;
-  margin: 0 20px 8px;
-  padding: 2px;
-  width: fit-content;
+  box-sizing: border-box;
+  height: var(--mc-nb-h);
+  margin: 8px 20px;
+  padding: 0;
   border-radius: var(--mt-radius-capsule, 999px);
   background: var(--mt-control);
+  box-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 1px 1px -1px rgba(0, 0, 0, 0.25);
 }
 
 #mcTaskNoteBar[hidden] {
@@ -2847,37 +2858,90 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 #mcTaskNoteBar > button {
-  appearance: none;
-  min-width: 26px;
-  height: 22px;
-  margin: 0;
-  padding: 0 6px;
-  border: none;
-  border-radius: var(--mt-radius-capsule, 999px);
-  background: transparent;
-  color: var(--mt-text);
-  font: inherit;
-  font-size: calc(12px * var(--mt-font-scale, 1));
+  appearance: none !important;
+  position: relative;
+  z-index: 0;
+  flex: 1 1 0;
+  box-sizing: border-box !important;
+  min-width: var(--mc-nb-h) !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--mt-text) !important;
+  outline-offset: -3px;
 }
 
-#mcTaskNoteBar > button:hover {
-  background: color-mix(in srgb, var(--mt-text) 8%, transparent);
+#mcTaskNoteBar > button:first-child {
+  border-start-start-radius: var(--mt-radius-capsule, 999px) !important;
+  border-end-start-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
-#mcTaskNoteBar > button[data-cmd="bold"] { font-weight: 700; }
-#mcTaskNoteBar > button[data-cmd="italic"] { font-style: italic; }
-#mcTaskNoteBar > button[data-cmd="underline"] { text-decoration: underline; }
+#mcTaskNoteBar > button:last-child {
+  border-start-end-radius: var(--mt-radius-capsule, 999px) !important;
+  border-end-end-radius: var(--mt-radius-capsule, 999px) !important;
+}
 
-#mcTaskNoteBar > button[data-cmd="createLink"]::before {
+/* Trennstrich vor der Gruppe (Listen, Link), 53 % der Höhe wie in den
+   übrigen Kapseln; neben dem Knopf unter der Maus verschwindet er */
+#mcTaskNoteBar > button:is([data-cmd="insertUnorderedList"], [data-cmd="createLink"]) {
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px calc(var(--mc-nb-h) * 0.53) no-repeat !important;
+}
+
+#mcTaskNoteBar > button:is([data-cmd="insertUnorderedList"], [data-cmd="createLink"]):hover,
+#mcTaskNoteBar > button:is([data-cmd="underline"], [data-cmd="insertOrderedList"]):hover + button {
+  background: transparent !important;
+}
+
+/* Symbol (16 px) über dem Kreis */
+#mcTaskNoteBar > button::before {
   content: "";
-  display: block;
-  width: 14px;
-  height: 14px;
-  margin: auto;
-  background: url("resource://mailcards/icons/link.svg") center / contain no-repeat;
-  -moz-context-properties: fill, stroke;
+  position: absolute;
+  inset: 0;
+  background: var(--mc-nb-icon) center / 16px 16px no-repeat;
+  -moz-context-properties: fill, fill-opacity, stroke;
   fill: transparent;
-  stroke: var(--mt-text);
+  stroke: currentColor;
+}
+
+#mcTaskNoteBar > button[data-cmd="bold"] { --mc-nb-icon: url("resource://mailcards/icons/format-bold.svg"); }
+#mcTaskNoteBar > button[data-cmd="italic"] { --mc-nb-icon: url("resource://mailcards/icons/format-italic.svg"); }
+#mcTaskNoteBar > button[data-cmd="underline"] { --mc-nb-icon: url("resource://mailcards/icons/format-underline.svg"); }
+#mcTaskNoteBar > button[data-cmd="insertUnorderedList"] { --mc-nb-icon: url("resource://mailcards/icons/format-list-bullet.svg"); }
+#mcTaskNoteBar > button[data-cmd="insertOrderedList"] { --mc-nb-icon: url("resource://mailcards/icons/format-list-number.svg"); }
+#mcTaskNoteBar > button[data-cmd="createLink"] { --mc-nb-icon: url("resource://mailcards/icons/link.svg"); }
+
+/* Kreis unter der Maus (85 % der Höhe) mit Lichtkante, gedrückt dunkler ohne Licht */
+#mcTaskNoteBar > button::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: calc(50% - var(--mc-nb-dot) / 2);
+  inset-inline-start: calc(50% - var(--mc-nb-dot) / 2);
+  width: var(--mc-nb-dot);
+  height: var(--mc-nb-dot);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#mcTaskNoteBar > button:hover::after {
+  opacity: 1;
+  background-color: var(--mt-cap-hover);
+  box-shadow: var(--mt-btn-ring);
+}
+
+#mcTaskNoteBar > button:hover:active::after {
+  background-color: var(--mt-cap-press);
+  box-shadow: var(--mt-btn-press-in);
+}
+
+#mcTaskNoteBar > button[aria-pressed="true"] {
+  color: AccentColor !important;
 }
 
 /* Aktionen (Kategorie, Erledigt, Priorität, Löschen) als Kapseln wie im
@@ -4095,17 +4159,19 @@ splitter.splitter:has(+ .conv-bottom) {
   }
 }
 
-#category-general .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20d=%22M3.5%206.5H11.6M18.4%206.5H20.5%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22%20stroke-linecap=%22round%22/%3E%3Ccircle%20cx=%2215%22%20cy=%226.5%22%20r=%222.3%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22/%3E%3Cpath%20d=%22M3.5%2012H4.6M11.4%2012H20.5%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22%20stroke-linecap=%22round%22/%3E%3Ccircle%20cx=%228%22%20cy=%2212%22%20r=%222.3%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22/%3E%3Cpath%20d=%22M3.5%2017.5H10.1M16.9%2017.5H20.5%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22%20stroke-linecap=%22round%22/%3E%3Ccircle%20cx=%2213.5%22%20cy=%2217.5%22%20r=%222.3%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22/%3E%3C/svg%3E") !important; }
+#prefsButton .sidebar-footer-icon,
+#preferencesButton .sidebar-footer-icon,
+#category-general .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cmask%20id=%22g%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Ccircle%20cx=%2212%22%20cy=%2212%22%20r=%223.4%22%20fill=%22%23000%22/%3E%3C/mask%3E%3Cpath%20d=%22M18.86%2010.61%20L21.13%2010.90%20L21.13%2013.10%20L18.86%2013.39%20L17.83%2015.87%20L19.24%2017.68%20L17.68%2019.24%20L15.87%2017.83%20L13.39%2018.86%20L13.10%2021.13%20L10.90%2021.13%20L10.61%2018.86%20L8.13%2017.83%20L6.32%2019.24%20L4.76%2017.68%20L6.17%2015.87%20L5.14%2013.39%20L2.87%2013.10%20L2.87%2010.90%20L5.14%2010.61%20L6.17%208.13%20L4.76%206.32%20L6.32%204.76%20L8.13%206.17%20L10.61%205.14%20L10.90%202.87%20L13.10%202.87%20L13.39%205.14%20L15.87%206.17%20L17.68%204.76%20L19.24%206.32%20L17.83%208.13Z%22%20fill=%22%23fff%22%20stroke=%22%23fff%22%20stroke-width=%22.9%22%20stroke-linejoin=%22round%22%20mask=%22url%28%23g%29%22/%3E%3C/svg%3E") !important; }
 #category-appearance .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Ccircle%20cx=%2212%22%20cy=%2212%22%20r=%228.2%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.9%22/%3E%3Cpath%20d=%22M12%203.8a8.2%208.2%200%200%200%200%2016.4z%22%20fill=%22%23fff%22/%3E%3C/svg%3E") !important; }
 #category-compose .category-icon,
 #category-composition .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20d=%22M11.5%204.8H7A2.3%202.3%200%200%200%204.7%207.1v10A2.3%202.3%200%200%200%207%2019.4h10a2.3%202.3%200%200%200%202.3-2.3v-4.6%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.9%22%20stroke-linecap=%22round%22/%3E%3Cpath%20d=%22M17.6%203.4l2.9%202.9-8.3%208.3-3.7%20.9.9-3.7z%22%20fill=%22%23fff%22%20stroke=%22%23fff%22%20stroke-width=%22.8%22%20stroke-linejoin=%22round%22/%3E%3C/svg%3E") !important; }
-#category-calendar .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cmask%20id=%22c%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Cg%20fill=%22%23000%22%3E%3Ccircle%20cx=%228.2%22%20cy=%2212.6%22%20r=%221.25%22/%3E%3Ccircle%20cx=%2212%22%20cy=%2212.6%22%20r=%221.25%22/%3E%3Ccircle%20cx=%2215.8%22%20cy=%2212.6%22%20r=%221.25%22/%3E%3Ccircle%20cx=%228.2%22%20cy=%2216.4%22%20r=%221.25%22/%3E%3Ccircle%20cx=%2212%22%20cy=%2216.4%22%20r=%221.25%22/%3E%3C/g%3E%3C/mask%3E%3Cpath%20mask=%22url%28%23c%29%22%20fill=%22%23fff%22%20d=%22M6.4%204.6h11.2a2.6%202.6%200%200%201%202.6%202.6v10.6a2.6%202.6%200%200%201-2.6%202.6H6.4a2.6%202.6%200%200%201-2.6-2.6V7.2a2.6%202.6%200%200%201%202.6-2.6z%22/%3E%3C/svg%3E") !important; }
+#category-calendar .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cmask%20id=%22c%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Crect%20x=%223%22%20y=%228.6%22%20width=%2218%22%20height=%221.3%22%20fill=%22%23000%22/%3E%3Cg%20fill=%22%23000%22%3E%3Crect%20x=%226.6%22%20y=%2211.8%22%20width=%222.6%22%20height=%222.4%22%20rx=%22.6%22/%3E%3Crect%20x=%2210.7%22%20y=%2211.8%22%20width=%222.6%22%20height=%222.4%22%20rx=%22.6%22/%3E%3Crect%20x=%2214.8%22%20y=%2211.8%22%20width=%222.6%22%20height=%222.4%22%20rx=%22.6%22/%3E%3Crect%20x=%226.6%22%20y=%2215.6%22%20width=%222.6%22%20height=%222.4%22%20rx=%22.6%22/%3E%3Crect%20x=%2210.7%22%20y=%2215.6%22%20width=%222.6%22%20height=%222.4%22%20rx=%22.6%22/%3E%3C/g%3E%3C/mask%3E%3Crect%20mask=%22url%28%23c%29%22%20x=%223.6%22%20y=%224.4%22%20width=%2216.8%22%20height=%2216%22%20rx=%223%22%20fill=%22%23fff%22/%3E%3C/svg%3E") !important; }
 #category-privacy .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20d=%22M8.3%2010.6V8.2a3.7%203.7%200%200%201%207.4%200v2.4%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.9%22/%3E%3Cmask%20id=%22p%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Ccircle%20cx=%2212%22%20cy=%2215%22%20r=%221.3%22%20fill=%22%23000%22/%3E%3Crect%20x=%2211.4%22%20y=%2215%22%20width=%221.2%22%20height=%222.4%22%20rx=%22.6%22%20fill=%22%23000%22/%3E%3C/mask%3E%3Crect%20mask=%22url%28%23p%29%22%20x=%225.6%22%20y=%2210.2%22%20width=%2212.8%22%20height=%2210%22%20rx=%222.3%22%20fill=%22%23fff%22/%3E%3C/svg%3E") !important; }
 #category-chat .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cmask%20id=%22h%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Cg%20fill=%22%23000%22%3E%3Ccircle%20cx=%228.3%22%20cy=%2211.3%22%20r=%221.2%22/%3E%3Ccircle%20cx=%2212%22%20cy=%2211.3%22%20r=%221.2%22/%3E%3Ccircle%20cx=%2215.7%22%20cy=%2211.3%22%20r=%221.2%22/%3E%3C/g%3E%3C/mask%3E%3Cpath%20mask=%22url%28%23h%29%22%20fill=%22%23fff%22%20d=%22M12%204.3c4.7%200%208.5%203.1%208.5%207s-3.8%207-8.5%207c-1%200-2-.15-2.9-.42L4.7%2019.7l1.25-3.6C4.6%2014.85%203.5%2013.2%203.5%2011.3c0-3.9%203.8-7%208.5-7z%22/%3E%3C/svg%3E") !important; }
-#category-qrexport .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Crect%20x=%227%22%20y=%223.2%22%20width=%2210%22%20height=%2217.6%22%20rx=%222.4%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22/%3E%3Cpath%20d=%22M12%2015.6V8.4M9.2%2011%2012%208.2%2014.8%2011%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.8%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22/%3E%3C/svg%3E") !important; }
+#category-qrexport .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cmask%20id=%22e%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Cpath%20d=%22M12%2015.8V8.6M9.3%2011.2%2012%208.5%2014.7%2011.2%22%20fill=%22none%22%20stroke=%22%23000%22%20stroke-width=%221.9%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22/%3E%3C/mask%3E%3Crect%20mask=%22url%28%23e%29%22%20x=%226.6%22%20y=%223%22%20width=%2210.8%22%20height=%2218%22%20rx=%222.6%22%20fill=%22%23fff%22/%3E%3C/svg%3E") !important; }
 #accountButton .sidebar-footer-icon,
 #mcCat-paneMcAccounts .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cmask%20id=%22a%22%3E%3Crect%20width=%2224%22%20height=%2224%22%20fill=%22%23fff%22/%3E%3Ccircle%20cx=%2212%22%20cy=%229.6%22%20r=%223.3%22%20fill=%22%23000%22/%3E%3Cpath%20d=%22M5.9%2018.3c1.3-2.4%203.5-3.6%206.1-3.6s4.8%201.2%206.1%203.6%22%20fill=%22none%22%20stroke=%22%23000%22%20stroke-width=%222.6%22%20stroke-linecap=%22round%22/%3E%3C/mask%3E%3Ccircle%20mask=%22url%28%23a%29%22%20cx=%2212%22%20cy=%2212%22%20r=%228.8%22%20fill=%22%23fff%22/%3E%3C/svg%3E") !important; }
-#mcCat-paneMcRules .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%221.9%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Cpath%20d=%22M4.5%207h9M4.5%2012h6M4.5%2017h9%22/%3E%3Cpath%20d=%22M14.5%2012h5M17%209.5l2.5%202.5-2.5%202.5%22/%3E%3C/svg%3E") !important; }
+#mcCat-paneMcRules .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cg%20fill=%22none%22%20stroke=%22%23fff%22%20stroke-width=%222.3%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Cpath%20d=%22M4.5%206.5h9M4.5%2012h6M4.5%2017.5h9%22/%3E%3Cpath%20d=%22M14.5%2012h5.2M17%209.2l2.8%202.8-2.8%202.8%22/%3E%3C/g%3E%3C/svg%3E") !important; }
 #addonsButton .sidebar-footer-icon,
 #mcCat-paneMcAddons .category-icon { content: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20fill=%22%23fff%22%20d=%22M6.5%206.2H9.4V5.4a2.3%202.3%200%200%201%204.6%200v.8H17a1.5%201.5%200%200%201%201.5%201.5v3.1h-.9a2.3%202.3%200%200%200%200%204.6h.9v3.3a1.5%201.5%200%200%201-1.5%201.5H6.5A1.5%201.5%200%200%201%205%2018.7V15.4h1a2.3%202.3%200%200%200%200-4.6H5V7.7a1.5%201.5%200%200%201%201.5-1.5z%22/%3E%3C/svg%3E") !important; }
 
@@ -4119,12 +4185,22 @@ splitter.splitter:has(+ .conv-bottom) {
   margin-top: 14px !important;
 }
 
-/* halo.spaces: eigenes Symbol ohne farbige Kachel */
+/* halo.spaces: das Logo auf eigener neutraler Kachel (weiß bzw. im Dunkeln
+   #1C1C1E, feine Innenkante), ohne Verlauf: die Mitte des Logos hat die
+   Kachelfarbe und bliebe sonst als Scheibe sichtbar */
 #mcCat-paneMcHalo .category-icon {
-  background: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
+  --mt-logo-tile: #FFFFFF;
+  --mt-logo-tile-edge: rgba(0, 0, 0, .12);
+  background-color: var(--mt-logo-tile) !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 .5px var(--mt-logo-tile-edge) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  #mcCat-paneMcHalo .category-icon {
+    --mt-logo-tile: #1C1C1E;
+    --mt-logo-tile-edge: rgba(255, 255, 255, .16);
+  }
 }
 
 /* eingebettete Seite: ganze Fläche rechts der Seitenleiste statt Thunderbirds
@@ -4917,61 +4993,92 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
   background-color: var(--mt-control-hover) !important;
 }
 
-/* Ansicht (Karten/Tabelle) und Unterhaltungen: Kacheln wie in den
-   Systemeinstellungen – hell, rund, ausgewählt mit Akzentrahmen, ohne
-   eigenes Optionsfeld */
+/* Bilder der Darstellung (Ansicht Karten/Tabelle, Unterhaltungen, Hell/Dunkel/
+   Auto): kleine halo-Fenster 118×76 mit Fensterknöpfen, Seitenleiste und
+   Mailliste statt Thunderbirds „pictograph“-Bildern, alle gleich groß; kein
+   Kasten um die Wahl, die gewählte zeigt einen Ring in der Systemfarbe mit
+   2,5 px Abstand zum Bild, der Name steht darunter mittig, gewählt halbfett
+   (Seltene Symbole Teil 2, Variante A, 15.11.2026: „Ja A passt“). Die Bilder
+   sind data:-SVGs (about:preferences lädt nur chrome: und data:), je Modus
+   eigene Farben; die gewählte Ordnerzeile im Bild bleibt wie bei Hell/Dunkel/
+   Auto ein festes Blau, ein Bild kennt die Systemfarbe nicht */
+#paneDeck {
+  --mt-pict-cards: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%23FFFFFF'/%3E%3Crect%20width='24'%20height='76'%20fill='%23ECECEE'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%23007AFF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='5'%20width='84'%20height='16'%20rx='4'%20fill='%23007AFF'/%3E%3Ccircle%20cx='36.5'%20cy='13'%20r='4.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='44'%20y='9'%20width='36.3'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='44'%20y='14'%20width='56.1'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='29'%20y='24'%20width='84'%20height='16'%20rx='4'%20fill='%23F4F4F6'/%3E%3Ccircle%20cx='36.5'%20cy='32'%20r='4.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='44'%20y='28'%20width='36.3'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='44'%20y='33'%20width='56.1'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='43'%20width='84'%20height='16'%20rx='4'%20fill='%23F4F4F6'/%3E%3Ccircle%20cx='36.5'%20cy='51'%20r='4.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='44'%20y='47'%20width='36.3'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='44'%20y='52'%20width='56.1'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3C/g%3E%3C/svg%3E");
+  --mt-pict-table: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%23FFFFFF'/%3E%3Crect%20width='24'%20height='76'%20fill='%23ECECEE'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%23007AFF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='7.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%238E8E93'/%3E%3Crect%20x='56.4'%20y='7.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%238E8E93'/%3E%3Crect%20x='96.2'%20y='7.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%238E8E93'/%3E%3Crect%20x='29'%20y='13'%20width='84'%20height='8'%20rx='2'%20fill='%23007AFF'/%3E%3Crect%20x='31'%20y='15.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='23.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='31.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='31.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='31.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='39.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3C/g%3E%3C/svg%3E");
+  --mt-pict-unthreaded: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%23FFFFFF'/%3E%3Crect%20width='24'%20height='76'%20fill='%23ECECEE'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%23007AFF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='7.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='7.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='7.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='20.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='15.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='23.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='31.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='31.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='31.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='39.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3C/g%3E%3C/svg%3E");
+  --mt-pict-threaded: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%23FFFFFF'/%3E%3Crect%20width='24'%20height='76'%20fill='%23ECECEE'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%23007AFF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='7.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='7.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='7.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='20.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='38'%20y='15.5'%20width='15.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='38'%20y='23.5'%20width='15.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='31.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='31.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='31.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='38'%20y='39.5'%20width='15.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3C/g%3E%3C/svg%3E");
+  --mt-pict-grouped: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%23FFFFFF'/%3E%3Crect%20width='24'%20height='76'%20fill='%23ECECEE'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%23007AFF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='7.25'%20width='24'%20height='3.5'%20rx='1.75'%20fill='%236E6E73'/%3E%3Crect%20x='29'%20y='20.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='15.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='23.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='31.25'%20width='20.8'%20height='3.5'%20rx='1.75'%20fill='%236E6E73'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='39.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%23E2E2E6'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23D1D1D6'/%3E%3C/g%3E%3C/svg%3E");
+  --mt-pict-edge: 0 0 0 .5px rgba(0, 0, 0, .18), 0 1px 2px rgba(0, 0, 0, .08);
+}
+
+@media (prefers-color-scheme: dark) {
+  #paneDeck {
+    --mt-pict-cards: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%231E1E1E'/%3E%3Crect%20width='24'%20height='76'%20fill='%232A2A2C'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%230A84FF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='5'%20width='84'%20height='16'%20rx='4'%20fill='%230A84FF'/%3E%3Ccircle%20cx='36.5'%20cy='13'%20r='4.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='44'%20y='9'%20width='36.3'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='44'%20y='14'%20width='56.1'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='29'%20y='24'%20width='84'%20height='16'%20rx='4'%20fill='%232C2C2E'/%3E%3Ccircle%20cx='36.5'%20cy='32'%20r='4.5'%20fill='%235A5A5E'/%3E%3Crect%20x='44'%20y='28'%20width='36.3'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='44'%20y='33'%20width='56.1'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='43'%20width='84'%20height='16'%20rx='4'%20fill='%232C2C2E'/%3E%3Ccircle%20cx='36.5'%20cy='51'%20r='4.5'%20fill='%235A5A5E'/%3E%3Crect%20x='44'%20y='47'%20width='36.3'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='44'%20y='52'%20width='56.1'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3C/g%3E%3C/svg%3E");
+    --mt-pict-table: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%231E1E1E'/%3E%3Crect%20width='24'%20height='76'%20fill='%232A2A2C'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%230A84FF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='7.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%237C7C80'/%3E%3Crect%20x='56.4'%20y='7.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%237C7C80'/%3E%3Crect%20x='96.2'%20y='7.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%237C7C80'/%3E%3Crect%20x='29'%20y='13'%20width='84'%20height='8'%20rx='2'%20fill='%230A84FF'/%3E%3Crect%20x='31'%20y='15.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%23FFFFFF'%20fill-opacity='.75'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='23.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='31.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='31.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='31.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='39.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3C/g%3E%3C/svg%3E");
+    --mt-pict-unthreaded: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%231E1E1E'/%3E%3Crect%20width='24'%20height='76'%20fill='%232A2A2C'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%230A84FF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='7.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='7.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='7.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='20.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='15.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='23.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='31.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='31.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='31.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='39.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3C/g%3E%3C/svg%3E");
+    --mt-pict-threaded: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%231E1E1E'/%3E%3Crect%20width='24'%20height='76'%20fill='%232A2A2C'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%230A84FF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='7.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='7.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='7.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='20.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='38'%20y='15.5'%20width='15.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='38'%20y='23.5'%20width='15.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='31.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='31.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='31.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='38'%20y='39.5'%20width='15.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3C/g%3E%3C/svg%3E");
+    --mt-pict-grouped: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='118'%20height='76'%20viewBox='0%200%20118%2076'%3E%3Cdefs%3E%3CclipPath%20id='k'%3E%3Crect%20width='118'%20height='76'%20rx='8'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path='url%28%23k%29'%3E%3Crect%20width='118'%20height='76'%20fill='%231E1E1E'/%3E%3Crect%20width='24'%20height='76'%20fill='%232A2A2C'/%3E%3Ccircle%20cx='4.5'%20cy='5.5'%20r='1.5'%20fill='%23FF5F57'/%3E%3Ccircle%20cx='9'%20cy='5.5'%20r='1.5'%20fill='%23FEBC2E'/%3E%3Ccircle%20cx='13.5'%20cy='5.5'%20r='1.5'%20fill='%2328C840'/%3E%3Crect%20x='3'%20y='12'%20width='12.6'%20height='2.5'%20rx='1.25'%20fill='%230A84FF'/%3E%3Crect%20x='3'%20y='17.5'%20width='9.9'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='3'%20y='23'%20width='11.2'%20height='2.5'%20rx='1.25'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='12.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='7.25'%20width='24'%20height='3.5'%20rx='1.75'%20fill='%23A1A1A6'/%3E%3Crect%20x='29'%20y='20.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='15.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='15.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='15.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='28.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='23.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='23.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='23.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='36.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='31.25'%20width='20.8'%20height='3.5'%20rx='1.75'%20fill='%23A1A1A6'/%3E%3Crect%20x='29'%20y='44.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='39.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='39.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='39.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='29'%20y='52.5'%20width='84'%20height='.5'%20fill='%233A3A3C'/%3E%3Crect%20x='31'%20y='47.5'%20width='22.4'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='56.4'%20y='47.5'%20width='36.8'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3Crect%20x='96.2'%20y='47.5'%20width='11.2'%20height='3'%20rx='1.5'%20fill='%235A5A5E'/%3E%3C/g%3E%3C/svg%3E");
+    --mt-pict-edge: 0 0 0 .5px rgba(255, 255, 255, .18);
+  }
+}
+
+#paneDeck .appearance-options {
+  gap: 18px !important;
+}
+
 #paneDeck .appearance-options radio {
-  padding: 8px !important;
-  border: 1px solid var(--mt-pane-line) !important;
-  border-radius: 12px !important;
-  background: var(--mt-window) !important;
+  padding: 5px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: none !important;
   box-shadow: none !important;
   outline: none !important;
-}
-
-#paneDeck .appearance-options radio:hover {
-  background: color-mix(in srgb, var(--mt-text) 3%, var(--mt-window)) !important;
-}
-
-#paneDeck .appearance-options radio[selected] {
-  border-color: var(--mt-accent) !important;
-  box-shadow: 0 0 0 2px var(--mt-accent) !important;
 }
 
 #paneDeck .appearance-options radio > .radio-check {
   display: none !important;
 }
 
-#paneDeck .appearance-options .radio-icon {
-  margin-inline-start: 0 !important;
-  border-radius: 8px !important;
-  background-color: color-mix(in srgb, var(--mt-text) 3%, var(--mt-window)) !important;
-}
-
 #paneDeck .appearance-options .radio-label-box {
   align-items: center !important;
+  gap: 7px !important;
+}
+
+#paneDeck .appearance-options .radio-icon {
+  width: 118px !important;
+  height: 76px !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+  background: none !important;
+  box-shadow: var(--mt-pict-edge) !important;
+  outline: none !important;
+}
+
+#paneDeck .appearance-options radio[selected] .radio-icon {
+  outline: 2.5px solid var(--mt-accent) !important;
+  outline-offset: 2.5px !important;
 }
 
 #paneDeck .appearance-options .radio-label {
   align-self: center !important;
-  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
-  color: var(--mt-text-secondary) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-weight: 400 !important;
+  color: var(--mt-text) !important;
 }
 
 #paneDeck .appearance-options radio[selected] .radio-label {
-  color: var(--mt-text) !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
 }
 
-/* Erscheinungsbild Hell/Dunkel/Auto: dieselben Kacheln mit Fenstergrafik wie
-   in den Systemeinstellungen (Grafiken bleiben hell bzw. dunkel) */
-#paneDeck .mc-appearance-tiles .radio-icon {
-  width: 68px !important;
-  height: 44px !important;
-  border-radius: 5px !important;
-  background: none !important;
-}
+#appearanceStyleCards .radio-icon { list-style-image: var(--mt-pict-cards) !important; }
+#appearanceStyleTable .radio-icon { list-style-image: var(--mt-pict-table) !important; }
+#defaultFlagUnthreaded .radio-icon { list-style-image: var(--mt-pict-unthreaded) !important; }
+#defaultFlagThreaded .radio-icon { list-style-image: var(--mt-pict-threaded) !important; }
+#defaultFlagGrouped .radio-icon { list-style-image: var(--mt-pict-grouped) !important; }
 
+/* Erscheinungsbild Hell/Dunkel/Auto: Fenster auf farbigem Grund wie in den
+   Systemeinstellungen (Grafiken bleiben hell bzw. dunkel), gezeichnet in
+   68×44 und auf die gemeinsame Größe 118×76 gestreckt */
 #mcAppearance-light .radio-icon {
   list-style-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='68' height='44' viewBox='0 0 68 44'%3E%3Crect width='68' height='44' rx='5' fill='%239fb9de'/%3E%3Cg transform='translate(10 8)'%3E%3Crect width='52' height='36' rx='4' fill='%23ffffff'/%3E%3Cpath d='M4 0h12v36H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z' fill='%23ececee'/%3E%3Ccircle cx='4.5' cy='4.5' r='1.3' fill='%23ff5f57'/%3E%3Ccircle cx='8.5' cy='4.5' r='1.3' fill='%23febc2e'/%3E%3Ccircle cx='12.5' cy='4.5' r='1.3' fill='%2328c840'/%3E%3Crect x='3' y='10' width='10' height='2.5' rx='1.25' fill='%230a84ff'/%3E%3Crect x='3' y='15' width='8' height='2' rx='1' fill='%23d6d6da'/%3E%3Crect x='3' y='19' width='9' height='2' rx='1' fill='%23d6d6da'/%3E%3Crect x='20' y='5' width='28' height='3' rx='1.5' fill='%23c4c4c8'/%3E%3Crect x='20' y='12' width='24' height='2' rx='1' fill='%23d6d6da'/%3E%3Crect x='20' y='17' width='27' height='2' rx='1' fill='%23d6d6da'/%3E%3Crect x='20' y='22' width='18' height='2' rx='1' fill='%23d6d6da'/%3E%3C/g%3E%3C/svg%3E") !important;
 }
@@ -5138,6 +5245,23 @@ addon-card .card,
   box-shadow: none !important;
 }
 
+/* Vorschau der Themes wie die Bilder der Darstellung in den Einstellungen:
+   abgerundetes Bild (8 px) mit feiner Kante, 12 px eingerückt in der Karte
+   statt randlos mit Strich darunter (Seltene Symbole Teil 2, 15.11.2026) */
+addon-card .card-heading-image {
+  --mt-pict-edge: 0 0 0 .5px rgba(0, 0, 0, .18), 0 1px 2px rgba(0, 0, 0, .08);
+  margin: 12px 12px 0 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: var(--mt-pict-edge) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  addon-card .card-heading-image {
+    --mt-pict-edge: 0 0 0 .5px rgba(255, 255, 255, .18);
+  }
+}
+
 :is(addon-list, addon-page-header, .main-search, .addon-details) button:not(.toggle-button, [role="switch"], .extension-options-button),
 .main-search button {
   min-height: 28px !important;
@@ -5188,14 +5312,382 @@ categories-box moz-page-nav-button {
   background-color: var(--mt-window) !important;
 }
 
-/* Import/Export (about:import) dunkel in Fensterfarbe wie die übrigen
-   Tabs statt Firefox-Blauschwarz #18181B. Den leichten Schleier
-   rgba(0,0,0,0.03) des body aus aboutImport.css bewusst behalten: hell
-   hebt sich nur so die weiße Karte der Schritte von der Seite ab */
+/* Import/Export (about:import) als eine Seite in Fensterfarbe wie die
+   übrigen Tabs (dunkel nicht Firefox-Blauschwarz #18181B): ohne den
+   Schleier des body und ohne weiße Karte je Schritt; gewählt wird in
+   grauen Karten mit Zeilen wie auf den Einstellungsseiten */
 :root:has(#stepNav) {
   --in-content-page-background: var(--mt-window) !important;
   background-color: var(--mt-window) !important;
   color: var(--mt-text) !important;
+}
+
+:root:has(#stepNav) body {
+  background-color: var(--mt-window) !important;
+}
+
+/* Raster: Schrittanzeige, Abschnitt und darunter eine Zeile mit der Hilfe
+   links und den Knöpfen rechts. Die Schritt-Bereiche (.tabPane) geben ihre
+   Abschnitte und Knopfleiste ans Raster weiter (display: contents); der
+   jeweils sichtbare Abschnitt füllt die Breite, Hilfe und Knöpfe teilen
+   sich die letzte Zeile (order), bei schmalem Fenster bricht die Hilfe um */
+:root:has(#stepNav) #main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  margin: 36px 40px !important;
+}
+
+:root:has(#stepNav) #main > :is(nav, #errorNotifications) {
+  grid-column: 1 / -1;
+}
+
+:root:has(#stepNav) #main > .tabPane {
+  display: contents;
+}
+
+:root:has(#stepNav) #main > .tabPane > section {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+}
+
+/* Schritte: graue Kreise 22 px mit Zahl, der aktuelle in Textfarbe gefüllt,
+   erledigte mit Häkchen; „Confirm“ als graue Kapsel gleicher Höhe; dazwischen
+   kurze Haarlinien statt blauer Striche über die ganze Breite */
+:root:has(#stepNav) #stepNav {
+  justify-content: flex-start !important;
+  margin: 0 0 28px !important;
+}
+
+:root:has(#stepNav) #stepNav li {
+  flex-grow: 0 !important;
+  font-size: 13px !important;
+}
+
+:root:has(#stepNav) #stepNav li:not(:first-child)::before {
+  flex: none !important;
+  inline-size: 22px;
+  margin: 0 8px !important;
+  border-block-start: var(--mt-hairline, 1px) solid var(--mt-separator) !important;
+}
+
+:root:has(#stepNav) #stepNav button {
+  block-size: 22px !important;
+  inline-size: 22px !important;
+  min-inline-size: 22px !important;
+  min-block-size: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 22px !important;
+}
+
+:root:has(#stepNav) #stepNav li.current button {
+  background: var(--mt-text) !important;
+  color: var(--mt-window) !important;
+}
+
+:root:has(#stepNav) #stepNav li.completed:not(.current) button {
+  color: transparent !important;
+  background: var(--mt-control) url("resource://mailcards/icons/check.svg") center / 14px no-repeat !important;
+  -moz-context-properties: stroke;
+  stroke: var(--mt-text-secondary);
+}
+
+:root:has(#stepNav) #stepNav li.completed:not(.current) button:not([disabled]):hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+:root:has(#stepNav) #navConfirm button {
+  inline-size: auto !important;
+  padding: 0 10px !important;
+}
+
+/* Titel: graues halo-Symbol 22 px vor „Import Tool“ bzw. „Export“ (übrige
+   Schritte ohne Symbol), 22 px halbfett; Leitsatz 13 px halbfett, Hilfetext
+   13 px grau */
+:root:has(#stepNav) .tabPane h1 {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px !important;
+  color: var(--mt-text) !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+}
+
+:root:has(#stepNav) .tabPane h1::before {
+  display: none !important;
+}
+
+:root:has(#stepNav) :is(#tabPane-start, #tabPane-export) h1::before {
+  display: block !important;
+  position: static !important;
+  flex: none;
+  inline-size: 22px !important;
+  block-size: 22px !important;
+  margin: 0 !important;
+  background-position: center !important;
+  background-size: 22px !important;
+  fill: transparent !important;
+  stroke: var(--mt-text-secondary) !important;
+}
+
+:root:has(#stepNav) .tabPane h2 {
+  margin: 0 !important;
+  color: var(--mt-text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane h2.light-heading {
+  margin-block-start: 20px !important;
+}
+
+:root:has(#stepNav) .tabPane section p {
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane .description,
+:root:has(#stepNav) .tabPane section > p:not(.tip-caption) {
+  margin-block: 2px 0 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Auswahl und Übersicht: graue Karte (Radius 10) mit Zeilen; Haarlinien
+   beginnen an der Textkante (14 px Rand + 16 px Knopf + 10 px Abstand) und
+   enden 14 px vor dem Rand. Leere Listen (z. B. keine Profile) ohne Karte */
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list, ul.summary-items, dl) {
+  margin: 16px 0 0 !important;
+  border-radius: var(--mt-radius-row, 10px) !important;
+  background: var(--mt-control) !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list, ul.summary-items) {
+  padding: 0 !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list, ul.summary-items):empty {
+  display: none !important;
+}
+
+:root:has(#stepNav) .tabPane .profile-list + .profile-list {
+  margin-block-start: 8px !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list) > label.toggle-container-with-text {
+  column-gap: 10px;
+  margin-block: 0 !important; /* Einzug der PST-Ordner bleibt (margin-inline-start je Tiefe) */
+  padding: 10px 14px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.source-list, .option-list, .profile-list) > label.toggle-container-with-text + label,
+:root:has(#stepNav) .tabPane ul.summary-items > li + li {
+  background: linear-gradient(var(--mt-separator), var(--mt-separator)) no-repeat 40px 0 / calc(100% - 54px) var(--mt-hairline, 1px);
+}
+
+:root:has(#stepNav) .tabPane label.toggle-container-with-text > input {
+  align-self: center;
+  margin: 0 !important;
+}
+
+:root:has(#stepNav) .tabPane label.toggle-container-with-text > :is(p, span):not(.tip-caption, .mc-pst-count) {
+  color: var(--mt-text) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane label.toggle-container-with-text > .tip-caption {
+  margin-block-start: 1px !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Übersicht („Confirm“): Zeilen ohne grüne Häkchen, Text an derselben Kante
+   wie die Auswahlzeilen */
+:root:has(#stepNav) .tabPane ul.summary-items {
+  list-style: none !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane ul.summary-items > li {
+  padding: 10px 14px 10px 40px !important;
+  font-size: 13px !important;
+}
+
+:root:has(#stepNav) .tabPane ul.summary-items > li + li {
+  background-position: 40px 0;
+}
+
+/* Quelle, Verzeichnis, Ziel: Zeilen in grauer Karte, Beschriftung grau */
+:root:has(#stepNav) .tabPane dl {
+  row-gap: 4px;
+  column-gap: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+:root:has(#stepNav) .tabPane dt {
+  color: var(--mt-text-secondary) !important;
+  font-weight: normal !important;
+}
+
+:root:has(#stepNav) .tabPane dd {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Knöpfe: rechts unten, „Back“ links neben dem Hauptknopf, 30 px Kapseln;
+   „Start Import“, „Export“, „Finish“ im Abschnitt ebenfalls rechts */
+:root:has(#stepNav) #main .buttons-container {
+  grid-column: 2;
+  order: 2;
+  justify-content: flex-end !important;
+  gap: 8px;
+  margin-block-start: 24px !important;
+}
+
+:root:has(#stepNav) main button:not(.btn-link, #stepNav button, #search-button) {
+  min-block-size: var(--mt-btn-h, 30px) !important;
+  block-size: var(--mt-btn-h, 30px) !important;
+  padding: 0 16px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  font-size: 13px !important;
+}
+
+:root:has(#stepNav) main button.back {
+  background-image: none !important;
+}
+
+:root:has(#stepNav) .tabPane .center-button {
+  margin: 20px 0 0 auto !important;
+}
+
+:root:has(#stepNav) .tabPane .center-button.btn-link {
+  margin-block-start: 8px !important;
+}
+
+:root:has(#stepNav) .tabPane :is(.center, .progressPane) {
+  text-align: start !important;
+}
+
+:root:has(#stepNav) .tabPane p.center {
+  margin-block-start: 16px !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Export: eine Seite ohne Schritte; der Hinweis samt „Open profile folder“
+   in grauer Karte, „Export“ bzw. „Finish“ rechts in der Zeile der Hilfe
+   (der Abschnitt gibt seine Teile dafür ans Raster weiter) */
+:root:has(#stepNav) #tabPane-export > section {
+  display: contents !important;
+}
+
+:root:has(#stepNav) #tabPane-export > section > * {
+  grid-column: 1 / -1;
+}
+
+:root:has(#stepNav) #tabPane-export.progress .progressPane {
+  display: block !important;
+}
+
+:root:has(#stepNav) #tabPane-export > section > :is(#exportButton, .progressFinish.center-button) {
+  grid-column: 2;
+  order: 2;
+  margin: 24px 0 0 !important;
+}
+
+:root:has(#stepNav) #tabPane-export p.description {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 8px;
+  margin: 16px 0 0 !important;
+  padding: 12px 14px;
+  border-radius: var(--mt-radius-row, 10px);
+  background: var(--mt-control);
+}
+
+:root:has(#stepNav) #tabPane-export p.description > span {
+  flex: 1 1 calc(100% - 30px);
+}
+
+:root:has(#stepNav) #tabPane-export p.description > .btn-link {
+  margin: 0 !important;
+}
+
+/* Fortschritt wie im Archiv-Assistenten: Kapsel 4 px, Spur grau, Füllung
+   in der Systemfarbe, darunter der Stand grau 12 px */
+:root:has(#stepNav) .progressPaneProgressBar {
+  appearance: none !important;
+  block-size: 4px !important;
+  margin-block-start: 20px;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background: var(--mt-control-hover) !important;
+}
+
+:root:has(#stepNav) .progressPaneProgressBar::-moz-progress-bar {
+  border-radius: var(--mt-radius-capsule, 999px);
+  background: var(--mt-accent);
+}
+
+:root:has(#stepNav) .tabPane p.progressPaneDesc {
+  margin-block-start: 6px !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Hilfe: „Need help? Import documentation Support forum“ in einer Zeile links
+   neben den Knöpfen, grau ohne Unterstrich und ohne Bindestrich (der Text-
+   knoten „-“ verschwindet mit font-size 0), unter der Maus in Textfarbe */
+:root:has(#stepNav) #importFooter {
+  grid-column: 1;
+  order: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-block-size: var(--mt-btn-h, 30px);
+  margin: 24px 0 0 !important;
+  font-size: 0 !important;
+  text-align: start !important;
+}
+
+:root:has(#stepNav) #importFooter > * {
+  margin: 0 14px 0 0 !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  text-decoration: none !important;
+}
+
+:root:has(#stepNav) #importFooter > a:hover {
+  color: var(--mt-text) !important;
+}
+
+/* Hinweis-Symbol „i“ im Import/Export grau als halo-i statt blau: Farbe
+   bleibt dem Hauptknopf vorbehalten (G15, Seltene Symbole Teil 2) */
+:root:has(#stepNav) img.info.icon {
+  content: url("resource://mailcards/icons/info.svg") !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-text-secondary) !important;
 }
 
 /* Knopf-Familie im Import/Export: je Schritt ist „Continue“, „Start Import“,
@@ -5239,9 +5731,13 @@ categories-box moz-page-nav-button {
    rechts in Grau; Abstände wie die übrigen Auswahlen, nur enger, weil
    eine Datei viele Ordner haben kann */
 #tabPane-halopst :is(.mc-pst-folders, .mc-pst-parts) > label {
-  grid-template-columns: min-content 1fr auto;
-  grid-template-areas: "i text num";
+  grid-template-columns: min-content 1fr auto !important;
+  grid-template-areas: "i text num" !important;
   margin-block: 0.35em;
+}
+
+#tabPane-halopst :is(.mc-pst-folders, .mc-pst-parts) > label > .mc-pst-name {
+  grid-area: text;
 }
 
 #tabPane-halopst .mc-pst-count {
@@ -7521,6 +8017,264 @@ button.wizard-button[disabled] {
   }
 }
 
+/* ---------- Unterdialoge der Einstellungen: ein gemeinsames Muster ----------
+   (Schriften, Dock, Benachrichtigung, Schlagwort, Empfangsbestätigungen,
+   Update-Chronik, Verbindung, Offline, Sprachen, Anhang-Erinnerung,
+   Ausnahmen, Cookies, Passwörter, Zertifikate, Kryptographie-Module,
+   Kategorie, Systemintegration, LDAP, Hauptpasswort; Variante A des
+   Designers, 15.11.2026): Panel mit Radius 18 und 20 px Rand, Überschrift
+   links 17 px halbfett wie der Konto-Hub, Schrift 13 px, Listen und Tabellen
+   als graue Karte ohne Rahmen und Spaltenlinien (Kopf 30 px, 11,5 px grau
+   halbfett, Zeilen 28 px mit Haarlinie, Auswahl grau wie in der Mailliste),
+   kein sichtbarer Größengriff (Ziehen an der Ecke bleibt). Das Panel steht
+   im Dokument der Einstellungen (#MailPreferences), der Inhalt in einem
+   eigenen Dokument, das die Erweiterung mit mc-pref-dialog kennzeichnet */
+:root {
+  --mt-radius-pref-dialog: 18px;
+  --mt-pref-dialog-edge: 20px;
+}
+
+#MailPreferences .dialogBox {
+  border-radius: var(--mt-radius-pref-dialog) !important;
+}
+
+/* Maße ab der Außenkante: das Panel hat 1 px (durchsichtigen) Rand */
+#MailPreferences .dialogTitleBar {
+  padding: 17px calc(var(--mt-pref-dialog-edge) - 1px) 0 !important;
+}
+
+#MailPreferences .dialogTitle {
+  text-align: start !important;
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+  color: var(--mt-text) !important;
+}
+
+/* 1 px Rand, 15 px Abstand und die 4 px, die Thunderbird dem Inhalt für den
+   Fokusring lässt, ergeben 20 px bis zur Kante. Oben und unten gleich:
+   Thunderbird rechnet die Höhe größenveränderlicher Dialoge mit dem doppelten
+   oberen Rand, ein kleinerer oberer Rand schnitte unten die Knöpfe ab */
+#MailPreferences .dialogFrame {
+  margin: calc(var(--mt-pref-dialog-edge) - 5px) !important;
+}
+
+/* Schrift überall 13 px statt 11 bzw. 12,1 px (Thunderbird: 1.1rem) */
+:root[mc-pref-dialog] {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+:root[mc-pref-dialog] :is(body, window) > :is(dialog, hbox, vbox),
+:root[mc-pref-dialog] .contentPane {
+  font-size: 1rem !important;
+}
+
+/* Listen und Tabellen als graue Karte */
+:root[mc-pref-dialog] :is(tree, richlistbox) {
+  appearance: none !important;
+  border: none !important;
+  border-radius: var(--mt-radius-card, 12px) !important;
+  background-color: var(--mt-control) !important;
+}
+
+:root[mc-pref-dialog] richlistbox {
+  padding: 0 !important;
+}
+
+:root[mc-pref-dialog] tree > treecols {
+  box-sizing: border-box !important;
+  min-height: 30px !important;
+  height: 30px !important;
+  padding-inline: 4px !important;
+  border-bottom: var(--mt-hairline) solid var(--mt-separator) !important;
+}
+
+:root[mc-pref-dialog] tree > treecols > :is(treecol, treecolpicker) {
+  min-height: 0 !important;
+  padding-block: 0 !important;
+}
+
+:root[mc-pref-dialog] tree > treecols > treecol {
+  padding-inline: 8px !important;
+  border: none !important;
+  font-size: calc(11.5px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Spaltentrenner zum Ziehen bleiben, nur ohne Linie */
+:root[mc-pref-dialog] tree > treecols > splitter {
+  border: none !important;
+  background: transparent !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-row {
+  min-height: 28px !important;
+  height: 28px !important;
+  border: none !important;
+  border-bottom: var(--mt-hairline) solid var(--mt-separator) !important;
+  background-color: transparent !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-row(selected),
+:root[mc-pref-dialog] treechildren::-moz-tree-row(selected, focus) {
+  background-color: var(--mt-selected-unfocused) !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-cell {
+  padding-inline: 8px !important;
+}
+
+:root[mc-pref-dialog] treechildren::-moz-tree-cell-text {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-pref-dialog] richlistbox > richlistitem {
+  min-height: 28px !important;
+  padding-inline: 12px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-pref-dialog] richlistbox > richlistitem:not(:last-of-type) {
+  border-bottom: var(--mt-hairline) solid var(--mt-separator) !important;
+}
+
+:root[mc-pref-dialog] richlistbox > richlistitem[selected] {
+  background: var(--mt-selected-unfocused) !important;
+  color: var(--mt-text) !important;
+}
+
+/* Spalten-Auswahl rechts im Tabellenkopf ohne eigenen Rahmen */
+:root[mc-pref-dialog] tree > treecols > treecolpicker {
+  appearance: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Häkchen- und Optionsgruppen als graue Karte: eine Reihe aufeinander
+   folgender Kästchen bzw. Optionen bildet eine Karte (Radius 12), Zeilen
+   38 px mit Haarlinie ab der Textkante; Thunderbirds Einzug entfällt */
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]) {
+  align-self: stretch !important;
+  min-height: 38px !important;
+  margin: 0 !important;
+  padding-inline: 12px !important;
+  background-color: var(--mt-control) !important;
+}
+
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]) + :is(checkbox, radio):not([hidden]) {
+  background-image: linear-gradient(var(--mt-separator), var(--mt-separator)) !important;
+  background-repeat: no-repeat !important;
+  background-position: 38px 0 !important;
+  background-size: calc(100% - 50px) var(--mt-hairline, 1px) !important;
+}
+
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]):not(:is(checkbox, radio):not([hidden]) + *) {
+  border-start-start-radius: var(--mt-radius-card, 12px) !important;
+  border-start-end-radius: var(--mt-radius-card, 12px) !important;
+}
+
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]):not(:has(~ :not([hidden]))),
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"], radiogroup:not(hbox:not([orient="vertical"]) > radiogroup)) > :is(checkbox, radio):not([hidden]):has(+ :not(checkbox, radio, [hidden])) {
+  border-end-start-radius: var(--mt-radius-card, 12px) !important;
+  border-end-end-radius: var(--mt-radius-card, 12px) !important;
+}
+
+:root[mc-pref-dialog] radiogroup:not(hbox:not([orient="vertical"]) > radiogroup) {
+  align-items: stretch !important;
+  margin-inline: 0 !important;
+}
+
+/* Offline: die waagerechten Gruppen stehen als Raster untereinander (unten),
+   als Karte dann so breit wie die übrigen */
+:root[mc-pref-dialog] #OfflineSettingsDialog radiogroup[orient="horizontal"] {
+  justify-items: stretch !important;
+}
+
+/* Zwischenüberschriften (Text direkt über einer Karte) klein, grau und
+   halbfett; ein einleitender Satz behält seinen Doppelpunkt (E28) */
+:root[mc-pref-dialog] :is(dialog, vbox, hbox[orient="vertical"]) > :is(label, description):not(:first-child):has(+ :is(radiogroup, checkbox, #enabledActions, #defaultClientList)) {
+  margin-block: 14px 6px !important;
+  margin-inline: 8px 0 !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* Trennlinien zwischen den Gruppen entfallen, die Karten trennen selbst */
+:root[mc-pref-dialog] separator.groove {
+  display: none !important;
+}
+
+/* Abstand zwischen einer Karte am Ende und der Knopfzeile (als Rand des
+   Inhalts: Thunderbird misst die Höhe des Dialogs am Inhalt, ein Rand an den
+   Knöpfen schnitte sie unten ab) */
+:root[mc-pref-dialog] dialog > :is(checkbox, radiogroup, vbox):not([hidden]):last-child {
+  margin-block-end: 12px !important;
+}
+
+/* Kategorie: Thunderbird setzt den Dialog auf 100vh – so maß der Rahmen die
+   Höhe vor der größeren Schrift, die Knöpfe waren unten abgeschnitten */
+:root[mc-pref-dialog] #editCategory {
+  height: auto !important;
+  padding-block-end: 8px !important;
+}
+
+/* Hilfetext unter der Überschrift grau; bei den Passwörtern über dem
+   Suchfeld wie in der Vorschau */
+:root[mc-pref-dialog] #signonsIntro {
+  order: -1 !important;
+  margin-block-end: 10px !important;
+}
+
+:root[mc-pref-dialog] :is(#signonsIntro, #permissionsText),
+:root[mc-pref-dialog] :is(dialog, window > vbox) > description:first-child,
+:root[mc-pref-dialog] :is(dialog, window > vbox) > label:not([control]):first-child {
+  color: var(--mt-text-secondary) !important;
+  margin-inline: 0 !important;
+}
+
+/* Knöpfe 30 px wie in allen Dialogen; Listenaktionen bleiben graue
+   Textknöpfe links, rechts steht ein Hauptknopf: „Close“ bei Passwörtern
+   und Cookies (der einzige Knopf rechts), „Save Changes“ bei den Ausnahmen */
+:root[mc-pref-dialog] button {
+  min-height: var(--mt-btn-h, 30px) !important;
+}
+
+:root[mc-pref-dialog]:is(#SignonViewerDialog, #CookiesDialog) #closeButton:not([disabled]),
+:root[mc-pref-dialog]#PermissionsDialog #btnApplyChanges:not([disabled]) {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+:root[mc-pref-dialog]:is(#SignonViewerDialog, #CookiesDialog) #closeButton:not([disabled]):hover:active,
+:root[mc-pref-dialog]#PermissionsDialog #btnApplyChanges:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+/* Ausnahmen: Block, Allow for Session und Allow sind Listenaktionen, keine
+   zweiten Hauptknöpfe (Thunderbird macht „Allow“ zum Standardknopf) */
+:root[mc-pref-dialog]#PermissionsDialog :is(#btnBlock, #btnSession, #btnAllow) {
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-pref-dialog]#PermissionsDialog :is(#btnBlock, #btnSession, #btnAllow)[disabled] {
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text, var(--mt-text-secondary)) !important;
+}
+
 :is(dialog:not(.account-hub-dialog), wizard) :is(input, textarea):focus {
   outline: none !important;
   border-color: var(--mt-accent) !important;
@@ -9746,6 +10500,501 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
+/* ---------- Einladungsfenster im halo-Design (mc-invite) ----------
+   Variante A des Designers (15.11.2026), nach der Antwort „nach-a“
+   (17.11.2026); die Erweiterung (haloInvitationDialog) setzt die Teile ein.
+   Bauart wie das Termin-Fenster: graue Karten (Radius 12), Kalenderfarbe als
+   Strich links am Titel, Beschriftungen grau und rechtsbündig. Oben statt
+   Werkzeugleiste und blauer Hinweisleiste eine ruhige graue Zeile (G5); unten
+   „…“ als runder grauer Symbolknopf, Decline und Tentative als graue
+   Textknöpfe, Accept als Hauptknopf (Knopf-Familie, 30 px); nach einer
+   Antwort ist der gewählte Knopf grau eingedrückt und es gibt keinen
+   Hauptknopf (G15). Zusage-Zeichen wie in der Einladung in der Mail (E26). */
+#calendar-summary-dialog[mc-invite] {
+  --mt-inv-card: var(--mt-control);
+  --mt-inv-line: var(--mt-separator);
+  --mt-inv-text2: var(--mt-text-secondary);
+  --mt-inv-text3: var(--mt-text-tertiary);
+  --mt-inv-avatar: linear-gradient(#A5ADBD, #868E9E);
+  --mt-inv-yes: #34C759;
+  --mt-inv-maybe: #FF9500;
+  --mt-inv-no: #FF3B30;
+  --mt-inv-pad: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  #calendar-summary-dialog[mc-invite] {
+    --mt-inv-yes: #30D158;
+    --mt-inv-maybe: #FF9F0A;
+    --mt-inv-no: #FF6961;
+  }
+}
+
+#calendar-summary-dialog[mc-invite] :is(#summary-toolbox, #status-notifications),
+#calendar-summary-dialog[mc-invite] .item-summary-box > .calendar-caption,
+#calendar-summary-dialog[mc-invite] .calendar-summary-table tr:is(:has(> .item-title), .calendar-row, .item-organizer-row),
+#calendar-summary-dialog[mc-invite] .item-attendees,
+#calendar-summary-dialog[mc-invite] .item-summary-splitter,
+#calendar-summary-dialog[mc-invite] :is(.item-description-box, .item-comment-box) > .calendar-caption,
+#calendar-summary-dialog[mc-invite] .item-comment-box > .default-spacer,
+#calendar-summary-dialog[mc-invite] .mc-inv-group[hidden],
+#calendar-summary-dialog[mc-invite] .mc-inv-st[hidden] {
+  display: none !important;
+}
+
+/* graue Zeile oben: Kalendersymbol bzw. Zeichen der Antwort, Text grau */
+#calendar-summary-dialog[mc-invite] .mc-inv-status {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 2px var(--mt-inv-pad) 0 !important;
+  padding: 0 4px !important;
+  min-height: 24px !important;
+  background: transparent !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-status-text {
+  color: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-status-icon {
+  flex: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  background: url("resource://mailcards/icons/calendar.svg") center / 16px no-repeat !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .calendar-summary-table,
+#calendar-summary-dialog[mc-invite] .calendar-summary-table > tbody {
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 12px 14px !important;
+  row-gap: 8px !important;
+  column-gap: 12px !important;
+}
+
+/* Karten */
+#calendar-summary-dialog[mc-invite] .mc-inv-card {
+  position: relative !important;
+  border-radius: 12px !important;
+  background: var(--mt-control) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-head {
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 12px 14px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-stripe {
+  position: absolute !important;
+  inset-block: 6px !important;
+  inset-inline-start: -10px !important;
+  width: 4px !important;
+  border-radius: 2px !important;
+  background: var(--mc-inv-cal) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-title {
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  line-height: calc(22px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Beschriftungen der Zeitkarte: grau, rechtsbündig, ohne Doppelpunkt
+   (Text aus data-mc-label, Thunderbirds eigener Text bleibt unsichtbar) */
+#calendar-summary-dialog[mc-invite] .calendar-summary-table th {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-align: end !important;
+  align-self: center !important;
+}
+
+#calendar-summary-dialog[mc-invite] .calendar-summary-table th::before {
+  content: attr(data-mc-label) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(18px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .calendar-summary-table td {
+  align-self: center !important;
+  line-height: calc(18px * var(--mt-font-scale, 1)) !important;
+}
+
+/* Erinnerung als Auswahl in der Karte: ohne eigene Fläche, Doppelpfeil rechts */
+#calendar-summary-dialog[mc-invite] .reminder-details > hbox {
+  width: 100% !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-alarm {
+  flex: 1 !important;
+  margin: 0 !important;
+  margin-inline-start: -10px !important;
+  min-height: 24px !important;
+  background-color: transparent !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-alarm:hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-cal {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 0 14px !important;
+  min-height: 36px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-dot {
+  flex: none !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: var(--mc-inv-cal) !important;
+}
+
+/* Invitees: Überschrift grau, darunter die Personen als Zeilen einer Karte
+   mit Haarlinien ab der Textkante */
+#calendar-summary-dialog[mc-invite] .mc-inv-group {
+  margin: 14px var(--mt-inv-pad) 0 !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-label {
+  margin: 0 4px 6px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people {
+  padding: 0 14px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-attendees-list-container {
+  appearance: none !important;
+  display: block !important;
+  flex: none !important;
+  height: auto !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list {
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+  display: block !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list-item {
+  display: block !important;
+  position: relative !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* Haarlinie über jeder Zeile außer der ersten, ab der Textkante (Kürzel 28 + 10) */
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list-item::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  inset-inline: 38px 0 !important;
+  height: var(--mt-hairline) !important;
+  background: var(--mt-separator) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-list:first-child > .attendee-list-item:first-child::before {
+  display: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 6px 0 !important;
+  border: none !important;
+  outline: none !important;
+  background: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] > .itip-icon {
+  display: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] > .attendee-name {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--mt-text) !important;
+  text-decoration: none !important;
+  cursor: default !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .attendee-label[mc-inv] > .attendee-name.text-link {
+  cursor: pointer !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-name {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(17px * var(--mt-font-scale, 1)) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .mc-inv-mail {
+  margin: 0 !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(16px * var(--mt-font-scale, 1)) !important;
+  color: var(--mt-text-secondary) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-av {
+  flex: none !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  overflow: hidden !important;
+  border-radius: 50% !important;
+  background: var(--mt-inv-avatar) !important;
+  color: #FFFFFF !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-av.mc-has-img {
+  background: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-av > img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-people .mc-inv-st {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-status .mc-inv-st {
+  margin-inline-start: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Beschreibung (und Kommentar) als Karte ohne Überschrift */
+#calendar-summary-dialog[mc-invite] .item-attendees-description {
+  flex: none !important;
+  margin: 0 !important;
+}
+
+/* Beschreibung so hoch wie ihr Text (Höhe setzt die Erweiterung, höchstens 200 px) */
+#calendar-summary-dialog[mc-invite] :is(.item-description-box, .item-comments-box, .item-comment-box) {
+  flex: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-description {
+  flex: none !important;
+  min-height: 0 !important;
+}
+
+#calendar-summary-dialog[mc-invite] :is(.item-description-box, .item-comment-box) {
+  margin: 10px var(--mt-inv-pad) 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 12px !important;
+  background: var(--mt-control) !important;
+}
+
+#calendar-summary-dialog[mc-invite] :is(.item-description, .item-comment) {
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+#calendar-summary-dialog[mc-invite] .item-comments-box {
+  margin: 0 !important;
+}
+
+/* Inhalt so hoch wie nötig (gestreckt maß sizeToContent das Fenster rund
+   300 px zu hoch); die Knopfzeile sitzt am unteren Rand */
+#calendar-summary-dialog[mc-invite] #calendar-item-summary {
+  flex: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] #calendar-item-summary {
+  padding-bottom: 14px !important;
+}
+
+/* Karten 16 px vom Fensterrand wie die Knopfzeile */
+#calendar-summary-dialog[mc-invite] :is(#calendar-item-summary, .item-summary-box) {
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+}
+
+/* Knopfzeile unten mit Haarlinie darüber */
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: auto !important;
+  padding: 12px var(--mt-inv-pad) 16px !important;
+  border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-gap {
+  flex: 1 !important;
+  min-width: 8px !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button {
+  appearance: none !important;
+  box-sizing: border-box !important;
+  flex: none !important;
+  height: var(--mt-btn-h, 30px) !important;
+  min-height: var(--mt-btn-h, 30px) !important;
+  margin: 0 !important;
+  padding: 0 14px !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+  color: var(--mt-text) !important;
+  font: inherit !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button:hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button:hover:active,
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button[aria-pressed="true"] {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+/* gewählte Antwort: grau eingedrückt mit Häkchen davor */
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button[aria-pressed="true"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  cursor: default !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button[aria-pressed="true"]::before {
+  content: url("resource://mailcards/icons/check.svg") !important;
+  width: 14px !important;
+  height: 14px !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: currentColor !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button.primary,
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button.primary:hover {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
+  box-shadow: var(--mt-primary-shadow) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > button.primary:hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+/* „…“: einzeln stehender runder grauer Symbolknopf */
+#calendar-summary-dialog[mc-invite] .mc-inv-buttons > .mc-inv-more {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: var(--mt-btn-h, 30px) !important;
+  min-width: var(--mt-btn-h, 30px) !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-more::before {
+  content: url("resource://mailcards/icons/more-20.svg") !important;
+  width: 20px !important;
+  height: 20px !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-text) !important;
+}
+
+
+/* Zeichen des Zusage-Stands wie in der Einladung in der Mail (E26): offen
+   graues Fragezeichen im Kreis, zugesagt grüner Kreis mit weißem Häkchen,
+   vielleicht orange mit Fragezeichen, abgesagt rot mit ×. Als halo-Symbole
+   statt der Masken aus parts.css (das Fenster sperrt dort data:-Bilder) */
+#calendar-summary-dialog[mc-invite] .mc-inv-st {
+  position: relative !important;
+  flex: none !important;
+  margin-inline-start: auto !important;
+  border-radius: 50% !important;
+  mask: none !important;
+  background: url("resource://mailcards/icons/question.svg") center / 100% no-repeat !important;
+  -moz-context-properties: fill, stroke !important;
+  fill: transparent !important;
+  stroke: var(--mt-inv-text3) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st::after {
+  display: none !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st:is([data-st="ACCEPTED"], [data-st="TENTATIVE"], [data-st="DECLINED"]) {
+  background-size: 78% !important;
+  stroke: #FFFFFF !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st[data-st="ACCEPTED"] {
+  background-image: url("resource://mailcards/icons/check.svg") !important;
+  background-color: var(--mt-inv-yes) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st[data-st="TENTATIVE"] {
+  background-image: url("resource://mailcards/icons/question-mark.svg") !important;
+  background-color: var(--mt-inv-maybe) !important;
+}
+
+#calendar-summary-dialog[mc-invite] .mc-inv-st[data-st="DECLINED"] {
+  background-image: url("resource://mailcards/icons/close-12.svg") !important;
+  background-size: 64% !important;
+  background-color: var(--mt-inv-no) !important;
+}
+
 /* Adressbuch: keine Linie über „Total contacts …“ und keine über der
    Kontaktliste (die Kopfzeile sitzt oben in der Toolbar) */
 #cardCount,
@@ -9940,7 +11189,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   top: -2px !important;
 }
 
-/* der Titel steht jetzt oben in der Toolbar-Zeile (#mcTodayTitle) */
+/* der Titel „Today“ steht zwischen Mini-Kalender und Terminliste (#mcTodayTitle) */
 #today-pane-header {
   display: none !important;
 }
@@ -9955,8 +11204,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none !important;
 }
 
-/* Thunderbirds „Neuer Termin“ unten entfällt – das „+“ sitzt oben rechts
-   in der Today-Pane (#mcTodayNew, setzt die Erweiterung) */
+/* Thunderbirds „Neuer Termin“ unten entfällt – das „+“ sitzt fest mittig
+   am unteren Rand der Today-Pane (#mcTodayFoot > #mcTodayNew, setzt die Erweiterung) */
 #today-pane-panel > #todaypane-new-event-button {
   display: none !important;
 }
@@ -9995,7 +11244,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 #mcNewPopup.mc-up .mc-pop::before {
   top: auto !important;
   bottom: -7px !important;
-  inset-inline-start: calc(50% - 7px) !important;
+  /* über der Mitte des „+“ (gemessen wie oben, sonst die Mitte) */
+  inset-inline-start: var(--mc-arrow-x, calc(50% - 7px)) !important;
   transform: rotate(225deg) !important;
 }
 
@@ -10134,6 +11384,13 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none !important;
 }
 
+/* Import und Export (about:import, mc-import setzt implementation.js): kein
+   Suchfeld im Kopf, es fände dort nichts; der Seitenleisten-Knopf bleibt,
+   er blendet wie im Einstellungs-Tab die Bereiche-Leiste aus */
+:root[mc-tab="contentTab"][mc-import] #unifiedToolbarContent > li[item-id="search-bar"] {
+  display: none !important;
+}
+
 /* Suchfeld immer 333 px wie in Apple Mail, direkt links der Today-Pane –
    es wandert beim Ein-/Ausblenden mit (--mc-tp-w folgt der Animation) und
    wird nur schmaler, wenn das Fenster zu eng ist (bis zur Lupe, 40 px) */
@@ -10165,52 +11422,11 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   border-inline-start: 1px solid var(--mt-sidebar-border);
   box-sizing: border-box;
   pointer-events: none;
-  display: flex;
-  align-items: center;
-  /* Titel mittig in der Fläche, links und rechts Platz für den Knopf */
-  justify-content: center;
-  padding-inline: min(62px, var(--mc-tp-w, 0px));
-  /* rechts Platz für „+“ und davor ≡/Fensterknöpfe von Windows/Linux –
-     der Titel rückt nie darunter; zusammen mit der Linie links (1 px) nie
-     mehr als die Breite, sonst wüchse die Fläche trotz border-box über die
-     Today-Pane hinaus (unter Windows um genau diesen Pixel nach links) */
-  padding-inline-end: min(calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
-                          max(0px, calc(var(--mc-tp-w, 0px) - min(62px, var(--mc-tp-w, 0px)) - 1px)));
   overflow: hidden;
 }
 
-/* während die Today-Pane gleitet: Überschrift an ihrem Endplatz (gemessen,
-   --mc-tt-off ab der linken Kante der Fläche), die Fläche deckt sie nur auf –
-   sie gleitet so mit der Pane herein bzw. hinaus */
-#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop {
-  justify-content: flex-start !important;
-  padding-inline: 0 !important;
-}
-
-#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop > #mcTodayTitle {
-  flex: none !important;
-  margin-inline-start: var(--mc-tt-off, 0px) !important;
-}
-
-/* (ohne Wetter gibt es kein Symbol: dann der Text, notfalls mit „…“) */
-#mcTodayTitle[data-narrow]:not([data-weather-off]) {
-  font-size: 0;
-  gap: 0;
-}
-
-/* Windows/Linux mit wenig Platz neben ≡ und Fensterknöpfen: Überschrift als
-   eigene Zeile oben in der Today-Pane (setzt die Erweiterung dorthin) */
-#mcTodayTitle[data-below] {
-  flex: none;
-  justify-content: center;
-  padding: 8px 12px 6px;
-  font-size: calc(15px * var(--mt-font-scale, 1));
-  gap: 7px;
-}
-
-/* die Toolbar-Leiste liegt über der Überschrift der Today-Pane: ihre leere
-   Fläche reicht Klicks durch (darunter zieht die Zeile weiter das Fenster),
-   ihre Knöpfe bleiben bedienbar */
+/* die leere Fläche der Toolbar-Leiste reicht Klicks durch (darunter zieht
+   die Zeile weiter das Fenster), ihre Knöpfe bleiben bedienbar */
 #unifiedToolbar,
 #unifiedToolbarContent {
   pointer-events: none;
@@ -10221,16 +11437,21 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   pointer-events: auto;
 }
 
+/* „Today“ mit Sonne bzw. Wetter mittig zwischen Mini-Kalender und Liste
+   (unter der Linie, über der Karte); Klick springt zu heute */
 #mcTodayTitle {
-  /* die Fläche darum lässt Klicks durch (Fenster ziehen); der Titel selbst
-     nimmt Klick und Tooltip an, Doppelklick zoomt hier nicht das Fenster */
-  pointer-events: auto;
   -moz-window-dragging: no-drag;
   cursor: default;
+  flex: none;
+  align-self: center;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   min-width: 0;
+  max-width: calc(100% - 24px);
+  /* Abstand zur Linie darüber 10 px, zur Karte darunter deren 8 px */
+  padding-top: 10px;
   font-size: calc(15px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--mt-text);
@@ -10331,14 +11552,17 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   appearance: none !important;
 }
 
-/* „+“ rechts oben in der Today-Pane: wie der Today-Knopf, am rechten Rand
-   (vor den Fensterknöpfen von Windows/Linux); nur bei offener Today-Pane */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayNew {
-  position: absolute !important;
-  z-index: 3 !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  inset-inline-end: calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))) !important;
+/* „+“ fest mittig am unteren Rand der Today-Pane in eigenem Streifen: die
+   Karte mit der Liste endet darüber (ihr Außenabstand 8 px + 4 px), die
+   Liste rollt in der Karte und läuft unten aus; wie der Today-Knopf 40 × 38 */
+#mcTodayFoot {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 10px;
+}
+
+#mcTodayNew {
   margin: 0 !important;
   width: 40px !important;
   height: 38px !important;
@@ -10354,15 +11578,14 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   appearance: none !important;
 }
 
-#mcTodayNew {
-  display: none;
-}
-
-/* „+“ sichtbar: der Today-Knopf hält Abstand dazu – unter Windows lassen die
-   breiten Fensterknöpfe in der Today-Pane sonst nur Platz für einen Knopf,
-   die beiden überlappten (beim Mac ändert das nichts, dort reicht der Platz) */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayToggle {
-  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + 46px), calc(var(--mc-tp-w, 0px) - 50px)) !important;
+/* Today-Pane gleitet: der Today-Knopf hängt an der Kante der Pane, im
+   Abstand seines Endplatzes (--mc-tp-full = volle Breite, --mc-tp-w = Breite
+   im Bild) – er gleitet mit ihr herein bzw. hinaus und steht im letzten Bild
+   schon am Endplatz (kein Nachsprung); nie rechts von seinem Platz bei
+   zugeklappter Pane */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-slide] > #mcTodayToggle {
+  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
+                        calc(var(--mc-tp-w, 0px) - var(--mc-tp-full, 0px) + max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))), calc(var(--mc-tp-full, 0px) - 50px)))) !important;
 }
 
 #mcTodayNew:hover {

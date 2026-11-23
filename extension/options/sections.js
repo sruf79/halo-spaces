@@ -14,12 +14,17 @@
 // Option davor passt; collapsed: Abschnitt eingeklappt. Keine Gedankenstriche
 // in den Texten
 // Reihenfolge (Maintainer 17.11.2026: „in den settings under halo.spaces sollte der punkt "spaces" an
-// oberster stelle gesetzt werden“): zuerst Spaces, dann je Space eine Gruppe in der Reihenfolge der
-// Bereichsleiste (nur Spaces mit eigener Einstellung, keine leeren Gruppen), danach Übergreifendes
+// oberster stelle gesetzt werden“; 20.11.2026: „appearance und spaces in den einstellungen bitte
+// zusammenfassen und ganz oben in den halo.spaces settings zeigen“): zuerst die gemeinsame Gruppe
+// „Appearance & Spaces“ (Name mit „&“ wie „Desktop & Dock“ der Systemeinstellungen), dann je Space eine
+// Gruppe in der Reihenfolge der Bereichsleiste (nur Spaces mit eigener Einstellung, keine leeren
+// Gruppen), Fehlerbehebung zuletzt
 var SECTIONS = t => [
-  [t("Spaces"), [
+  [t("Appearance & Spaces"), [
     { key: "sidebarGlow", label: t("Light glow in the sidebar"), hint: t("In the colour of the active space."),
       info: t("Also colours the dividing line next to the spaces. The tiles stay as they are.") },
+    { key: "earlyTheme", label: t("Design without flicker at start"),
+      hint: t("From the next start."), info: t("Writes a userChrome.css into your profile.") },
   ]],
   [t("Mail"), [
     { key: "fullConversation", label: t("Show whole conversation"),
@@ -63,10 +68,6 @@ var SECTIONS = t => [
       label: t("Add-on"), hint: t("Opens unchanged in its own tab.") },
     { key: "fifthSpaceUrl", type: "url", showIf: ["fifthSpace", "web"], label: t("Address"),
       hint: t("Opens like an app."), placeholder: "https://…" },
-  ]],
-  [t("Appearance"), [
-    { key: "earlyTheme", label: t("Design without flicker at start"),
-      hint: t("From the next start."), info: t("Writes a userChrome.css into your profile.") },
   ]],
   // Fehlerbehebung: nur, wenn etwas nicht stimmt (eingeklappt). Design und
   // eigene Symbole lassen sich nur noch über about:config abschalten

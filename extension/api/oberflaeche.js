@@ -1367,9 +1367,16 @@ class EnhancerOberflaeche {
     // auch die Toolbar-Zeile selbst: ändert sich nur sie (Fenster wird auf
     // seine Mindestbreite nachgezogen, Today-Pane), blieben sonst Knöpfe aus
     // einem engeren Zwischenstand ausgeblendet, obwohl wieder Platz ist
+    // Ebenso die Knopfleiste darin (ohne Innenabstand gemessen): das Hinweis-Symbol einer Add-on-Installation
+    // steht in derselben Zeile, die Knopfleiste macht ihm mit ihrem Innenabstand Platz – die Zeile bleibt dabei
+    // gleich breit, und ohne neue Messung wich keine Pille bzw. blieb danach eingeklappt (GitHub #67)
     const toolbarRow = top.document.getElementById("unifiedToolbarContainer");
     const rowRo = toolbarRow ? new top.ResizeObserver(() => update()) : null;
     rowRo?.observe(toolbarRow);
+    const toolbarContent = top.document.getElementById("unifiedToolbarContent");
+    if (toolbarContent) {
+      rowRo?.observe(toolbarContent);
+    }
     update();
     this.restorers.push(() => {
       ro.disconnect();

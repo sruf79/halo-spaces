@@ -243,6 +243,26 @@ EXTRA = {
     # Person ganz gefüllt (Teilnehmer-Dialog: Pflicht; Linie = optional)
     "user-fill.svg": ('<circle cx="12" cy="8.3" r="3.6" fill="context-stroke" fill-opacity="1"/>'
                       '<path d="M5 19.8c.9-3.7 3.6-5.6 7-5.6s6.1 1.9 7 5.6z" fill="context-stroke" fill-opacity="1"/>', 16, STROKE),
+    # Seltene Symbole Teil 2 (15.11.2026): App-Menü „Get Involved“ (zwei Hände) und „Export for Mobile“
+    # (Telefon mit Pfeil nach oben, wie die Kachel in den Einstellungen als Linie), Leerzustand der
+    # globalen Suche als ruhige Lupe 40 px mit dünnem Strich
+    "handshake.svg": ('<path d="M2.8 11.3 6.4 7.7l2.7.9"/><path d="M21.2 11.3l-3.6-3.6-3.3 1.1-3.7 2.9a1.3 1.3 0 0 0 1.6 2l2-1.4 3.9 3.6"/>'
+                      '<path d="M5.1 13.5l4.7 4.6a1.3 1.3 0 0 0 1.8 0l4.2-3.9"/><path d="M7.6 15.8l1.8-1.7M10 18.1l1.7-1.6"/>', 16, STROKE),
+    "mobile-export.svg": ('<rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6"/><path d="M12 15.2V8.6M9.4 11.2 12 8.6l2.6 2.6"/>', 16, STROKE),
+    "mobile-export-24.svg": ('<rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6"/><path d="M12 15.2V8.6M9.4 11.2 12 8.6l2.6 2.6"/>', 24, 1.5),
+    "search-empty-40.svg": (GLYPHS["search"], 40, 1.5),
+    # Formatleiste der Aufgaben-Beschreibung (22.11.2026): Fett als kräftiges B (Strich 2,4,
+    # die Bildidee „fett“ trägt der Strich), Kursiv als schräger Balken mit Querstrichen,
+    # Unterstrichen als U mit Linie, Listen mit Punkten bzw. kleinen Ziffern (Strich 1,3) vor drei Zeilen
+    "format-bold.svg": ('<path d="M7.5 4.8v14.4h6a3.7 3.7 0 0 0 0-7.4h-6M7.5 11.8h5a3.5 3.5 0 0 0 0-7h-5"/>', 16, 2.4),
+    "format-italic.svg": ('<path d="M10.5 4.8h7M6.5 19.2h7M14 4.8l-4 14.4"/>', 16, STROKE),
+    "format-underline.svg": ('<path d="M7.5 4.5V11a4.5 4.5 0 0 0 9 0V4.5M6 20h12"/>', 16, STROKE),
+    "format-list-bullet.svg": ('<circle cx="5" cy="6.5" r="1.4" fill="context-stroke" fill-opacity="1" stroke="none"/>'
+                               '<circle cx="5" cy="12" r="1.4" fill="context-stroke" fill-opacity="1" stroke="none"/>'
+                               '<circle cx="5" cy="17.5" r="1.4" fill="context-stroke" fill-opacity="1" stroke="none"/>'
+                               '<path d="M9.5 6.5h10M9.5 12h10M9.5 17.5h10"/>', 16, STROKE),
+    "format-list-number.svg": ('<path d="M4.3 5.3 5.6 4.4v4.3M4.2 10.6a1.4 1.3 0 0 1 2.7.4c0 1-2.7 2-2.7 3h2.8M4.2 15.6h2.6l-1.4 1.6a1.2 1.2 0 1 1-1.3 2" stroke-width="1.3"/>'
+                               '<path d="M10.5 6.5h9M10.5 12h9M10.5 17.5h9"/>', 16, STROKE),
 }
 
 

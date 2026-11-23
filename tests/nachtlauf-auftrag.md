@@ -20,7 +20,8 @@ Skript läuft aus dem Checkout). Gilt sie (Exitcode 0):
   Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen: mit Status
   „In Progress“ sagt der Filter „ja nur abschließen …“ (vorhandenen Commit nach main, CI, Done; keine neue Arbeit).
   Das gilt für jeden Eintrag auf „In Progress“, nicht nur für Liste B; Done trotzdem nur nach den bisherigen Regeln
-  („zur Abnahme“ wie in tests/umbau-tag1-auftrag.md, Reihen n/m wie in docs/board.md).
+  („zur Abnahme“ wie in tests/umbau-tag1-auftrag.md, Reihen n/m wie in docs/board.md); Einträge mit offener
+  Abnahme, Reihe (n/m) oder Teilschritt sortiert tests/umbau-woche.py selbst nach U, nicht nach A.
 - „Pausiert“: nie planen, nie bearbeiten, nie schließen.
 - Schritt 0 (Mitnehmen) und Schritt 4 (Push, CI, Release gepushter Commits) bleiben unverändert; „nicht beginnen“ gilt
   nur für neue Arbeit.
@@ -524,8 +525,8 @@ Reihenfolge:
         pausiert, bis das Skript den freien Reset des Maintainers erkennt;
         so lange gelten alle normalen Regeln (Vorsicht, Reserve, 06:30),
         keine neuen Volldampf-Einträge, laufende fertig machen. Nach dem
-        freien Reset meldet das Skript wieder „Volldampf aktiv …; Soll bis
-        nächster Reset N %“: dann wieder b), Ziel ist, bis zum automatischen
+        freien Reset meldet das Skript wieder „Volldampf aktiv … (…; freier
+        Reset …)“ (Soll immer ab Di 01:00): dann wieder b), Ziel ist, bis zum automatischen
         Reset Dienstag 01:00 kaum noch Kontingent übrig zu haben. Nichts in
         volldampf.txt, volldampf-beendet.txt oder wochenanker.txt schreiben.
       - Fable (statt der Regel aus AGENTS.md „Rot bleibt rot“, nur im

@@ -13242,7 +13242,7 @@ class CardEnhancer {
       // Einfügungen einer älteren Fassung (Update oder Neustart der Erweiterung,
       // deren Aufräumen nicht lief) ersetzen statt eine zweite Überschrift
       // mit zweiter Sonne daneben zu setzen
-      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayFoot", "mcTodayGrip"]) {
+      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayGrip"]) {
         for (const el of d.querySelectorAll("#" + id)) {
           el.remove();
         }
@@ -13365,31 +13365,25 @@ class CardEnhancer {
       });
       placeTodayGrip = placeGrip;
       // in die Toolbar-Zeile; darüber reicht die Today-Pane bis ganz oben
-      // (#mcTodayTop in ihrer Breite) – wie die Seitenleiste links. Oben steht
-      // nur der Today-Knopf (unter Windows/Linux rechts die Fensterknöpfe)
+      // (#mcTodayTop in ihrer Breite) – wie die Seitenleiste links
       const row = d.getElementById("unifiedToolbarContainer");
       const top = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
       top.id = "mcTodayTop";
-      row?.prepend(top);
-      // „Today“ mit Sonne bzw. Wetter mittig zwischen Mini-Kalender und
-      // Terminliste (über der Karte); Klick springt zum heutigen Tag
+      // Überschrift „Today Pane“ oben in der Toolbar-Zeile, neben dem Knopf
       const title = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       title.id = "mcTodayTitle";
       // Text und Sonne/Wetter als eigene Elemente: jedes mit eigenem Tooltip
       const titleText = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       titleText.className = "mc-tt-text";
-      titleText.textContent = tr("Today");
+      titleText.textContent = tr("Today Pane");
       const weatherIcon = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       weatherIcon.id = "mcTodayWeather";
       title.append(titleText, weatherIcon);
-      const agendaList = d.getElementById("agenda");
-      if (agendaList?.parentNode) {
-        agendaList.before(title);
-      } else {
-        panel?.prepend(title);
-      }
+      top.append(title);
+      row?.prepend(top);
       // Wetter statt der festen Sonne (Option, Standard aus)
       Weather.attach(w, title);
+      // Klick auf die Überschrift springt zum heutigen Tag, Liste nach oben
       title.setAttribute("role", "button");
       title.tabIndex = 0;
       title.title = tr("Go to Today");
@@ -13403,11 +13397,8 @@ class CardEnhancer {
       title.addEventListener("click", goToday);
       title.addEventListener("keydown", goToday);
       (row || d.body).append(btn);
-      // „+“ fest mittig am unteren Rand der Today-Pane in eigenem Streifen
-      // (#mcTodayFoot): die Liste rollt darüber und läuft aus, das „+“ bewegt
-      // sich nie – fragt nach Termin oder Aufgabe (Popover nach oben)
-      const foot = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
-      foot.id = "mcTodayFoot";
+      // „+“ oben rechts in der Today-Pane, gleiche Größe und Höhe wie der
+      // Today-Knopf – fragt nach Termin oder Aufgabe (statt unten unter der Liste)
       const plus = d.createElementNS("http://www.w3.org/1999/xhtml", "button");
       plus.id = "mcTodayNew";
       plus.type = "button";
@@ -13415,15 +13406,12 @@ class CardEnhancer {
       plus.setAttribute("aria-label", plus.title);
       plus.addEventListener("click", event => {
         event.stopPropagation();
-        newPopup?.above(plus);
+        newPopup?.below(plus);
       });
-      foot.append(plus);
-      (panel || d.body).append(foot);
+      btn.after(plus);
       this.restorers.push(() => {
-        foot.remove();
+        plus.remove();
         row?.removeAttribute("data-mc-tp-open");
-        row?.removeAttribute("data-mc-tp-slide");
-        row?.style.removeProperty("--mc-tp-full");
         row?.removeAttribute("data-mc-tp-none");
       });
       // Verlauf am Kartenboden nur, solange unten noch Termine verborgen sind
@@ -13483,6 +13471,22 @@ class CardEnhancer {
         setVar(row, "--mc-caption-w", `${caption}px`);
         const tail = rowTail(d);
         setVar(row, "--mc-row-tail", `${tail}px`);
+        // neben Knopf und Fensterknöpfen zu wenig Platz: nur die Sonne
+        // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. ≡/Fensterknöpfe
+        const room = width - 60 - (60 + Math.max(caption, tail));
+        title.toggleAttribute("data-narrow", room < 110);
+        // nicht einmal für die Sonne Platz (Windows/Linux: ≡ und Fensterknöpfe
+        // liegen über der Today-Pane): Überschrift als eigene Zeile oben in der
+        // Today-Pane statt unsichtbar unter „+“
+        const below = width > 0 && room < 32;
+        if (below != (title.parentNode == panel)) {
+          if (below) {
+            panel.prepend(title);
+          } else {
+            top.append(title);
+          }
+        }
+        title.toggleAttribute("data-below", below);
       };
       w.__mcTodayTopSync = sync;
       const ro = panel ? new w.ResizeObserver(sync) : null;
@@ -15121,8 +15125,6 @@ class CardEnhancer {
         popup.classList.add("mc-up");
         lastAnchor = anchor;
         const width = 294; // Breite des Popovers samt Rand für den Schatten
-        // am Bildschirmrand schiebt Gecko es ein – Pfeil danach nachmessen
-        popup.addEventListener("popupshown", () => aimArrow(anchor), { once: true });
         popup.openPopup(anchor, "before_start", Math.round(anchor.getBoundingClientRect().width / 2 - width / 2), 12);
       };
       // Pfeil über die Mitte des Knopfs – nach dem Öffnen gemessen, so stimmt

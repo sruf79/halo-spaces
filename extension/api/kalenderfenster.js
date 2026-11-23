@@ -1238,28 +1238,6 @@ class EnhancerKalender {
         delete panel.__mcEdgeNow;
       }
     };
-    // Platzaufteilung der Toolbar (Einzug, Abstand nach „Verfassen“, Suchfeld,
-    // eingeklappte Knöpfe) für das Endmaß, bis sie still steht: ein Durchgang
-    // gibt dem Abstand nach „Verfassen“ nur den Platz, den der Abstandhalter
-    // vor dem Suchfeld gerade hat – den Rest holte erst das Nachmessen nach der
-    // Animation, und alle Knöpfe rechts von „Verfassen“ sprangen dann (Mail mit
-    // gewählter Nachricht, 1500 px, Ausblenden: 13 px)
-    const offsetsNow = () => {
-      const bar = barTarget(d).style;
-      const vars = ["--mc-toolbar-offset", "--mc-write-gap", "--mc-mid-gap"];
-      for (let i = 0, before = null; i < 4; i++) {
-        for (const f of this.offsetUpdaters || []) {
-          try {
-            f();
-          } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
-        }
-        const now = vars.map(v => bar.getPropertyValue(v)).join("|");
-        if (now == before) {
-          break;
-        }
-        before = now;
-      }
-    };
     if (showing) {
       d.getElementById("unifiedToolbarContainer")?.style.setProperty("--mc-tp-room", `${Math.round(full)}px`);
       panel.__mcSliding = "in";
@@ -1272,23 +1250,19 @@ class EnhancerKalender {
       // sprang um 120 px)
       w.__mcTodayTopSync?.();
       d.getElementById("unifiedToolbarContainer")?.removeAttribute("data-mc-tp-open");
-      offsetsNow();
+      for (const f of this.offsetUpdaters || []) {
+        try {
+          f();
+        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
+      }
       // Endmaß der Mailliste (die Pane liegt noch im Fluss)
       listToNow();
     }
     panel.__mcAnimating = true;
     panel.setAttribute("data-mc-anim", "true"); // Mindestbreite (CSS) solange aussetzen
-    // Der Today-Knopf gleitet mit der Kante der Pane herein bzw. hinaus, im
-    // Abstand seines Endplatzes (--mc-tp-full, CSS); unter Windows rückte er
-    // sonst am Ende des Einblendens nach (gemessen 9 px im schmalen Fenster).
-    // Überschrift „Today“ und „+“ liegen in der Pane und gleiten mit ihr.
+    // „+“ beim Ausblenden gleich zu Beginn weg – sonst gleitet der Today-Knopf darüber
     if (!showing) {
       d.getElementById("unifiedToolbarContainer")?.removeAttribute("data-mc-tp-open");
-    }
-    {
-      const bar = d.getElementById("unifiedToolbarContainer");
-      bar?.style.setProperty("--mc-tp-full", `${Math.round(full)}px`);
-      bar?.setAttribute("data-mc-tp-slide", "");
     }
     // Platz für die Today-Pane in der Toolbar beim Einblenden gleich am Anfang
     // (beim Ausblenden erst am Ende, über todayTopSync) – nicht mittendrin
@@ -1339,6 +1313,9 @@ class EnhancerKalender {
     const row = d.getElementById("unifiedToolbarContainer");
     const rtl = w.getComputedStyle(d.documentElement).direction == "rtl" ? -1 : 1;
     const editBlock = d.getElementById("tabmail")?.currentTabInfo?.browser?.contentDocument?.querySelector("#detailsActions .edit-block");
+    // Überschrift: Endzustand (Breite, nur Sonne oder ganzer Titel) jetzt
+    // messen, solange die Pane ihre volle Breite hat, und dort festhalten
+    // (beim Ausblenden gilt er schon; das „+“ erscheint wie bisher erst am Ende)
     // Die Toolbar-Zeile bekommt gleich ihr Endmaß (einmal neu anordnen),
     // Suchfeld und Knöpfe rechts werden dann vom alten an den neuen Platz
     // geschoben – in beide Richtungen gleich
@@ -1358,7 +1335,11 @@ class EnhancerKalender {
     // schon oben, solange die Pane im Fluss lag)
     if (!showing) {
       panel.__mcAnimating = false;
-      offsetsNow();
+      for (const f of this.offsetUpdaters || []) {
+        try {
+          f();
+        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
+      }
       panel.__mcAnimating = true;
       // Endmaß der Mailliste (die Pane liegt schon über dem Inhalt)
       listToNow();
@@ -1392,6 +1373,20 @@ class EnhancerKalender {
     // schon am Endmaß, das Feld darin reicht weiter bzw. weniger weit)
     const toSearchW = searchLi && fromSearchW != null && toAll[kidsAll.indexOf(searchLi)] != null ? searchLi.getBoundingClientRect().width : null;
     const searchExtra = toSearchW != null ? fromSearchW - toSearchW : 0;
+    const topEl = d.getElementById("mcTodayTop");
+    const titleEl = d.getElementById("mcTodayTitle");
+    if (row && topEl && titleEl) {
+      const tr0 = rectOf(topEl), ti = rectOf(titleEl);
+      if (tr0?.width && ti?.width) {
+        // Versatz im Zustand der Animation selbst messen (Rand, Innenabstand,
+        // Bruchteile – sonst rückte der Titel am Ende um 1 px): erst ohne
+        // Versatz an den Anfang, dann so weit, bis er am Endplatz steht
+        row.style.setProperty("--mc-tt-off", "0px");
+        row.setAttribute("data-mc-tp-anim", "");
+        const origin = rectOf(titleEl)?.left ?? tr0.left;
+        row.style.setProperty("--mc-tt-off", `${(ti.left - origin).toFixed(2)}px`);
+      }
+    }
     // Anteil der Bewegung p (0 → 1); das Layout steht schon am Ende (to),
     // Suchfeld und Knöpfe gleiten von ihrer alten an die neue Stelle, das
     // Suchfeld ändert dabei stufenlos seine Breite (die Stufe – nur Lupe,
@@ -1422,12 +1417,6 @@ class EnhancerKalender {
     if (showing) {
       setW(0);
       ride(0);
-      // Fläche und Today-Knopf der Toolbar-Zeile schon im ersten Bild auf
-      // Breite 0 (die Bewegung beginnt erst zwei Bilder später): sync() oben
-      // hatte für die Messungen die volle Breite gesetzt, und bis zum ersten
-      // Schritt standen Kopf und Knopf ein, zwei Bilder lang schon am
-      // Endplatz und sprangen dann zurück
-      w.__mcTodayTopSync?.(0);
     } else {
       ride(full);
     }
@@ -1496,8 +1485,8 @@ class EnhancerKalender {
           el.style.removeProperty("box-sizing");
         }
       }
-      row?.removeAttribute("data-mc-tp-slide");
-      row?.style.removeProperty("--mc-tp-full");
+      row?.removeAttribute("data-mc-tp-anim");
+      row?.style.removeProperty("--mc-tt-off");
       listEl?.style.removeProperty("--mt-list-hold");
       delete panel.__mcListRide;
       // Toolbar einmal neu anordnen (während der Animation ausgesetzt)

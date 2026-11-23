@@ -254,6 +254,26 @@ def mark_check(name):
 # bekannt=True: offener Bug als Prüfung festgehalten (Konvention aus dem Comment Ranker, „Known gaps“). Sie heißt
 # „BEKANNTER FEHLER: …“, ist grün, solange der Fehler besteht (fn meldet Fehlschlag), und rot, sobald er – auch
 # nebenbei – behoben ist; dann in eine normale Prüfung umwandeln (bekannt=True weg). So fallen mitbehobene Bugs auf
+DIAG_MIN = [None]
+
+
+def diag_min(name):
+    """Diagnose (nur Prüfzweig, nur lesen): Spielraum der Fensterbreite nach jeder Prüfung, eine Zeile bei Änderung."""
+    if not CHECK_M:
+        return
+    try:
+        v = CHECK_M.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + """
+          const tm_ = d.getElementById("tabmail"); const mode = tm_?.currentTabInfo?.mode?.name, a3 = tm_?.currentAbout3Pane;
+          const g = id => { const el = a3?.document.getElementById(id); return el ? Math.round(el.getBoundingClientRect().width) + "/" + a3.getComputedStyle(el).minWidth : "-"; };
+          return [mode, w.outerWidth, d.documentElement.style.minWidth, Math.round(w.__mcLayoutSlack?.() ?? -999), g("folderPane"), g("threadPane"), g("messagePane"),
+                  (a3?.document.body.className || "").slice(0, 60), !!w.TodayPane?.isVisible, a3?.gDBView?.numSelected ?? -1];""", "args": []}).get("value")
+    except Exception as e:
+        v = ["Ausnahme", str(e)[:80]]
+    if v != DIAG_MIN[0]:
+        DIAG_MIN[0] = v
+        print(f"DIAGMIN {v} nach: {name[:90]}", flush=True)
+
+
 def check(name, fn, results, immer=False, bekannt=False):
     global IN_CHECK, LAST_END
     if bekannt:
@@ -281,6 +301,7 @@ def check(name, fn, results, immer=False, bekannt=False):
     if bekannt:
         ok, detail = (not ok), (f"besteht noch – {detail}" if not ok else f"behoben? läuft jetzt durch – in eine normale Prüfung umwandeln – {detail}")
     results.append((name, ok, detail))
+    diag_min(name)
     print(f"{'OK     ' if ok else 'FEHLER '} {name}" + (f" – {detail}" if detail else ""), flush=True)
 
 
@@ -16607,7 +16628,8 @@ def run_checks(m, version, profile, results):
         # 224 statt 380 px zusammengedrückt)
         res = m.js('''
           await toMail(); const sx = w.screenX, sy = w.screenY, sw = w.outerWidth, sh = w.outerHeight;
-          const mcWin = l => { const a3 = tm.currentAbout3Pane; return [l, w.outerWidth, w.innerWidth, w.screenX, w.windowState, Math.round(a3?.innerWidth ?? -1), Math.round(d.getElementById("today-pane-panel")?.getBoundingClientRect().width ?? -1), [...Services.wm.getEnumerator(null)].map(x => [x.document.documentElement.getAttribute("windowtype"), x.outerWidth, x.outerHeight, x.screenX].join("/")).join(" ")]; };
+          const mcWin = l => { const a3 = tm.currentAbout3Pane; return [l, w.outerWidth, w.innerWidth, w.screenX, w.windowState, Math.round(a3?.innerWidth ?? -1), Math.round(d.getElementById("today-pane-panel")?.getBoundingClientRect().width ?? -1), [...Services.wm.getEnumerator(null)].map(x => [x.document.documentElement.getAttribute("windowtype"), x.outerWidth, x.outerHeight, x.screenX].join("/")).join(" "),
+            "min " + d.documentElement.style.minWidth + " slack " + Math.round(w.__mcLayoutSlack?.() ?? -999) + " " + ["folderPane", "threadPane", "messagePane"].map(id => { const el = a3?.document.getElementById(id); return el ? id[0] + Math.round(el.getBoundingClientRect().width) + "/" + a3.getComputedStyle(el).minWidth : id[0] + "-"; }).join(" ") + " " + (a3?.document.body.className || "").slice(0, 60)]; };
           const diagWin = [mcWin("vorher")];
           const right = w.screen.availLeft + w.screen.availWidth;
           w.moveTo(right - 1300, w.screen.availTop); w.resizeTo(1300, 900); diagWin.push(mcWin("gleich nach 1300")); await wait(1200); diagWin.push(mcWin("1300"));
@@ -16633,7 +16655,8 @@ def run_checks(m, version, profile, results):
     def today_animation():
         res = m.js('''
           await toMail(); await ruhig(1500);
-          const mcWin = l => { const a3 = tm.currentAbout3Pane; return [l, w.outerWidth, w.innerWidth, w.screenX, w.windowState, Math.round(a3?.innerWidth ?? -1), Math.round(d.getElementById("today-pane-panel")?.getBoundingClientRect().width ?? -1), [...Services.wm.getEnumerator(null)].map(x => [x.document.documentElement.getAttribute("windowtype"), x.outerWidth, x.outerHeight, x.screenX].join("/")).join(" ")]; };
+          const mcWin = l => { const a3 = tm.currentAbout3Pane; return [l, w.outerWidth, w.innerWidth, w.screenX, w.windowState, Math.round(a3?.innerWidth ?? -1), Math.round(d.getElementById("today-pane-panel")?.getBoundingClientRect().width ?? -1), [...Services.wm.getEnumerator(null)].map(x => [x.document.documentElement.getAttribute("windowtype"), x.outerWidth, x.outerHeight, x.screenX].join("/")).join(" "),
+            "min " + d.documentElement.style.minWidth + " slack " + Math.round(w.__mcLayoutSlack?.() ?? -999) + " " + ["folderPane", "threadPane", "messagePane"].map(id => { const el = a3?.document.getElementById(id); return el ? id[0] + Math.round(el.getBoundingClientRect().width) + "/" + a3.getComputedStyle(el).minWidth : id[0] + "-"; }).join(" ") + " " + (a3?.document.body.className || "").slice(0, 60)]; };
           const diagWin = [mcWin("Beginn")]; let nResize = 0; const onResize = () => nResize++; w.addEventListener("resize", onResize);
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
           const title = d.getElementById("mcTodayTitle");

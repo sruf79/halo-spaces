@@ -4640,6 +4640,9 @@ panel {
   stroke: var(--mt-text-tertiary) !important;
   inline-size: 8px !important;
   block-size: 8px !important;
+  /* 2 px höher als Thunderbirds Punkt (8×6): unten 2 px weniger Rand, sonst
+     wird die To-Zeile im Verfassen 1–2 px höher */
+  margin-block-end: calc(1em - 2px) !important;
 }
 
 mail-address-pill[selected]:not(.editing) .pill-indicator {

@@ -466,18 +466,28 @@ VERGLEICH_ORDNER = os.environ.get("HALO_KONSOLE_VERGLEICH") or os.path.join(os.p
                                                                            "konsole-vergleich")
 
 
-def tb_kennung(tb):
-    """Version und Build-ID des Thunderbird-Programms aus application.ini (neben dem Programm, unter macOS in
-    Contents/Resources) – None, wenn sie nicht lesbar ist (dann ohne Zwischenspeicher)."""
+def tb_ini(tb):
+    """Text der application.ini des Thunderbird-Programms (neben dem Programm, unter macOS in Contents/Resources, beim
+    Snap der Linux-VM /snap/bin/<name> → /snap/<name>/current/usr/lib/thunderbird) – None, wenn nicht lesbar."""
     d = os.path.dirname(os.path.realpath(shutil.which(tb) or tb))
-    for ini in (os.path.join(d, "application.ini"), os.path.join(d, "..", "Resources", "application.ini")):
+    orte = [os.path.join(d, "application.ini"), os.path.join(d, "..", "Resources", "application.ini")]
+    if tb.startswith("/snap/bin/"):
+        orte.append(f"/snap/{os.path.basename(tb)}/current/usr/lib/thunderbird/application.ini")
+    for ini in orte:
         try:
-            text = open(ini, encoding="utf-8", errors="replace").read()
+            return open(ini, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        v, b = re.search(r"^Version=(.+)$", text, re.M), re.search(r"^BuildID=(.+)$", text, re.M)
-        if v:
-            return re.sub(r"[^\w.-]", "_", f"{v.group(1).strip()}-{b.group(1).strip() if b else '0'}")
+    return None
+
+
+def tb_kennung(tb):
+    """Version und Build-ID des Thunderbird-Programms aus application.ini (tb_ini) – None, wenn sie nicht lesbar ist
+    (dann ohne Zwischenspeicher)."""
+    text = tb_ini(tb) or ""
+    v, b = re.search(r"^Version=(.+)$", text, re.M), re.search(r"^BuildID=(.+)$", text, re.M)
+    if v:
+        return re.sub(r"[^\w.-]", "_", f"{v.group(1).strip()}-{b.group(1).strip() if b else '0'}")
     return None
 
 
@@ -972,10 +982,10 @@ def main():
 
     profile = create_profile(xpi, args.port, args.dark)
     print(f"halo.spaces {version} · Paket {os.path.basename(xpi)} · Profil {profile}", flush=True)
-    if args.vm_args:  # in der VM: welche Thunderbird-Version (application.ini neben dem Programm)
-        ini = os.path.join(os.path.dirname(args.tb), "application.ini")
-        tbv = re.search(r"^Version=(.+)$", open(ini).read(), re.M) if os.path.exists(ini) else None
-        print(f"Windows {platform.version()} · Thunderbird {tbv.group(1) if tbv else '?'}", flush=True)
+    if args.vm_args:  # in der VM: welches System und welche Thunderbird-Version (application.ini, tb_ini)
+        tbv = re.search(r"^Version=(.+)$", tb_ini(args.tb) or "", re.M)
+        print(f"{platform.system()} {platform.release() if sys.platform.startswith('linux') else platform.version()}"
+              f" · Thunderbird {tbv.group(1).strip() if tbv else '?'}", flush=True)
     proc = start_thunderbird(args.tb, profile, args.tb_log)
     results = []
     try:

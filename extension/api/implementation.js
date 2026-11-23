@@ -8354,12 +8354,9 @@ class CardEnhancer {
             // im selben Ladeschritt direkt nach Thunderbirds eigenem Aufbau (dessen
             // load-Handler steht erst nach DOMContentLoaded fest), also bevor das
             // Fenster erscheint – mit Verzögerung sprang es sichtbar auf die neue Größe
-            // Einladungen schmaler (halo-Design mit Karten, haloInvitationDialog)
-            const invite = !!dlg.arguments?.[0]?.isInvitation;
-            doc.documentElement.style.minWidth = invite ? "400px" : "480px";
+            doc.documentElement.style.minWidth = "480px";
             dlg.addEventListener("DOMContentLoaded", () => {
               dlg.addEventListener("load", () => {
-                this.haloInvitationDialog(dlg);
                 this.linkSummaryLocation(dlg);
                 this.fitSummaryDialog(dlg);
                 // Beschreibung steht hier in einem eigenen Inhaltsdokument

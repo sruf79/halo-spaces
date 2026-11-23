@@ -37,6 +37,14 @@ UNFERTIG = re.compile(r"teilweise|Teil-?[Ff]ix|\bTeil\b|Teil \d|Schritt|[Oo]ffen
 # „zur Abnahme“ (Maintainer 18. und 20.11.2026, docs/release.md): bleibt In Progress, auch mit grüner CI; geschlossen
 # wird erst nach „abgenommen“ durch den Abnahme-Lauf (Entscheidung nach der Fable-Prüfung 22.11.2026, M4)
 ABNAHME = re.compile(r"zur Abnahme", re.I)
+# Fable-Prüfung 23.11.2026, Befund 1 und 4 (JF_6A „Logo neu“ stand in A): „zur Abnahme“ in irgendeiner Notiz zählt, nicht
+# nur ab der letzten Commit-Notiz; aufgehoben nur durch ein späteres „abgenommen“ (docs/release.md, Maintainer 18.11.2026),
+# nicht durch „Abnahme: Mangel“ oder „Mangel behoben“. Ebenso Reihe (n/m) oder Teil/Teilschritt in irgendeiner Notiz: kein
+# Done (Reihen nie Done, Teil heißt angefangen, nicht fertig; tests/umbau-tag1-auftrag.md, docs/board.md)
+ABGENOMMEN = re.compile(r"(?<![-\w])abgenommen", re.I)
+# kein Abnahmevermerk: verneint („nicht/kein/ohne abgenommen“) oder zitiert („nach „abgenommen““, Regeltext)
+NICHT_ABGENOMMEN = re.compile(r"(\b(nicht|kein|keine|ohne|noch)\s*[„“\"']?|[„“\"'])$", re.I)
+TEIL = re.compile(r"Teilschritt|\bTeil\b|Teil \d|Teil-?[Ff]ix|teilweise", re.I)
 COMMITTET = re.compile(r"committet|übernommen|cherry-pick|gepusht")
 HASH = re.compile(r"(?<![0-9A-Za-z_/-])[0-9a-f]{7,40}(?![0-9A-Za-z_-])")
 WORKER = re.compile(r"In Arbeit( beendet| aufgegeben)?: (worker-[^ ]+) \(Auslastungswächter, ([^),]+)")
@@ -96,7 +104,8 @@ def erlaubt(typ, titel, ident="", status=""):
         # Fable-Prüfung M6: was Tag 1 auf In Progress ließ, „bleibt In Progress und wird abgeschlossen“ (Wortlaut 20.11.):
         # zu Ende bringen ist kein Beginnen, aber nur abschließen, keine neue Arbeit
         return True, ("ja nur abschließen: steht auf In Progress (Tag 1 ließ ihn dort, „wird abgeschlossen“) – vorhandenen "
-                      "Commit nach main bringen, CI abwarten, Done; keine neue Arbeit")
+                      "Commit nach main bringen, CI abwarten, Done; nicht Done bei „zur Abnahme“ ohne spätere „abgenommen“, "
+                      "Reihe (n/m) oder Teil/Teilschritt: dann bleibt er In Progress; keine neue Arbeit")
     if typ.lower() == "feature":
         return False, "nein Feature/Design beginnt in der Umbau-Woche nicht"
     return False, "nein Bug ohne Meldung eines Nutzers (kein GitHub #n) beginnt in der Umbau-Woche nicht"
@@ -206,9 +215,24 @@ def einordnen(i, f, now):
     return r
 
 
+def offene_abnahme(teile):
+    """„zur Abnahme“ in irgendeiner Notiz, danach kein „abgenommen“."""
+    text = "\n\n".join(teile)
+    letzte = None
+    for m in ABNAHME.finditer(text):
+        letzte = m
+    if not letzte:
+        return False
+    return not any(not NICHT_ABGENOMMEN.search(text[max(0, m.start() - 12):m.start()])
+                   for m in ABGENOMMEN.finditer(text, letzte.end()))
+
+
 def einordnen_commit(n, absatz, hs, kurz, titel, teile, f):
-    if any(ABNAHME.search(a) for a in teile[n:]):
+    if offene_abnahme(teile):
         return "U", kurz, "zur Abnahme: bleibt In Progress, geschlossen erst nach „abgenommen“ (feste Regel)"
+    # die letzte Commit-Notiz prüfen UNFERTIG/REIHE unten, Notizen danach machen ohnehin U: hier die früheren
+    if any(REIHE.search(a) or TEIL.search(a) for a in teile[:n]):
+        return "U", kurz, "Reihe (n/m) oder Teil/Teilschritt in einer früheren Notiz: kein Done"
     if n != len(teile) - 1:
         return "U", kurz, "nach der letzten Commit-Notiz folgen weitere Notizen"
     if not COMMITTET.search(absatz):

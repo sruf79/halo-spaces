@@ -146,6 +146,15 @@ J+=("$(e NTEIL Bug 'Mail: Suchfeld springt [GitHub #70]' "Teil 1 committet, wart
 J+=("$(e NFERT Bug 'Mail: Liste leer [GitHub #71]' "committet, wartet auf Push/CI ($H_GRUEN)")")
 J+=("$(e UABNA Feature 'Knöpfe: Kapsel' "committet, CI grün ($H_GRUEN), zur Abnahme an den Designer")")
 J+=("$(e AJF6A Feature 'Logo neu: Ring' "Abnahme-Mangel behoben: leeres Quadrat. committet, wartet auf Push/CI ($H_GRUEN)")")
+# Fable-Prüfung 23.11. (Befund 1 und 4): wie JF_6A „Logo neu“ – frühere Notiz „Teilschritt 1 … zur Abnahme“, danach
+# „Abnahme: Mangel“ und „Mangel behoben … committet“, nie „abgenommen“ → U, nicht A
+J+=("$(e UJF6A Feature 'Logo neu: Ring, dazu Schwarz-Weiß-Fassung' "Teilschritt 1 committet ($H_GRUEN), zur Abnahme 2026-11-19. Offen: Schwarz-Weiß-Fassung\n\nAbnahme 2026-11-20: Mangel – leeres Quadrat\n\nAbnahme-Mangel behoben: leeres Quadrat. committet, wartet auf Push/CI ($H_GRUEN)")")
+J+=("$(e UABNN Feature 'Knöpfe: Rand' "committet ($H_GRUEN), zur Abnahme\n\nnoch nicht abgenommen; Nachtrag committet, wartet auf Push/CI ($H_GRUEN)")")
+J+=("$(e UABNZ Feature 'Knöpfe: Höhe' "committet ($H_GRUEN), zur Abnahme\n\nHinweis: nach „zur Abnahme“ folgte noch kein „abgenommen“\n\nNachtrag committet, wartet auf Push/CI ($H_GRUEN)")")
+J+=("$(e AABGN Feature 'Knöpfe: Schatten' "committet ($H_GRUEN), zur Abnahme\n\nabgenommen 2026-11-21 (automatische Abnahme v3.1.0): passt\n\nNachtrag committet, wartet auf Push/CI ($H_GRUEN)")")
+J+=("$(e UREIN Feature 'Kalender: Wochenansicht' "Reihe (1/3): Plan\n\ncommittet, wartet auf Push/CI ($H_GRUEN)")")
+J+=("$(e UTEIF Bug 'Mail: Liste springt' "Teil 1 committet ($H_GRUEN)\n\ncommittet, wartet auf Push/CI ($H_MAIN)")")
+J+=("$(e BSAUB Bug 'Mail: sauber in main' "Befund: x\n\ncommittet, wartet auf Push/CI ($H_MAIN)")")
 print -r -- "{\"items\":[${(j:,:)J}]}" > $T/export.json
 mkdir -p $T/bin; print -r -- '#!/bin/sh
 echo "$0 $*" >> '$T'/aufrufe.log; exit 1' > $T/bin/gh; chmod +x $T/bin/gh
@@ -170,11 +179,20 @@ pruefe "M1: „nicht umgesetzt“ / „steht noch aus“ → kein Done, einzeln 
 pruefe "M1: „Abnahme-Mangel behoben“ bleibt Done" "$(z AJF6A)" '^A	'
 pruefe "M2: Nutzer-Bug mit Commit, Teil/Offenes → N, läuft weiter, nie Pausiert" "$(z NTEIL)" '^N	Nutzer-Bug mit Commit.*läuft weiter, nie Pausiert'
 pruefe "M4: „zur Abnahme“ mit grüner CI bleibt In Progress (nie Done)" "$(z UABNA)" '^U	zur Abnahme: bleibt In Progress, geschlossen erst nach „abgenommen“'
+pruefe "Befund 1/4: wie JF_6A (früher „zur Abnahme“, nur Mangel, nie abgenommen) → U, nicht Done" "$(z UJF6A)" '^U	zur Abnahme: bleibt In Progress'
+pruefe "Befund 1/4: „noch nicht abgenommen“ hebt „zur Abnahme“ nicht auf → U" "$(z UABNN)" '^U	zur Abnahme'
+pruefe "Befund 1/4: „kein „abgenommen““ (zitiert/verneint) hebt „zur Abnahme“ nicht auf → U" "$(z UABNZ)" '^U	zur Abnahme'
+pruefe "Befund 1/4: „abgenommen“ nach „zur Abnahme“, dann Nachtrag-Commit → A" "$(z AABGN)" '^A	'
+pruefe "Befund 4: Reihe (n/m) in einer früheren Notiz → U" "$(z UREIN)" '^U	Reihe \(n/m\) oder Teil'
+pruefe "Befund 4: Teil in einer früheren Notiz → U" "$(z UTEIF)" '^U	Reihe \(n/m\) oder Teil'
+pruefe "Befund 4: sauberer Fall mit früherer Notiz bleibt B" "$(z BSAUB)" '^B	Commit in main, CI noch nicht grün'
+pruefe "Befund 4: Filter „ja nur abschließen“ nennt Abnahme, Reihe, Teil" "$(uw erlaubt Feature 'Mail: x' PVTI_x 'In Progress')" \
+  'nicht Done bei „zur Abnahme“ ohne spätere „abgenommen“, Reihe \(n/m\) oder Teil'
 pruefe "M2: Nutzer-Bug fertig belegt → A (abschließen)" "$(z NFERT)" '^A	'
 pruefe "M2: Nutzer-Bug ohne Commit → N, läuft weiter" "$(z NNNNN)" '^N	Nutzer-Bug ohne Commit: läuft weiter'
 pruefe "Hash nur aus Ziffern wird erkannt (sonst fiele ein Commit nach C)" "$(z ZIFFR)" '^B	'
 pruefe "nur In Progress zählt, Pausiert und Todo nicht angefasst; Summe stimmt" "$S" \
-  '# Zählung: A 4, B 3, C 2, D 2, N 2, W 1, U 7; Summe 21 = In Progress 21$' 'Pausiert 1' 'rc=0'
+  '# Zählung: A 5, B 4, C 2, D 2, N 2, W 1, U 12; Summe 28 = In Progress 28$' 'Pausiert 1' 'rc=0'
 pruefe "Pausiert und Todo erscheinen in keiner Liste" "$(print -r -- $S | grep -cE 'PVTI_test(PAUSE|TODOO)')" '^0$'
 pruefe "mit Exportdatei: kein gh-Aufruf, kein Board" "$(cat $T/aufrufe.log 2>/dev/null; print ende)" '^ende$'
 pruefe "ohne grüne Läufe: nichts wird Done (nur Release-Tags zählen)" \

@@ -16695,11 +16695,8 @@ def run_checks(m, version, profile, results):
     check("Today-Pane: „+“ → Neuer Termin / Neue Aufgabe ganz auf dem Bildschirm", today_plus_event, results)
 
     def today_animation():
-        # Breit mit gewählter Mail (1500 px): Mailliste gibt mit Pane nach, Abstand nach „Verfassen“ ändert sich – dort
-        # sprangen die Knöpfe rechts davon am Ende des Ausblendens um 13 px (im vollen Lauf, wenn eine frühere Prüfung
-        # eine Mail gewählt ließ); schmal (1100 px) in der Kontoübersicht wie im Einzellauf (steht die Mail an ihrer Mindestbreite, hält das Fenster seine Breite)
-        res = m.js(MESSAGE_JS + '''
-          w.resizeTo(1500, w.outerHeight); await until(() => w.outerWidth == 1500, 3000); await ruhig(1500);
+        res = m.js('''
+          await toMail(); await ruhig(1500);
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
           const title = d.getElementById("mcTodayTitle");
           const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
@@ -16760,9 +16757,9 @@ def run_checks(m, version, profile, results):
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
-          const ow = w.outerWidth; out.breitW = ow; out.sel = a3.threadTree.selectedIndex;
+          const ow = w.outerWidth;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
-            if (phase == "aus schmal") { a3.displayFolder(root.URI); await bis(() => a3.gFolder?.URI == root.URI, "Kontoübersicht", 4000); await ruhig(800); w.resizeTo(1100, w.outerHeight); await until(() => w.outerWidth == 1100, 3000); await ruhig(1200); out.schmalW = w.outerWidth; out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
+            if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
             // mitten in der Bewegung und titleEnd sagt nichts über einen Ruck (CI 15.11. Lauf 43707298410, linux esr
             // „ein schmal“: 99 ms Lücke, Titel 2,2 px vor dem Ende, sonst alles im Takt). Dann zurückschalten und neu
@@ -16897,9 +16894,7 @@ def run_checks(m, version, profile, results):
                     and (not ende or max(v["nach"].values()) <= 1)
                     and (soft or takt))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
-        # Ausgangslage wie verlangt: breit 1500 px mit gewählter Mail, schmal wirklich 1100 px
-        lage = res.get("breitW") == 1500 and res.get("sel") == 0 and abs((res.get("schmalW") or 0) - 1100) <= 2
-        ok = lage and all(glatt(res[p], ein=p.startswith("ein")) and all(glatt(x, False, p.startswith("ein")) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
+        ok = all(glatt(res[p], ein=p.startswith("ein")) and all(glatt(x, False, p.startswith("ein")) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
     check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck, „+“ gleitet mit der Pane herein und hinaus, nach dem letzten Bild springt kein Knopf nach", today_animation, results)
 

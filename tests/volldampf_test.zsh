@@ -78,20 +78,28 @@ print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-23T20:00+01:0
 print -r -- "volldampf 2026-11-24T01:00+01:00 2026-12-01T01:00+01:00 Folgewoche" >> $HALO_VOLLDAMPF_DATEI
 HALO_JETZT=2026-11-24T02:00+01:00 pruefe "Folgewoche: alte Pausenmarke wirkt nicht" 'volldampf_aktiv'
 
-# Sollkurve (wochen_soll): ohne Anker ab dem Reset, nach dem freien Reset bis zum nächsten automatischen Reset
+# Sollkurve (wochen_soll): immer ab dem automatischen Reset Di 01:00 Wiener Zeit (Di 00:00 UTC), auch nach einem freien
+# Reset (Maintainer 23.11.2026: „immer von dienstag 01:00 auf dienstag 01:00“); der Anker steht nur als 6. Feld da
 neu
 HALO_JETZT=2026-11-18T13:00+01:00 pruefe "Soll ohne Anker, 48 h: Mi 13:00 = 36 h, 75 %" '[[ $(wochen_soll 48) == "36.0 75.0 reset 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00" ]]'
 HALO_JETZT=2026-11-18T13:00+01:00 pruefe "Soll ohne Anker, 168 h: 21,4 %" '[[ $(wochen_soll 168) == "36.0 21.4 reset "* ]]'
 print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $HALO_WOCHENANKER
-HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Soll nach Anker Fr 10:00, jetzt Sa 10:00: 24 / 87 h = 27,6 %" '[[ $(wochen_soll 48) == "24.0 27.6 anker 2026-11-24T01:00+01:00 2026-11-20T10:00+01:00" ]]'
-HALO_JETZT=2026-11-24T00:30+01:00 pruefe "Soll kurz vor dem automatischen Reset: fast 100 %" '[[ $(wochen_soll 48) == "86.5 99.4 anker "* ]]'
-HALO_JETZT=2026-11-19T10:00+01:00 pruefe "Anker in der Zukunft zählt nicht (48-h-Kurve)" '[[ $(wochen_soll 48) == *" reset "* ]]'
+HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Soll nach Anker Fr 10:00, jetzt Sa 10:00: weiter ab Di 01:00, 105 / 168 h = 62,5 % (Anker nur als Information)" '[[ $(wochen_soll 168) == "105.0 62.5 reset 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00 2026-11-20T10:00+01:00" ]]'
+HALO_JETZT=2026-11-24T00:30+01:00 pruefe "Soll kurz vor dem automatischen Reset trotz Anker: 167,5 / 168 h = 99,7 %" '[[ $(wochen_soll 168) == "167.5 99.7 reset "* ]]'
+print -r -- "anker 2026-11-21T23:30+01:00 97 1" > $HALO_WOCHENANKER
+HALO_JETZT=2026-11-23T11:20+01:00 pruefe "Anker Sa 23:30, jetzt Mo 11:20: Soll 154,3 / 168 h = 91,9 %, nicht 72,4 % ab dem Anker" '[[ $(wochen_soll 168) == "154.3 91.9 reset 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00 2026-11-21T23:30+01:00" ]]'
+HALO_JETZT=2026-11-19T10:00+01:00 pruefe "Anker in der Zukunft: kein 6. Feld" '[[ $(wochen_soll 168) == "57.0 33.9 reset 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00" ]]'
+# Sommerzeit: Reset Di 00:00 UTC = Di 02:00 Wiener Zeit; Woche über den Wechsel am 25.10.2026 hat trotzdem 168 h
+HALO_JETZT=2026-07-14T01:59+02:00 pruefe "Sommerzeit: Di 01:59 noch alte Woche (Reset 02:00)" '[[ $(wochen_soll 168) == "168.0 100.0 reset 2026-07-14T02:00+02:00 2026-07-07T02:00+02:00" ]]'
+HALO_JETZT=2026-07-14T02:00+02:00 pruefe "Sommerzeit: Di 02:00 neue Woche, 0 %" '[[ $(wochen_soll 168) == "0.0 0.0 reset 2026-07-21T02:00+02:00 2026-07-14T02:00+02:00" ]]'
+HALO_JETZT=2026-10-26T12:00+01:00 pruefe "Woche mit Umstellung (Di 20.10. 02:00 bis Di 27.10. 01:00): Mo 12:00 = 155 h, 92,3 %" '[[ $(wochen_soll 168) == "155.0 92.3 reset 2026-10-27T01:00+01:00 2026-10-20T02:00+02:00" ]]'
+print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $HALO_WOCHENANKER
 HALO_JETZT=2026-11-25T10:00+01:00 pruefe "Anker der Vorwoche zählt nicht" '[[ $(wochen_soll 48) == "33.0 68.8 reset "* ]]'
 # Übergang am automatischen Reset Di 24.11. (Maintainer 18.11.2026: „nach dem nächsten automatischen weekly limit reset
 # kommenden dienstag um 01:30 soll wieder der reguläre modus laufen“): Volldampf endet 01:00, Anker verfällt, ab dann
 # 168-h-Kurve ab dem automatischen Reset (Alltagsmodus), auch um 01:30 beim Nachtlauf
 print -r -- $Z > $HALO_VOLLDAMPF_DATEI
-HALO_JETZT=2026-11-24T00:59+01:00 pruefe "Übergang: 00:59 noch Volldampf mit Anker-Soll" 'volldampf_aktiv && [[ $(wochen_soll 168) == *" anker "* ]]'
+HALO_JETZT=2026-11-24T00:59+01:00 pruefe "Übergang: 00:59 noch Volldampf, Soll ab Di 01:00, Anker als Information" 'volldampf_aktiv && [[ $(wochen_soll 168) == "168.0 100.0 reset "*" 2026-11-20T10:00+01:00" ]]'
 HALO_JETZT=2026-11-24T01:00+01:00 pruefe "Übergang: 01:00 Volldampf aus, kein Status, Anker verfallen" '! volldampf_aktiv && ! volldampf_status && [[ $(wochen_soll 168) == "0.0 0.0 reset 2026-12-01T01:00+01:00 2026-11-24T01:00+01:00" ]]'
 HALO_JETZT=2026-11-24T01:30+01:00 pruefe "Übergang: 01:30 (Nachtlauf) normale 168-h-Kurve" '[[ $(wochen_soll 168) == "0.5 0.3 reset "* ]]'
 print -r -- $Z > $HALO_VOLLDAMPF_DATEI

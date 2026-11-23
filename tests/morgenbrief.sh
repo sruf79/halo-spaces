@@ -22,8 +22,8 @@ export HALO_LAUF=morgenbrief
 #   ~/halo-berichte/<Datum>-halo.spaces-<Version>.md (FEHLER von publish.sh)
 #   gh release list, gh run list (test.yml auf main; workflow_dispatch = Windows-Lauf der Nacht)
 #   ~/halo-nacht/handeln.log (ohne eigene Zeilen „morgenbrief“), ~/halo-nacht/pausen.txt
-#   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 00:00 UTC) / 168 × 100 %, nach einem freien Reset
-#   „Soll bis nächster Reset“ (wochen_soll, lauf-hilfen.zsh, Maintainer 18.11.2026)
+#   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 00:00 UTC) / 168 × 100 %, auch nach einem freien
+#   Reset (wochen_soll, lauf-hilfen.zsh, Maintainer 23.11.2026)
 #   tests/board.sh export (Vorschau), ~/halo-nacht/volldampf.txt, ~/.config/halo-spaces/tagesroutine.conf (Schwellen)
 # Geschrieben (nur echter Lauf): ~/halo-berichte/<heute>-bericht.md, ~/halo-nacht/<heute>-morgenbrief.log,
 #   ~/halo-nacht/kontingent-tage.tsv (eine Zeile je Tag, Grundlage für vergleich-6-12.sh)
@@ -101,10 +101,10 @@ print("BIS_RESET_H=%.0f" % ((naechster - jetzt).total_seconds() / 3600))
 print("NAECHSTER=" + naechster.strftime("%d.%m. %H:%M"))
 ')
 [[ -n $T[HEUTE] ]] || { print -u2 "FEHLER: Zeitberechnung (python3/zoneinfo?)"; exit 1 }
-# Soll aus dem gemeinsamen Rechenstück (lauf-hilfen.zsh): nach einem freien Reset in dieser Woche „Soll bis nächster
-# Reset“ vom Anker bis zum automatischen Reset (Maintainer 18.11.2026), sonst 168 h ab dem Reset wie oben
+# Soll aus dem gemeinsamen Rechenstück (lauf-hilfen.zsh): immer 168 h ab dem Reset Di 01:00, auch nach einem freien
+# Reset (Maintainer 23.11.2026, ersetzt „Soll bis nächster Reset“ ab dem Anker vom 18.11.2026)
 SOLL_TEXT="Soll"
-ws=($(HALO_JETZT=$T[JETZT] wochen_soll 168)) && { T[SOLL]=$ws[2]; [[ $ws[3] == anker ]] && SOLL_TEXT="Soll bis nächster Reset" }
+ws=($(HALO_JETZT=$T[JETZT] wochen_soll 168)) && T[SOLL]=$ws[2]
 HEUTE=$T[HEUTE]
 WOCHENENDE=; (( T[WT] > 5 )) && WOCHENENDE=1   # Sa/So: Meldung nur bei [handeln]
 if [[ -z $TROCKEN ]] && g=$(pause_aktiv morgenbrief); then log "ÜBERSPRUNGEN morgenbrief pausiert $g"; exit 0; fi
@@ -309,10 +309,8 @@ if [[ -n $HALO_KONTINGENT_WOCHE ]]; then KW=$HALO_KONTINGENT_WOCHE K5=${HALO_KON
 elif [[ -z $TROCKEN ]]; then
   z=$(zsh $KONT_SKRIPT 2>/dev/null)
   [[ $z == (#b)Woche\ ([0-9]##)\ %*5\ Stunden\ ([0-9]##)\ %* ]] && KW=$match[1] K5=$match[2]
-  # freien Reset erkennen (kein zusätzlicher Haiku-Aufruf); danach Soll neu (Anker)
-  if [[ -n $KW ]] && wochen_reset_erkennen $KW >/dev/null; then
-    ws=($(HALO_JETZT=$T[JETZT] wochen_soll 168)) && { T[SOLL]=$ws[2]; [[ $ws[3] == anker ]] && SOLL_TEXT="Soll bis nächster Reset" }
-  fi
+  # freien Reset erkennen (kein zusätzlicher Haiku-Aufruf; Anker für Volldampf-Pause, das Soll ändert er nicht)
+  [[ -n $KW ]] && wochen_reset_erkennen $KW >/dev/null
 fi
 if [[ -n $KW ]]; then
   ab=$(python3 -I -c 'import sys; print("%+.1f" % (float(sys.argv[1]) - float(sys.argv[2])))' $KW $T[SOLL])

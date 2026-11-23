@@ -12,7 +12,7 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 | Wert | Quelle | Regel |
 |---|---|---|
 | Woche, 5-Stunden-Fenster, Fensterende | `tests/kontingent.sh` → `~/halo-nacht/kontingent.json` | ohne Wochenwert („seven_day“) gilt die Woche als nicht lesbar, nie 0 oder 5-Stunden-Wert |
-| Soll (Sollkurve) | `wochen_soll` in `tests/lauf-hilfen.zsh` | Alltag (Tagesroutine, Morgenbrief): ohne freien Reset Stunden seit Di 00:00 UTC / 168 × 100 %; nach freiem Reset (Anker): Stunden seit Anker / Stunden Anker → nächster Reset × 100 % |
+| Soll (Sollkurve) | `wochen_soll` in `tests/lauf-hilfen.zsh` | Alltag (Tagesroutine, Morgenbrief): Stunden seit Di 00:00 UTC (Di 01:00 Wiener Zeit) / 168 × 100 %, auch nach freiem Reset; der Anker zählt nicht (Maintainer 23.11.2026, ersetzt „Soll bis nächster Reset“ vom 18.11.2026) |
 | Soll der Kalenderwoche (Wochenzeit) | `kalender_soll`/`kalender_woche` in `tests/lauf-hilfen.zsh` | Auslastungswächter, Leitstand, Tagesroutine im Volldampf und Drossel (Maintainer 20.11.2026): Wochenzeit % = 100 − (resetsAt − jetzt) / 6048 s, resetsAt aus `kontingent.json` (`seven_day`), sonst Di 00:00 UTC; auch nach freiem Reset (kein Anker, keine 48-h-Kurve) |
 | Freier Reset (Anker) | `wochen_reset_erkennen` | Sturz der Woche um ≥ 20 Punkte ohne automatischen Reset dazwischen; nur echte Messwerte (nie Platzhalter); verfällt am automatischen Reset |
 | Fenster-Takt | `fenster_takt`/`FENSTER_DEF_PY` in `tests/lauf-hilfen.zsh` (Wächter `pruefen`, Tagesroutine `ENTSCHEID_PY`) | Takt = verstrichener Anteil des 5-Stunden-Fensters + 25 Punkte (`FENSTER_RESERVE`); Fensterende unbekannt = kein Takt |
@@ -26,7 +26,7 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 | **Volldampf, Fenster knapp** | 5 h ≥ 70 / 80 / 85 / 90 % | ab 80 %: nichts Neues bis Fensterende | Limit-Pause 30 Min. bei Abbruch | ab 70 %: nur Klasse „tokenarm“ (Sonnet, höchstens ein tokenarmer Worker); ab 85 % (bis unter 98 %): Windows-Rundgang, einmal je Tag; ab 90 %: kein Worker-Start | ab 85 %: Release schon ab 1 Thunderbird-Commit (CI und Windows nutzen die Pause) |
 | **Volldampf, mehr verbraucht als Woche vergangen** | Drossel-Stufe 1–3 (`drossel_stufe`, `~/halo-nacht/drossel-stufe.txt`; d = Woche − Wochenzeit > 0) | Stufe 1: nur kein Fable (Plan und komplexe Einträge bleiben Opus); 2: nur jede zweite Runde nach einer echten Runde; 3: nichts Neues bis zur vollen Stunde; roter Prüfzweig und Release unter Tage nie gebremst | unberührt | kein neuer Worker; Windows-Rundgang startet (einmal je Tag, 09:00–22:00, nicht belegt) | unberührt |
 | **Volldampf pausiert** | Woche ≥ 98 % (Marke `volldampf-beendet.txt`) | Alltagsregeln (meist „nichts Neues“, weit über Soll) | Alltagsgrenzen | wartet, liest Kontingent stündlich | wartet |
-| **Nach freiem Reset** | Anker in `wochenanker.txt` | Volldampf läuft von selbst weiter; Soll der Kalenderwoche (Alltag dieser Woche: Soll bis nächster Reset) | wie Volldampf | Soll der Kalenderwoche (seit 20.11.2026) | wie Volldampf |
+| **Nach freiem Reset** | Anker in `wochenanker.txt` | Volldampf läuft von selbst weiter; Soll der Kalenderwoche (Alltag: Soll ab Di 01:00, seit 23.11.2026 ohne Anker) | wie Volldampf | Soll der Kalenderwoche (seit 20.11.2026) | wie Volldampf |
 | **Automatischer Reset** | Di 00:00 UTC (01:00 Winter, 02:00 Sommer) = `bis` | ab dann Alltag | ab 01:30 Alltag, räumt Zeile weg | endet beim nächsten Takt | endet beim nächsten Takt |
 
 ## 3. Bremsen in fester Reihenfolge (die erste, die greift, entscheidet)

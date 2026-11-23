@@ -30,9 +30,9 @@ export HALO_LAUF=tagesroutine
 #   tests/zwischen-schleife.zsh (von Hand gestartet, eigener Worktree); hier nur sein Zustand in Trockenlauf und Bericht.
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
 #   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
-#   Nach einem freien Reset in dieser Woche (Anker, wochen_reset_erkennen in lauf-hilfen.zsh, Maintainer 18.11.2026):
-#   Soll = Stunden seit dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset × 100 % („Soll bis nächster
-#   Reset“); der Anker verfällt mit dem automatischen Reset. Rechenstück wochen_soll aus lauf-hilfen.zsh (WOCHE_DEF_PY).
+#   Auch nach einem freien Reset (Anker, wochen_reset_erkennen in lauf-hilfen.zsh) gilt diese Kurve (Maintainer 23.11.2026:
+#   „immer von dienstag 01:00 auf dienstag 01:00“; ersetzt „Soll bis nächster Reset“ ab dem Anker vom 18.11.2026), der
+#   Anker steht nur noch als Information im Trockenlauf. Rechenstück wochen_soll aus lauf-hilfen.zsh (WOCHE_DEF_PY).
 #   Im Volldampf zeigt Soll die vergangene Zeit der Kalenderwoche (Maintainer 20.11.2026, kalender_woche in WOCHE_DEF_PY,
 #   resetsAt aus kontingent.json, auch nach einem freien Reset); es bremst dort nicht (Volldampf ist der Override).
 #   Abstand > SPAR_MAX → nichts Neues, bis zur vollen Stunde warten und neu entscheiden; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
@@ -201,9 +201,10 @@ if reset > ju:
     d -= dt.timedelta(days=7); reset = dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=UTC)
 d2 = d + dt.timedelta(days=7); naechster = dt.datetime(d2.year, d2.month, d2.day, rh, rm, tzinfo=UTC).astimezone(W)
 reset = reset.astimezone(W)
-# Sollkurve aus lauf-hilfen.zsh (WOCHE_DEF_PY, eine Stelle): 168 h ab dem Reset; nach einem freien Reset (Anker in
-# wochenanker.txt) linear vom Anker bis zum nächsten automatischen Reset (Maintainer 18.11.2026)
+# Sollkurve aus lauf-hilfen.zsh (WOCHE_DEF_PY, eine Stelle): 168 h ab dem Reset, auch nach einem freien Reset (Maintainer
+# 23.11.2026); der Anker (wochenanker.txt) nur als Information
 std, soll, soll_art, _n, soll_bezug = wochen_soll(jetzt, 168, e.get("K_WOCHENANKER", ""), rt, rh, rm)
+anker = wochen_anker(jetzt, e.get("K_WOCHENANKER", ""), rt, rh, rm) if e.get("K_WOCHENANKER") else None
 # Volldampf (Maintainer 20.11.2026: „es sind doch bereits 48% vom wochen rythmus vergangen, welcher immer von dienstag 01:00
 # bis dienstag 01:00 geht“): Soll = vergangene Zeit der Kalenderwoche, ohne Anker (bremst im Volldampf nicht, nur Anzeige)
 if e.get("K_VOLLDAMPF") == "ja":
@@ -251,7 +252,7 @@ volle = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=
 def wt(x): return "MoDiMiDoFrSaSo"[2 * x.isoweekday() - 2:2 * x.isoweekday()] + x.strftime(" %Y-%m-%d %H:%M")
 aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset), "NAECHSTER": wt(naechster),
        "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "SOLL_ART": soll_art,
-       "ANKER": wt(soll_bezug.astimezone(W)) if soll_art == "anker" else "", "FENSTER": "ja" if fenster else "nein",
+       "ANKER": wt(anker.astimezone(W)) if anker else "", "FENSTER": "ja" if fenster else "nein",
        "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein",
        "WARTE_START": start.isoformat(timespec="minutes") if warte_start else "",
        "VOLLE": volle.isoformat(timespec="minutes")}   # nächste volle Stunde (Drossel Stufe 3, drossel_anwenden)
@@ -495,7 +496,6 @@ kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
 }
 soll_text() {
   case $E[SOLL_ART] in
-    anker)    print -r -- "Soll bis nächster Reset $E[SOLL]" ;;
     kalender) print -r -- "Soll Kalenderwoche $E[SOLL]" ;;
     *)        print -r -- "Soll $E[SOLL]" ;;
   esac
@@ -658,10 +658,9 @@ if [[ -n $TROCKEN ]]; then
   print "Jetzt:        $E[JETZT] (Wiener Zeit${HALO_JETZT:+, HALO_JETZT})"
   print "Schwellen:    $KONF_DATEI"
   print "Zeitfenster:  Tage $KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE] (Sa/So ab $KONF[START_WOCHENENDE], mit Volldampf ab $KONF[START_VOLLDAMPF]), heute ab $E[START]: $E[FENSTER]; neuer Eintrag (vor $KONF[LETZTER_BEGINN]): $E[NEU_ZEIT]"
-  [[ -n $E[ANKER] ]] && print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; freier Reset $E[ANKER], seitdem $E[STUNDEN] h" \
-    || print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
+  print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h${E[ANKER]:+; freier Reset $E[ANKER] (zählt für das Soll nicht)}"
   print "Kontingent:   $K_QUELLE"
-  print "Soll:         $E[SOLL] %${E[ANKER]:+ (bis nächster Reset, freier Reset $E[ANKER])}$( [[ $E[SOLL_ART] == kalender ]] && print -rn -- " (vergangene Zeit der Kalenderwoche)")   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
+  print "Soll:         $E[SOLL] %$( [[ $E[SOLL_ART] == kalender ]] && print -rn -- " (vergangene Zeit der Kalenderwoche)")   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %${${VD:#nein}:+, Fenster-Takt mit Reserve $KONF[FENSTER_RESERVE] Punkte})${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
   print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; $(tageslimit_text)"
   print -r -- "Zwischen-Release: $(zs_zustand)"

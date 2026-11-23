@@ -224,10 +224,11 @@ pruefe "Zwischen-Releases: Zahl, Urteile des Directors mit Modus und Satz der ja
   'grep -qx "\- Zwischen-Releases: 1 veröffentlicht; Director (schatten): 1 ja, 1 nein, 0 Ausfall; ja: Absturz beim Öffnen behoben." $T/z.md'
 pruefe "Notfall-Hinweis des Directors als Punkt für den Maintainer" 'grep -q "Zu tun: Möglicher Notfall laut Director: Senden scheitert für alle. Ein Notfall-Release verordnest nur du" $T/z.md'
 pruefe "ohne Urteile und Zwischen-Releases keine Zeile" '! grep -q "Zwischen-Releases:" $T/b.md'
-# Soll nach dem freien Reset (Maintainer 18.11.2026): Anker Fr 20.11. 10:00, Brief Sa 21.11. 08:30 → 22,5 / 87 h = 25,9 %
+# Soll nach dem freien Reset (Maintainer 23.11.2026: immer ab Di 01:00): Anker Fr 20.11. 10:00, Brief Sa 21.11. 08:30 →
+# 103,5 / 168 h = 61,6 %
 print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $T/anker.txt
 A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-21T08:30:00+01:00 $T/anker.md)
-pruefe "Morgenbrief nach freiem Reset: „Soll bis nächster Reset“ ab dem Anker" 'grep -q "Kontingent: Woche 20 % (Soll bis nächster Reset 25.9 %, -5.9)" $T/anker.md && grep -q "Soll bis nächster Reset jetzt 26 %" $T/anker.md'
+pruefe "Morgenbrief nach freiem Reset: Soll weiter ab Di 01:00, kein „Soll bis nächster Reset“" 'grep -q "Kontingent: Woche 20 % (Soll 61.6 %, -41.6)" $T/anker.md && ! grep -q "Soll bis nächster Reset" $T/anker.md'
 A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-24T08:30:00+01:00 $T/anker2.md)
 pruefe "Morgenbrief nach dem automatischen Reset: Anker verfallen, 168-h-Kurve" 'grep -q "Kontingent: Woche 20 % (Soll 4.5 %" $T/anker2.md'
 exit $FEHLER

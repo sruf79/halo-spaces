@@ -7,8 +7,8 @@ Gilt immer, wenn **kein** Volldampf aktiv ist (`volldampf_aktiv` ≠ 0, also kei
 Nach dem Ende von Volldampf am automatischen Wochenreset (Di 01:00) gilt ab dem Nachtlauf 01:30 wieder dieser Modus (Maintainer
 18.11.2026: „genau und nach dem nächsten automatischen weekly limit reset kommenden dienstag um 01:30 soll wieder der reguläre
 modus laufen, wo wir aber dennoch automatisch den verbrauch und die intensität permanent an unser token kontingent knüpfen und
-adjustieren“): Sollkurve, Sparmodus und Modellwahl steuern Verbrauch und Intensität fortlaufend nach dem Kontingent; ein Anker
-eines freien Resets verfällt mit dem automatischen Reset, sodass wieder die 168-h-Kurve ab Di 00:00 UTC gilt.
+adjustieren“): Sollkurve, Sparmodus und Modellwahl steuern Verbrauch und Intensität fortlaufend nach dem Kontingent; die
+Sollkurve ist immer die 168-h-Kurve ab Di 00:00 UTC, ein freier Reset ändert sie nicht (Maintainer 23.11.2026).
 Soll = Stand vor Volldampf, belegt durch Skript, `~/.config/halo-spaces/tagesroutine.conf` (Sicherungen in
 `~/halo-sicherung/`), git log und `ENTSCHEIDUNGEN.md`. Zeilenangaben beziehen sich auf den Stand dieses Commits.
 Zeiten in Wiener Zeit.
@@ -44,9 +44,9 @@ Zeiten in Wiener Zeit.
 
 ### Modellwahl nach Sollkurve (Soll = Stunden seit Di 00:00 UTC / 168 · 100 %)
 
-Nach einem freien Reset in derselben Woche (Anker `~/halo-nacht/wochenanker.txt`, Maintainer 18.11.2026): Soll = Stunden seit
-dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset · 100 % („Soll bis nächster Reset“); Rechenstelle
-`wochen_soll` in `tests/lauf-hilfen.zsh`, gemeinsam mit Auslastungswächter und Morgenbrief.
+Auch nach einem freien Reset in derselben Woche (Anker `~/halo-nacht/wochenanker.txt`) bleibt es bei dieser Kurve (Maintainer
+23.11.2026: „die sollkurve soll aber nicht vom freien reset am samstag aus rechnen sondern immer von dienstag 01:00 auf dienstag 01:00“; ersetzt „Soll bis nächster Reset“ ab dem Anker vom 18.11.2026); Rechenstelle
+`wochen_soll` in `tests/lauf-hilfen.zsh`, gemeinsam mit Morgenbrief und `volldampf_status`.
 
 | Lage (Woche − Soll) | Entscheidung | Modell Plan/komplex · Routine | Fundstelle |
 |---|---|---|---|

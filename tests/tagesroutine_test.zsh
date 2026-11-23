@@ -270,8 +270,10 @@ print -r -- "anker 2026-11-17T09:00+01:00 98 2" > $T/anker.txt
 pruefe "nach dem freien Reset: Volldampf wieder aktiv, Soll der Kalenderwoche" "$(HALO_WOCHENANKER=$T/anker.txt HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 3)" \
   'Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(pausiert beim Wochenlimit bis zum freien Reset; freier Reset 17\.11\. 09:00\)' \
   'Soll: +5\.4 % \(vergangene Zeit der Kalenderwoche\)' 'Entscheidung: neu beginnen'
-pruefe "ohne Volldampf nach dem freien Reset: weiter Soll bis nächster Reset (Alltag unverändert)" "$(HALO_WOCHENANKER=$T/anker.txt lauf $JD 3)" \
-  'Soll: +0\.6 % \(bis nächster Reset, freier Reset Di 2026-11-17 09:00\)'
+# ohne Volldampf (Maintainer 23.11.2026: „immer von dienstag 01:00 auf dienstag 01:00“): Soll ab Di 01:00 (9 h = 5,4 %),
+# der freie Reset nur als Information
+pruefe "ohne Volldampf nach dem freien Reset: Soll weiter ab Di 01:00, Anker nur Information" "$(HALO_WOCHENANKER=$T/anker.txt lauf $JD 3)" \
+  'Soll: +5\.4 %   Ist' 'freier Reset Di 2026-11-17 09:00 \(zählt für das Soll nicht\)'
 rm -f $T/anker.txt
 rm -f $T/volldampf-beendet.txt
 pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'

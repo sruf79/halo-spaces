@@ -178,10 +178,12 @@ pause_setzen() {   # <Routine> <bis ISO-Zeit mit Zone> <Grund>
 #   volldampf_setzen <ab> <bis> <Grund>
 #   volldampf_aufraeumen         entfernt abgelaufene Zeilen, je Zeile „VOLLDAMPF ABGELAUFEN …“ (Ende Nachtlauf)
 # Sollkurve (eine Stelle für Tagesroutine ohne Volldampf, Morgenbrief, volldampf_status; Maintainer 18.11.2026):
-#   wochen_soll [<Stunden>]      „<Stunden seit Bezug> <Soll %> <reset|anker> <nächster Reset ISO> <Bezug ISO>“. Ohne
-#                                Anker in dieser Woche: Soll = Stunden seit dem Reset (Di 00:00 UTC) / <Stunden> (168) × 100 %. Nach einem freien Reset (Anker): Soll = Stunden seit
-#                                dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset × 100 % („Soll bis
-#                                nächster Reset“, 100 % am Reset).
+#   wochen_soll [<Stunden>]      „<Stunden seit Reset> <Soll %> reset <nächster Reset ISO> <Reset ISO> [<Anker ISO>]“.
+#                                Soll = Stunden seit dem Reset (Di 00:00 UTC = Di 01:00 Wiener Zeit, im Sommer 02:00) /
+#                                <Stunden> (168) × 100 %, immer, auch nach einem freien Reset (Maintainer 23.11.2026: „die
+#                                sollkurve soll aber nicht vom freien reset am samstag aus rechnen sondern immer von dienstag
+#                                01:00 auf dienstag 01:00“; ersetzt „Soll bis nächster Reset“ ab dem Anker vom 18.11.2026).
+#                                Der Anker dieser Woche steht nur als Information im 6. Feld.
 #   kalender_soll [<kontingent.json>]  Soll der Kalenderwoche für Auslastungswächter, Leitstand, Tagesroutine im Volldampf
 #                                und Drossel (Maintainer 20.11.2026): vergangene Wochenzeit in %, ohne Anker (unten).
 #   wochen_reset_erkennen <Woche %>  vergleicht mit dem letzten gespeicherten Wert (~/halo-nacht/wochenstand.txt, „<ISO>
@@ -226,13 +228,10 @@ def wochen_anker(jetzt, datei, rt=2, rh=0, rm=0):
     a = [x for x in anker_liste(datei) if r <= x <= ju]
     return max(a) if a else None
 def wochen_soll(jetzt, basis, datei, rt=2, rh=0, rm=0):
-    """(Stunden seit Bezug, Soll %, \"anker\"|\"reset\", nächster Reset, Bezug), alle Zeiten UTC"""
+    """(Stunden seit Reset, Soll %, \"reset\", nächster Reset, Reset), alle Zeiten UTC; immer ab dem automatischen Reset
+    (Di 00:00 UTC = Di 01:00 Wiener Zeit), ein freier Reset (Anker, datei) zählt nicht (Maintainer 23.11.2026)"""
     r, ju = letzter_reset(jetzt, rt, rh, rm), jetzt.astimezone(_U)
     n = r + _dt.timedelta(days=7)
-    a = wochen_anker(jetzt, datei, rt, rh, rm)
-    if a is not None:
-        std = (ju - a).total_seconds() / 3600
-        return std, min(100.0, 100.0 * std / ((n - a).total_seconds() / 3600)), "anker", n, a
     std = (ju - r).total_seconds() / 3600
     return std, min(100.0, std / float(basis) * 100), "reset", n, r
 def kalender_reset(jetzt, kont, rt=2, rh=0, rm=0):
@@ -316,7 +315,9 @@ if modus in ("aktiv", "fenster"):
     sys.exit(1)
 if modus == "soll":
     std, soll, art, nr, bez = wochen_soll(n, float(sys.argv[5]), anker_datei)
-    print("%.1f %.1f %s %s %s" % (std, soll, art, nr.astimezone().isoformat(timespec="minutes"), bez.astimezone().isoformat(timespec="minutes")))
+    a = wochen_anker(n, anker_datei) if anker_datei else None   # nur Information (freier Reset dieser Woche)
+    print("%.1f %.1f %s %s %s%s" % (std, soll, art, nr.astimezone().isoformat(timespec="minutes"), bez.astimezone().isoformat(timespec="minutes"),
+                                    " " + a.astimezone().isoformat(timespec="minutes") if a else ""))
     sys.exit(0)
 if modus == "erkennen":
     # argv: datei erkennen marker anker stand woche sprung
@@ -383,7 +384,7 @@ volldampf_status() {
   local g rc s z="pausiert beim Wochenlimit bis zum freien Reset"
   g=$(volldampf_aktiv); rc=$?
   if (( rc == 0 )); then
-    s=($(wochen_soll 168)) && [[ $s[3] == anker ]] && z+="; freier Reset $(python3 -I -c 'import sys,datetime as d;print(d.datetime.fromisoformat(sys.argv[1]).astimezone().strftime("%d.%m. %H:%M"))' $s[5])"
+    s=($(wochen_soll 168)) && [[ -n $s[6] ]] && z+="; freier Reset $(python3 -I -c 'import sys,datetime as d;print(d.datetime.fromisoformat(sys.argv[1]).astimezone().strftime("%d.%m. %H:%M"))' $s[6])"
     print -r -- "Volldampf aktiv ${g/ – / ($z) – }"; return 0
   fi
   if (( rc == 2 )); then print -r -- "Volldampf $g"; return 0; fi
@@ -407,7 +408,7 @@ if u is None: sys.exit(1)   # kein Wochenwert: nichts prüfen statt 0 (0 sähe w
 print(round(100 * u))
 ' $j 2>/dev/null
 }
-# Sollkurve, gemeinsam für alle Läufe (siehe oben); <Stunden> = Länge der Kurve ohne Anker
+# Sollkurve, gemeinsam für alle Läufe (siehe oben); <Stunden> = Länge der Kurve (168)
 wochen_soll() {   # [<Stunden>]
   python3 -I -c $VOLLDAMPF_PY /dev/null soll "" $(wochenanker_datei) ${1:-168} 2>/dev/null
 }
@@ -577,7 +578,7 @@ wochen_reset_erkennen() {   # <Woche %>
   [[ $woche == <-> && -z $HALO_PAUSE_TROCKEN ]] || return 1
   mkdir -p ${stand:h} ${$(wochenanker_datei):h}
   a=($(python3 -I -c $VOLLDAMPF_PY /dev/null erkennen "" $(wochenanker_datei) $stand $woche $VOLLDAMPF_RESET_SPRUNG 2>/dev/null)) || return 1
-  [[ -n $LOG ]] && log "Freier Reset erkannt: Woche $a[3] % → $a[4] %, Anker ${a[2][12,16]} – Volldampf läuft weiter, Soll bis nächster Reset"
+  [[ -n $LOG ]] && log "Freier Reset erkannt: Woche $a[3] % → $a[4] %, Anker ${a[2][12,16]} – Volldampf läuft weiter, Soll weiter ab Di 01:00"
   print -r -- "$(zeit) Freier Reset erkannt: Woche $a[3] % → $a[4] %, Anker $a[2]" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
   push "Freier Reset erkannt (Woche $a[3] % → $a[4] %): Volldampf läuft weiter, Soll jetzt linear bis zum automatischen Reset Dienstag 01:00" "${HALO_LAUF:-volldampf}"
   return 0

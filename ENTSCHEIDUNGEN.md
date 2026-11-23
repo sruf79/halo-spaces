@@ -1046,3 +1046,9 @@ Deutung von neon (kein Wortlaut): Die Vorbereitung (Schalter, Kopien, Pause, Gen
 
 Herkunft: Maintainer in der Sitzung neon, 23.11.2026, auf die Frage „Was muss ich entscheiden“ mit den Empfehlungen von neon bzw. Fable. Wortlaut: „Ich folge deinen Empfehlungen“.
 Deutung von neon (kein Wortlaut), betroffen sind die drei Punkte mit Empfehlung: (1) S1: Von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden (Empfehlung Ja). (2) Der Nachtlauf übernimmt Zweige der Tagesroutine nur, wenn deren letzter Prüfzweig-Lauf grün ist (Empfehlung Ja; Vorschlag des Nachtlaufs vom 23.11.2026). (3) Das Today-Pane-Paket wird von Hand auf einen Nebenzweig gelegt, damit main grün wird (Entscheidung von neon nach der Opus/Fable-Regel, bestätigt). Kq83E ist damit nicht entschieden und bleibt beim Maintainer (Mittwoch 25.11.).
+
+## Sollkurve immer Dienstag 01:00 bis Dienstag 01:00 (23.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, Gespräch 23.11.2026 (ca. 11:45 Wiener Zeit). Wortlaut: „die sollkurve soll aber nicht vom freien reset am samstag aus rechnen sondern immer von dienstag 01:00 auf dienstag 01:00“.
+Ersetzt für die Sollkurve die Regel vom 18.11.2026 (Abschnitt „18.11.2026 – Volldampf: Pause beim Wochenlimit, Soll bis zum nächsten Reset“: „Soll bis nächster Reset“ ab dem Anker des freien Resets in `wochenanker.txt`); die Pause beim Wochenlimit und ihr Ende durch den freien Reset bleiben unverändert.
+Umsetzung (Beschreibung, kein Wortlaut): `wochen_soll` in `tests/lauf-hilfen.zsh` rechnet immer Soll = Stunden seit Di 00:00 UTC (Di 01:00 Wiener Zeit, im Sommer 02:00) / 168 × 100 %; der Anker steht nur noch als Information da (`volldampf_status`, Trockenlauf der Tagesroutine). Im Volldampf galt das schon seit 20.11.2026 (`kalender_woche`).

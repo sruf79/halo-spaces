@@ -304,8 +304,8 @@ Commits (MAX_COMMITS_VOLLDAMPF, Maintainer 17.11.2026); Zwischen-Release siehe o
 Ergebnis nur für die wirklich schwersten Fälle (belegte Ursache fehlt nach Opus bei hohem Nutzen, oder
 Analyse/Design, die ein starkes Modell braucht), nie für Routine oder Mechanisches. volldampf.txt und
 volldampf-beendet.txt und wochenanker.txt nie selbst ändern. Beim Wochenlimit (98 %) pausiert Volldampf nur; nach dem
-freien Reset des Maintainers erkennt das Skript den Anker und meldet wieder „Volldampf aktiv …; Soll bis nächster
-Reset N %“ (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md): dann gilt wieder Volldampf bis Dienstag 01:00.
+freien Reset des Maintainers erkennt das Skript den Anker und meldet wieder „Volldampf aktiv … (…; freier Reset …)“
+(Soll immer ab Di 01:00, Maintainer 23.11.2026) (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md): dann gilt wieder Volldampf bis Dienstag 01:00.
 
 Bericht: ~/halo-berichte/<datum>-tagesroutine.md setzt das Skript aus deinen Abschnitten zusammen
 (mit Kontingent am Anfang und Ende, Modell je Runde, Commits, Prüfzweig, Endegrund, Fable-Zähler).

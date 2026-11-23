@@ -1041,3 +1041,8 @@ Folge (Beschreibung von neon, kein Wortlaut): `zsh tests/volldampf.sh aus` um 18
 
 Herkunft: Maintainer in der Sitzung neon, 22.11.2026. Wortlaut: „Zwei dinge sind jetzt Priorität: der umbau am Dienstag und die damit verbundene vorarbeiten und ein Release davor wir offenen commits. Falls letzteres das erste gefährdet fällt der Release vorübergehend aus“.
 Deutung von neon (kein Wortlaut): Die Vorbereitung (Schalter, Kopien, Pause, Generalprobe, Anmeldung Mo 21:00, Fable-Prüfungen) und der Umbau ab Di 24.11. 01:00 haben Vorrang. Das Release der offenen Commits (3.37.0) wird vorher versucht, fällt aber vorübergehend aus, sobald es Zeit, neon, Kontingent oder eine Prüfung der Vorbereitung gefährdet. Ein ausgefallenes Release wird nach dem Umbau nachgeholt.
+
+## Umbau-Woche: S1 und Zweige der Tagesroutine, Empfehlungen übernommen (23.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 23.11.2026, auf die Frage „Was muss ich entscheiden“ mit den Empfehlungen von neon bzw. Fable. Wortlaut: „Ich folge deinen Empfehlungen“.
+Deutung von neon (kein Wortlaut), betroffen sind die drei Punkte mit Empfehlung: (1) S1: Von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden (Empfehlung Ja). (2) Der Nachtlauf übernimmt Zweige der Tagesroutine nur, wenn deren letzter Prüfzweig-Lauf grün ist (Empfehlung Ja; Vorschlag des Nachtlaufs vom 23.11.2026). (3) Das Today-Pane-Paket wird von Hand auf einen Nebenzweig gelegt, damit main grün wird (Entscheidung von neon nach der Opus/Fable-Regel, bestätigt). Kq83E ist damit nicht entschieden und bleibt beim Maintainer (Mittwoch 25.11.).

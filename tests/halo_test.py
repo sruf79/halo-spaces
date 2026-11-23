@@ -17995,6 +17995,15 @@ Neu
                   const tpP = d.getElementById("today-pane-panel");
                   out[`${name}/lage`] = { soll: width, ist: w.outerWidth, inner: w.innerWidth, screen: w.screen.availWidth, sizemode: d.documentElement.getAttribute("sizemode"),
                     browser: Math.round(a3.browsingContext.embedderElement.getBoundingClientRect().width), today: tpP && !tpP.collapsed && !tpP.hidden ? Math.round(tpP.getBoundingClientRect().width) : 0 };
+                  if (w.outerWidth != width) {
+                    // DIAG 23.11.: warum bleibt das Fenster breiter? Mindestbreiten und zweiter Versuch
+                    const de = d.documentElement, cs = w.getComputedStyle(de);
+                    const wide = [...d.querySelectorAll("*")].filter(e => { const r = e.getBoundingClientRect(); return r.right > width - 2 && r.width > 50 && e.checkVisibility?.(); })
+                      .map(e => e.id || e.localName + "." + [...e.classList].join(".")).slice(-12);
+                    const mins = [...d.querySelectorAll("*")].map(e => [e, parseFloat(w.getComputedStyle(e).minWidth) || 0]).filter(([e, m]) => m > 300).map(([e, m]) => (e.id || e.localName) + ":" + m).slice(0, 12);
+                    w.resizeTo(width, 900); await wait(1500);
+                    out[`${name}/diag`] = { state: w.windowState, minW: cs.minWidth, scrollW: de.scrollWidth, again: w.outerWidth, wins: [...Services.wm.getEnumerator(null)].map(x => x.document.documentElement.getAttribute("windowtype") + ":" + x.outerWidth), mins, wide };
+                  }
                   const fp = a3.document.getElementById("folderPane"), tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
                   const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
                   const measure = async () => {

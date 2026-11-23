@@ -191,7 +191,20 @@ Changes take effect right away unless noted.
 
 - **Shortcuts**: on Windows and Linux Ctrl+B shows and hides the sidebar and Ctrl+T the Today pane, and the View and app menu items show the shortcuts; in the Compose window and in the task notes Ctrl+B stays bold
 - **Updates**: after an update without a restart, "Rename" (calendar list) and "Create Rule from Message..." (message context menu) no longer appear twice, "Undo Send" also holds back sending in a Compose window that stayed open, and the About window shows its new style
-- **Settings**: "halo.spaces design", "Own icons" and the offline copy for online calendars apply immediately instead of after a restart
+- **Settings**: "halo.spaces design", "Own icons" and the offline copy for online calendars apply immediately instead of after a restart; "Appearance" and "Spaces" are one group "Appearance & Spaces" at the top of the halo.spaces settings; the layout previews (Card view, Table view, threading) are small halo windows with a ring around the choice; the settings icons use one gear and stronger Calendar, Export and Rules symbols
+- **Mail search**: while typing, a suggestion menu narrows the search (people from your address books, "Subject contains", "Message contains", earlier searches); the choice appears as a token in the field. A match on the sender's address now highlights the sender's name in the card
+- **Menu bar**: Edit shows "Search..." with Cmd+K and adds "Find Previous" (Shift+Cmd+G), Mail shows the shortcut for "Get New Mail", View has "Customize Toolbar...", and the Window menu no longer starts or ends with a separator; on Windows and Linux the menu bar spans the full window width at the top
+- **Memory**: closed Compose windows, event and prompt dialogs are released again; before, memory grew with every window and Thunderbird paused longer and longer
+- **Sidebar**: clicking another space in the floating sidebar switches the space and keeps the sidebar open; the active tile glows equally in light and dark mode; in the Add-ons tab the floating sidebar shows all entries again
+- **Animations**: a single slow frame no longer swallows showing or hiding the sidebar or the Today pane
+- **Mail**: with the Today pane open, the message area no longer slides under the pane; with a custom toolbar layout the buttons stay visible and move into the "»" menu when space runs out; if another add-on moves the time in the message header, it no longer covers the folder label; the follow-up notice above the inbox is a quiet gray card
+- **Compose**: the gray recipient dot no longer makes the To line taller than the other header lines
+- **Toolbar**: hovering a button in a capsule hides only the separators next to it; after an add-on install notice the collapsed buttons come back when there is room again
+- **Folder list**: the unread count is semibold in a softer gray, stronger with "Increase contrast"
+- **Calendar**: the selected day in the mini calendars is clearly visible in light and dark mode; calendar list checkmarks are consistent for every color; a swipe in the multiweek view no longer jumps back for a moment
+- **Tasks**: the formatting bar of the description is a gray capsule with icon buttons, flush with the card above
+- **Add-ons and Settings**: "Remove" sits last in the add-on "..." menu; the "managed by an organization" notice is a quiet gray card
+- **Contacts**: the arrow keys work right away after cancelling a new contact, also on slower computers
 
 ## What's new in 3.36.0
 

@@ -927,8 +927,10 @@ def main():
     ap.add_argument("--only", help="nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (z. B. \"Anhänge\")")
     ap.add_argument("--vm", nargs="?", const=VM_NAME, help=f"in der Windows-VM testen (Parallels, Standard „{VM_NAME}“, sonst $HALO_VM); "
                     "startet die VM vorher und fährt sie danach herunter (HALO_VM_KEIN_NEUSTART=1: kein Neustart bei gestörtem Bildtakt)")
-    ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
-    ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf laufen lassen (Handarbeit)")
+    ap.add_argument("--linux-vm", action="store_true", help="in der Linux-VM testen (Parallels „Ubuntu“, tests/linux_vm.py; nur "
+                    "Werkzeug für Rundgang und Design, zählt nie für die Testmarke); startet die VM vorher und fährt sie danach herunter")
+    ap.add_argument("--beta", action="store_true", help="mit --vm bzw. --linux-vm: Thunderbird Beta der VM")
+    ap.add_argument("--vm-weiter", action="store_true", help="mit --vm bzw. --linux-vm: VM nach dem Lauf laufen lassen (Handarbeit)")
     ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "
                     "Thunderbird in der Fehlerkonsole werden dann nicht verglichen)")
     ap.add_argument("--vergleich-neu", action="store_true", help="Vergleichslauf ohne halo.spaces neu aufnehmen (ergänzt die "
@@ -958,6 +960,9 @@ def main():
     faktisch_setzen(version)
     if args.vm:
         sys.exit(run_in_vm(args, xpi))
+    if getattr(args, "linux_vm", False):  # (in der VM selbst kommt die Option nicht aus args.json, bleibt also aus)
+        import linux_vm
+        sys.exit(linux_vm.lauf(args, xpi))
     if sys.platform == "darwin":
         wait_turn("mac")
     VERGLEICH_AUS = bool(args.ohne_vergleich)

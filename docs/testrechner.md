@@ -278,6 +278,18 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
     (`~/halo-vm/lauf.lock` bzw. laufendes Test-Thunderbird auf dem Mac).
   - Windows-Abweichungen wie Linux behandeln (`sys.platform != "darwin"`, in
     der VM ist es `win32`).
+- **Linux-VM** (Anleitung `tests/MAC-MINI.md` Abschnitt 11a): VM `Ubuntu` (Ubuntu 26.04 ARM64 mit GNOME, Benutzer
+  `parallels` mit automatischer Anmeldung, 4 Kerne, 4 GB, `--autostart off`, Freigabe `~/halo-vm` = `/media/psf/halo-vm`).
+  Zweck (Maintainer 21.11.2026, „ja ok“, Board-Eintrag „Linux-VM auf neon …“): nur Werkzeug für einen Linux-Rundgang und
+  Design-Entscheidungen mit echter Oberfläche statt xvfb; GitHub-Linux bleibt die einzige Quelle für grün, ein Lauf in der
+  VM übersteuert nichts und zählt nie für die Testmarke. Kein CI-Job, kein Nachtlauf.
+  - Testen: `python3 tests/halo_test.py --linux-vm --port 2871 [--dark] [--beta] [--only …] [--shots …]` – Sperre
+    `~/halo-vm/lauf.lock` (gemeinsam mit Mac- und Windows-Läufen), VM starten, Bildschirm 1920 × 1080
+    (`tests/linux-display.py`), Farbschema der Sitzung, Lauf, Screenshots zurück, VM herunterfahren (Grundsatz oben;
+    `--vm-weiter` für Handarbeit).
+  - Einrichten und Aktualisieren: `python3 tests/linux_vm.py --einrichten` (startet die VM, `tests/linux-vm-setup.sh`
+    als root und in der Sitzung, fährt sie herunter). Thunderbird als Snap (Mozilla baut für Linux nur x86_64):
+    `thunderbird` (latest/stable) und `thunderbird_beta` (latest/beta), ohne Selbst-Update.
   - Einrichten/Prüfen: `tests/mac-mini-setup.sh [--check]` (Windows-Seite:
     `tests/win-vm-setup.ps1`). Befehle in der VM: `prlctl exec "Windows 11"
     --current-user …` (angemeldete Sitzung) bzw. ohne `--current-user` als

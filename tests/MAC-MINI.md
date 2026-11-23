@@ -438,6 +438,36 @@ python3 tests/halo_test.py --vm --beta --port 2851                          # Th
   ist `sys.platform` `win32`, Prüfungen mit `sys.platform != "darwin"` gelten
   dort genauso.
 
+## 11a. Linux-VM (Parallels)
+
+Zweite VM `Ubuntu` (Ubuntu 26.04 ARM64, GNOME unter Wayland), nur als Werkzeug für einen Linux-Rundgang und
+Design-Entscheidungen mit echter Oberfläche (Maintainer 21.11.2026); GitHub-Linux bleibt die einzige Quelle für grün,
+die VM zählt nie für die Testmarke.
+
+| Was | Einstellung | Warum |
+|---|---|---|
+| VM | Name `Ubuntu` (anderer Name: `HALO_LINUX_VM=…`), Benutzer `parallels`, automatische Anmeldung | Thunderbird braucht eine Sitzung |
+| Größe | 4 Kerne, 4 GB, 64 GB, 3D an | daneben laufen die macOS-Tests |
+| Start | `--autostart off` | läuft nur während eines Tests (Grundsatz für jede VM auf neon) |
+| Freigabe | nur `~/halo-vm` (in der VM `/media/psf/halo-vm`) | |
+| Programme | Thunderbird als Snap: `thunderbird` (latest/stable), `thunderbird_beta` (latest/beta), beide `--hold` | für ARM64-Linux gibt es nur den Snap |
+| Sitzung | kein Bildschirmschoner, keine Sperre, keine Meldungen | `linux-vm-setup.sh --benutzer` |
+| Bildschirm | 1920 × 1080 bei Skalierung 1 | ohne Fenster der VM wählt Parallels 1024 × 768; `tests/linux-display.py` stellt es vor jedem Lauf ein |
+
+Am Bildschirm (einmalig): Ubuntu installieren, Benutzer mit automatischer Anmeldung, Parallels Tools. Alles andere:
+`python3 tests/linux_vm.py --einrichten` (wiederholbar, holt auch neue Thunderbird-Versionen).
+
+```bash
+python3 tests/halo_test.py --linux-vm --port 2871 --only "…" --shots /tmp/linux-hell
+python3 tests/halo_test.py --linux-vm --port 2871 --dark --shots /tmp/linux-dunkel
+```
+
+- Befehle gehen als Skript über die Freigabe in die VM (`lauf.sh`, `args.json`), weil `prlctl exec` keine
+  Anführungszeichen weiterreicht; `lauf.sh` setzt die Umgebung der GNOME-Sitzung, ein eigenes `TMPDIR` unter
+  `~/halo-lauf` (der Snap sieht ein eigenes `/tmp`) und das Farbschema (`color-scheme`, `gtk-theme`, danach zurück).
+- Nie gleichzeitig mit einem Mac- oder Windows-Lauf (Sperre `~/halo-vm/lauf.lock`); die Wartung der Windows-VM
+  übergibt ihre VM nie an einen Linux-Lauf (keine Wartemarke).
+
 ## 12. Steuerung aus Cloud-Sitzungen (Remote Control)
 
 Cloud-Sitzungen (claude.ai/code, Claude-App) laufen in einem Container ohne

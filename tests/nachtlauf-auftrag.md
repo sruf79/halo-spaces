@@ -16,8 +16,11 @@ Skript läuft aus dem Checkout). Gilt sie (Exitcode 0):
 - Danach nur noch: P4 (Testzeit, rote und flackernde Prüfungen), von Nutzern gemeldete Bugs, die Nutzer spüren, und
   Release bei Bedarf. Vor jedem Eintrag `zsh tests/umbau-woche.sh erlaubt <Typ> "<Titel>" <id> "<Status>"`, nur bei
   „ja …“ planen (Director in Schritt 1a wie Rückfall 1b). Keine neuen Features und Design-Einträge, auch nicht über den
-  Designer. Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen: mit Status
+  Designer; Ausnahme S1 (Maintainer 23.11.2026: „Ich folge deinen Empfehlungen“; Deutung von neon: von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden; ENTSCHEIDUNGEN.md „Umbau-Woche: S1 und Zweige der Tagesroutine“): solche Fehler (Bug mit „GitHub #n“, den Nutzer spüren) nur über den Designer.
+  Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen: mit Status
   „In Progress“ sagt der Filter „ja nur abschließen …“ (vorhandenen Commit nach main, CI, Done; keine neue Arbeit).
+  Das gilt für jeden Eintrag auf „In Progress“, nicht nur für Liste B; Done trotzdem nur nach den bisherigen Regeln
+  („zur Abnahme“ wie in tests/umbau-tag1-auftrag.md, Reihen n/m wie in docs/board.md).
 - „Pausiert“: nie planen, nie bearbeiten, nie schließen.
 - Schritt 0 (Mitnehmen) und Schritt 4 (Push, CI, Release gepushter Commits) bleiben unverändert; „nicht beginnen“ gilt
   nur für neue Arbeit.

@@ -79,7 +79,11 @@ pruefe "M6: Bug ohne GitHub #n auf In Progress: nur abschließen" "$(uw erlaubt 
 pruefe "M6: Nutzer-Bug auf In Progress: weiter voll (nicht nur abschließen)" "$(uw erlaubt Bug 'X [GitHub #67]' PVTI_x 'In Progress')" '^ja von Nutzern gemeldeter Bug'
 pruefe "M6: Umbau-Eintrag auf In Progress bleibt nein (baut neon)" "$(uw erlaubt Feature 'Ablauf: Organigramm' PVTI_lAHODEPpks4BoBQwzhKep4c 'In Progress')" '^nein Umbau-Eintrag'
 pruefe "M6: Feature auf Todo: weiter nein" "$(uw erlaubt Feature 'Mail: x' PVTI_x Todo)" '^nein Feature'
-pruefe "M6: Nachtlauf-Auftrag nennt „ja nur abschließen“ für Liste B" "$(<$HIER/nachtlauf-auftrag.md)" 'ja nur abschließen'
+pruefe "M6: Nachtlauf-Auftrag nennt „ja nur abschließen“ für Liste B" "$(<$HIER/nachtlauf-auftrag.md)" 'ja nur abschließen' 'jeden Eintrag auf „In Progress“, nicht nur für Liste B'
+for _a in nachtlauf tagesroutine; do
+  pruefe "S1 im Auftrag $_a (Darstellungsfehler von Nutzern über den Designer)" "$(<$HIER/$_a-auftrag.md)" \
+    'Ausnahme S1 \(Maintainer 23\.11\.2026: „Ich folge deinen Empfehlungen“'
+done
 pruefe "Pausiert: nie, auch P4" "$(uw erlaubt Bug 'Tests: flackert – x' PVTI_x Pausiert)" '^nein Status Pausiert'
 pruefe "vor der Woche (So): alles wie bisher" "$(HALO_JETZT=2026-11-22T19:00+01:00 uw erlaubt Feature 'Mail: x')" '^ja Umbau-Woche nicht aktiv'
 pruefe "vor der Woche: Pausiert trotzdem nie" "$(HALO_JETZT=2026-11-22T19:00+01:00 uw erlaubt Feature 'Mail: x' PVTI_x Pausiert)" '^nein Status Pausiert'
@@ -198,7 +202,7 @@ pruefe "M3: Auftrag Tag 1: bei Zählabweichung nur melden und aufhören, nie zur
   'nichts zurückschreiben' 'betroffenen ids' 'Tag 1 hier beenden' 'vorher-zurück=0'
 pruefe "Entscheidungen nach Fable im Auftrag Tag 1 (Nutzer-Bugs, Maintainer-Bugs, Abnahme, P4, Design-Bugs S1)" "$A_1" \
   'mit oder ohne Commit' 'ohne „GitHub #n“ zählen nicht als Nutzer-Bug, außer bei Absturz, Datenverlust' \
-  '„zur Abnahme“ bleibt „In Progress“, auch mit grüner CI' '„Tests: flackert“ und „Tests: CI rot“ sind P4' 'Design-Bugs von Nutzern: nicht entschieden \(offene Frage S1'
+  '„zur Abnahme“ bleibt „In Progress“, auch mit grüner CI' '„Tests: flackert“ und „Tests: CI rot“ sind P4' 'Design-Bugs von Nutzern: entschieden, S1' 'nur über den Designer'
 pruefe "nachtlauf.sh: Zeile „Umbau-Woche:“ im Auftrag" "$(<$HIER/nachtlauf.sh)" 'umbau-woche\.sh status' 'Umbau-Woche: '
 pruefe "tagesroutine.sh: Fable-Sperre über umbau-woche.sh fable" "$(<$HIER/tagesroutine.sh)" 'umbau-woche\.sh fable'
 pruefe "Auslastungswächter: Sperrzeile über umbau-woche.sh worker-sperre" "$(<$HIER/auslastung-schleife.zsh)" 'umbau-woche\.sh worker-sperre'

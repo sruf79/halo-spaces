@@ -16,8 +16,8 @@ Entschieden nach der Fable-Prüfung vom 22.11.2026 (Deutung der beiden Wortlaute
 - „zur Abnahme“ bleibt „In Progress“, auch mit grüner CI, weder Done noch Pausiert; geschlossen wird erst nach
   „abgenommen“ (Abnahme-Lauf nach dem Release, docs/release.md).
 - Neue Einträge „Tests: flackert“ und „Tests: CI rot“ sind P4 und bleiben „In Progress“ (Liste D).
-- Design-Bugs von Nutzern: nicht entschieden (offene Frage S1 an den Maintainer); bis zur Antwort unberührt lassen,
-  weder beginnen noch pausieren.
+- Design-Bugs von Nutzern: entschieden, S1 (Maintainer 23.11.2026: „Ich folge deinen Empfehlungen“; Deutung von neon: von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden; ENTSCHEIDUNGEN.md „Umbau-Woche: S1 und Zweige der Tagesroutine“).
+  Sortieren wie die übrigen Nutzer-Bugs (oben); umgesetzt werden sie nur über den Designer.
 
 Wann: nach Schritt 0 (a bis c), vor Schritt 1. In dieser Nacht nichts an eigenen Skripten und Abläufen bauen.
 

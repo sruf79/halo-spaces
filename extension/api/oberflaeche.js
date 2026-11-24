@@ -1083,33 +1083,10 @@ class EnhancerOberflaeche {
         msgSplitter.width = Math.max(msgWant, Math.min(300, minMessageWidth()));
       }
     };
-    // gezogene Listenbreite an spaces.css (--mt-list-want): die Liste behält sie,
-    // bei wenig Platz gibt die Mail nach (bis 300 px); nie gezogen: wie bisher gibt
-    // zuerst die Liste nach. Während des Ziehens gilt nur 300/300 (GitHub #75: mit
-    // Today-Pane in schmalen Fenstern ließ sich die Trennlinie sonst nicht bewegen)
-    const syncListWant = () => {
-      const body = win.document.body;
-      if (!body) {
-        return;
-      }
-      const value = msgSplitter?.__mcDragging ? "100000px"
-        : Services.prefs.prefHasUserValue(LIST_WIDTH_PREF) ? `${Services.prefs.getIntPref(LIST_WIDTH_PREF, LIST_WIDTH_DEFAULT)}px` : "";
-      if (body.style.getPropertyValue("--mt-list-want") != value) {
-        if (value) {
-          body.style.setProperty("--mt-list-want", value);
-        } else {
-          body.style.removeProperty("--mt-list-want");
-        }
-      }
-    };
-    this.restorers.push(() => win.document.body?.style.removeProperty("--mt-list-want"));
     // gezogen: neue Listenbreite merken
     if (msgSplitter && !msgSplitter.__mcListWatch) {
       msgSplitter.__mcListWatch = true;
-      const onResizing = () => {
-        msgSplitter.__mcDragging = true;
-        syncListWant();
-      };
+      const onResizing = () => (msgSplitter.__mcDragging = true);
       const onResized = () => {
         if (!msgSplitter.__mcDragging) {
           return;
@@ -1119,14 +1096,12 @@ class EnhancerOberflaeche {
         // Liste so breit wie das Fenster – gemerkt kam sie nach dem Wechsel
         // zurück viel zu breit
         if (msgSplitter.resizeDirection == "vertical") {
-          syncListWant();
           return;
         }
         const width = Math.round(threadPane.getBoundingClientRect().width);
         if (width >= 200) {
           Services.prefs.setIntPref(LIST_WIDTH_PREF, width);
         }
-        syncListWant();
       };
       msgSplitter.addEventListener("splitter-resizing", onResizing);
       msgSplitter.addEventListener("splitter-resized", onResized);
@@ -1169,7 +1144,6 @@ class EnhancerOberflaeche {
       // am Ende, bzw. mit allem pro Bild ruckelt es (Stufe 3)
       const spacesMoving = !!top.__mcSpacesAnimating && !top.__mcDry;
       if (!spacesMoving) {
-        syncListWant();
         keepListWidth();
         enforceMessageWidth();
       }

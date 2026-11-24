@@ -403,7 +403,7 @@ fi
   print; print "## Ende der Arbeit (nachtlauf.sh)"; print
   EG=$(grep 'Arbeit beendet:' $LOG | tail -1 | cut -d' ' -f3-)
   print -r -- "- ${EG:-Arbeit beendet: Fertig-Datei ohne Prüfung (unbekannt)}"
-  print "- Fortsetzungen nach der Fertig-Datei (Schritt 5): $FORTSETZ"
+  print -r -- "- Fortsetzungen nach der Fertig-Datei (Schritt 5): $FORTSETZ"
   [[ -n $VD_STATUS ]] && print -r -- "- $VD_STATUS (Stand Ende der Arbeit)"
 } >> $BERICHT
 # Pflichtvermerk (Maintainer 13.11.2026): steht Volldampf nicht in „Kurz:“, setzt das Skript ihn davor

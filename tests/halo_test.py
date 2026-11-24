@@ -13390,8 +13390,11 @@ def run_checks(m, version, profile, results):
     def list_splitter_drag_cards():
         # GitHub #75: Kartenansicht, ungruppiert, Today-Pane offen und wenig Platz für Liste und Mail (rund 700 px, z. B.
         # Laptop): nie gezogen steht die Liste wie bisher auf 300 px (sie gibt zuerst nach), die Trennlinie folgt aber dem
-        # Ziehen nach rechts (Mail bis 300 px) und wieder nach links; vorher bewegte sie sich in keine Richtung. Das
-        # Fenster wird so breit gemacht, dass der Platz im Band liegt (gemessen, auf jeder Plattform gleich)
+        # Ziehen nach rechts (Mail bis 300 px) und wieder nach links; vorher bewegte sie sich in keine Richtung. Der
+        # Engpass entsteht nur auf einem kleinen Bildschirm (Laptop, 1280 px): auf einem großen hält die Mindestbreite des
+        # Fensters (hookMinWindowWidth, endet am Bildschirm) es mit Today-Pane bei rund 1500 px, resizeTo wirkt dann nicht
+        # (allein gestartet stand sie noch nicht, im vollen Lauf schon – dort blieb der Platz bei rund 900 px). Darum
+        # Bildschirm vorgetäuscht wie in „Mail: mit gewählter Mail und Today-Pane (1500 px und kleiner Bildschirm) …“
         def drag(dx):
             p = m.js(r"""
               const a3 = tm.currentAbout3Pane, sp = a3.document.getElementById("messagePaneSplitter");
@@ -13423,7 +13426,8 @@ def run_checks(m, version, profile, results):
           const PREF = "extensions.mailcards.listWidth";
           w.__mcPrev75 = { list: Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : 0,
                            msg: a3.document.getElementById("messagePaneSplitter").width, threaded: a3.gViewWrapper.showThreaded,
-                           tp: w.TodayPane.isVisible, ww: w.outerWidth, wh: w.outerHeight, ws: w.windowState };
+                           tp: w.TodayPane.isVisible, ww: w.outerWidth, wh: w.outerHeight, ws: w.windowState,
+                           screen: Object.getOwnPropertyDescriptor(w, "screen") };
           // (vorige Prüfungen lassen das Fenster teils maximiert zurück, dann wirkt resizeTo nicht)
           if (w.windowState != w.STATE_NORMAL) { w.restore(); await bis(() => w.windowState == w.STATE_NORMAL, "Fenster normal", 3000); await ruhig(500); }
           a3.gViewWrapper.showUnthreaded = true; await ruhig(800);
@@ -13435,9 +13439,10 @@ def run_checks(m, version, profile, results):
           // (eine vorige Prüfung kann der Mail eine feste Breite gelassen haben, die das Fenster nicht schmaler werden lässt;
           // die Mail bekommt danach wieder den Rest)
           a3.document.getElementById("messagePaneSplitter").width = 300;
-          w.resizeTo(1500, 900); await wait(1000); await ruhig(800);
-          // Platz für Liste und Mail auf rund 700 px bringen (zwei Schritte, falls Ordnerliste oder Today-Pane mitwachsen)
-          for (let i = 0; i < 2; i++) { w.resizeTo(Math.round(w.outerWidth - (room() - 700)), 900); await wait(1000); await ruhig(800); }
+          // kleiner Bildschirm: die Mindestbreite des Fensters endet am Bildschirm, für Liste und Mail bleiben rund 700 px
+          w.screen = { availWidth: 1280, availHeight: 860, availLeft: 0, availTop: 0, width: 1280, height: 900, left: 0, top: 0 };
+          w.dispatchEvent(new w.Event("resize")); await ruhig(300); d.documentElement.style.minWidth = "";
+          w.resizeTo(1280, 860); await until(() => w.outerWidth == 1280, 3000); await stabil(() => [room(), w.innerWidth], 4000);
           return { room: room(), win: w.outerWidth, list: Math.round(tp.getBoundingClientRect().width), max: a3.getComputedStyle(tp).maxWidth,
                    msg: Math.round(mp.getBoundingClientRect().width), unthreaded: a3.gViewWrapper.showUnthreaded, cards: Services.prefs.getIntPref("mail.threadpane.listview", 0) == 0 };""")
         try:
@@ -13450,20 +13455,18 @@ def run_checks(m, version, profile, results):
               const a3 = tm.currentAbout3Pane, p = w.__mcPrev75 || {};
               if (p.threaded) a3.gViewWrapper.showThreaded = true;
               if (p.list) Services.prefs.setIntPref("extensions.mailcards.listWidth", p.list); else Services.prefs.clearUserPref("extensions.mailcards.listWidth");
+              if (p.screen) Object.defineProperty(w, "screen", p.screen); else delete w.screen;
               if (p.ww) w.resizeTo(p.ww, p.wh);
               if (p.ws == w.STATE_MAXIMIZED) w.maximize();
               if (p.msg) a3.document.getElementById("messagePaneSplitter").width = p.msg;
               if (!p.tp && w.TodayPane.isVisible) { d.getElementById("calendar_toggle_todaypane_command").doCommand(); await ruhig(1500); }
               await wait(1000); await ruhig(800); return true;""")
+        # der Engpass muss auf jeder Plattform entstehen (auch unter Linux, mit vorgetäuschtem Bildschirm geht es dort)
         band = 620 <= pre["room"] <= 780
-        # unter Linux (xvfb) wird das Fenster mit Today-Pane nicht schmaler als rund 1500 px (Mindestbreite), der Engpass
-        # ist dort nicht herstellbar: dann gilt nur das Ziehen in beide Richtungen; Mac und Windows müssen ihn erreichen
-        band_ok = band or sys.platform.startswith("linux")
         default = abs(pre["list"] - max(300, pre["room"] - 480)) <= 2
-        ok = (band_ok and pre["unthreaded"] and pre["cards"] and default and right["list"] - pre["list"] >= 40 and right["msg"] >= 299
+        ok = (band and pre["unthreaded"] and pre["cards"] and default and right["list"] - pre["list"] >= 40 and right["msg"] >= 299
               and right["list"] - left["list"] >= 30)
-        return ok, (f"vorher {pre}, nach rechts {right}, nach links {left}" + ("" if band else " (Platz nicht im Band 620–780"
-                    + (", unter Linux nicht herstellbar – nur Ziehen geprüft)" if band_ok else ")")) + ("" if default else " (Liste nie gezogen nicht wie bisher)"))
+        return ok, (f"vorher {pre}, nach rechts {right}, nach links {left}" + ("" if band else " (Platz nicht im Band 620–780)") + ("" if default else " (Liste nie gezogen nicht wie bisher)"))
     check("Mailansicht: Trennlinie zwischen Mailliste und Mail folgt dem Ziehen auch bei wenig Platz mit Today-Pane (Kartenansicht, ungruppiert, nie gezogen zuerst wie bisher; GitHub #75)", list_splitter_drag_cards, results)
 
     def toolbar_wider_list():

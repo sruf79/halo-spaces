@@ -12498,8 +12498,9 @@ def server_checks(m, results):
               w.addEventListener("dialogopen", onOpen, true);
               w.__mcPwOff = () => w.removeEventListener("dialogopen", onOpen, true);
               server.closeCachedConnections(); await wait(500);
-              const inbox = server.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox);
-              w.setTimeout(() => inbox.getNewMessages(w.msgWindow, null), 100);
+              // abrufen wie „Nachrichten abrufen“: Thunderbird 162 nimmt bei getNewMessages statt des msgWindow nur noch
+              // „interactive“ – der alte Aufruf mit msgWindow fragte dort nicht mehr nach (auch ohne halo.spaces)
+              w.setTimeout(() => w.GetMessagesForInboxOnServer(server), 100);
               w.__mcPwTest = out;
               return 1;""" % key)
             time.sleep(8)

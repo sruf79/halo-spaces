@@ -70,13 +70,16 @@ else
   mkdir -p $NACHT $BERICHTE
   LOG=$NACHT/$(date +%F)-morgenbrief.log
 fi
+# Der LaunchAgent hat keine Locale: zsh schnitte dann in kurz() mitten durch ein „ä“ (Bytes statt Zeichen), Python bekäme
+# ungültiges UTF-8 und der Bericht bliebe leer (24.11.2026, UnicodeEncodeError); darum UTF-8 festlegen.
+export LC_ALL=en_US.UTF-8
 source $HILFEN || { print -u2 "FEHLER: $HILFEN nicht lesbar"; exit 2 }
 (( ${PAUSEN_ROUTINEN[(Ie)morgenbrief]} )) || PAUSEN_ROUTINEN+=(morgenbrief)
 export HALO_ROUTINEN="$PAUSEN_ROUTINEN"
 
 # --- Zeit: heute, Wochentag, letzter Brief, voriger Werktag, Sollkurve ---
 typeset -A T
-while IFS='=' read -r k v; do T[$k]=$v; done < <(python3 -I -c '
+while IFS='=' read -r k v; do T[$k]=$v; done < <(python3 -X utf8 -I -c '
 import os, datetime as dt
 from zoneinfo import ZoneInfo
 W = ZoneInfo("Europe/Vienna"); UTC = dt.timezone.utc
@@ -118,7 +121,7 @@ kurz() { local s=${1//$'\n'/ }; (( ${#s} > ${2:-150} )) && s="${s[1,${2:-150}-1]
 if [[ -r $HANDELN_LESEN ]]; then
   while IFS=$'\t' read -r q t; do
     HANDELN+=("$q: $(kurz $t 160)")
-  done < <(SEIT=$T[SEIT] JETZT=$T[JETZT] python3 -I -c '
+  done < <(SEIT=$T[SEIT] JETZT=$T[JETZT] python3 -X utf8 -I -c '
 import os, sys, datetime as dt
 from zoneinfo import ZoneInfo
 W = ZoneInfo("Europe/Vienna")
@@ -167,7 +170,7 @@ fi
 
 # --- 4. Tagesroutine seit dem letzten Brief (Maintainer 14.11.2026: auch Sa/So) ---
 # Alle Tage vom Tag des letzten Briefs bis gestern: Mo also Fr, Sa, So; Di–Fr der Vortag; Sa Fr, So Sa.
-for td in ${(f)"$(SEIT=$T[SEIT] HEUTE=$HEUTE python3 -I -c '
+for td in ${(f)"$(SEIT=$T[SEIT] HEUTE=$HEUTE python3 -X utf8 -I -c '
 import os, datetime as dt
 d = dt.date.fromisoformat(os.environ["SEIT"][:10]); h = dt.date.fromisoformat(os.environ["HEUTE"])
 while d < h: print(d.isoformat()); d += dt.timedelta(days=1)
@@ -240,7 +243,7 @@ if [[ -n $HALO_MB_RELEASES ]]; then REL_JSON=$(<$HALO_MB_RELEASES)
 elif [[ -z $TROCKEN ]]; then REL_JSON=$(gh release list -R $REPO_GH -L 5 --json tagName,publishedAt,isDraft 2>/dev/null)
 fi
 if [[ -n $REL_JSON ]]; then
-  r=$(print -r -- $REL_JSON | SEIT=$T[SEIT] python3 -I -c '
+  r=$(print -r -- $REL_JSON | SEIT=$T[SEIT] python3 -X utf8 -I -c '
 import os, sys, json, datetime as dt
 from zoneinfo import ZoneInfo
 W = ZoneInfo("Europe/Vienna"); seit = dt.datetime.fromisoformat(os.environ["SEIT"])
@@ -269,7 +272,7 @@ elif [[ -z $TROCKEN ]]; then
 fi
 WIN=$HALO_MB_WINDOWS
 if [[ -n $CI_JSON ]]; then
-  c=$(print -r -- $CI_JSON | SEIT=$T[SEIT] python3 -I -c '
+  c=$(print -r -- $CI_JSON | SEIT=$T[SEIT] python3 -X utf8 -I -c '
 import os, sys, json, datetime as dt
 seit = dt.datetime.fromisoformat(os.environ["SEIT"])
 l = sorted(json.load(sys.stdin), key=lambda x: x["createdAt"], reverse=True)
@@ -313,7 +316,7 @@ elif [[ -z $TROCKEN ]]; then
   [[ -n $KW ]] && wochen_reset_erkennen $KW >/dev/null
 fi
 if [[ -n $KW ]]; then
-  ab=$(python3 -I -c 'import sys; print("%+.1f" % (float(sys.argv[1]) - float(sys.argv[2])))' $KW $T[SOLL])
+  ab=$(python3 -X utf8 -I -c 'import sys; print("%+.1f" % (float(sys.argv[1]) - float(sys.argv[2])))' $KW $T[SOLL])
   zeile="Kontingent: Woche $KW % ($SOLL_TEXT $T[SOLL] %, $ab), 5 h $K5 %"
   if (( KW >= KONT_KNAPP && T[BIS_RESET_H] > 24 )); then
     HANDELN+=("Kontingent $KW % bei $T[BIS_RESET_H] h bis Reset: Empfehlung Tagesroutine pausieren (pause_setzen tagesroutine <bis> …)")
@@ -584,7 +587,7 @@ block("Vorschau Tagesroutine: offene Einträge in Regel-Reihenfolge", "\n".join(
 if ueber_e:
     block("Überfällig: Entscheidungen über 7 Tage offen", "\n".join("- %s – %d Tage – %s" % (t, n, f) for n, t, f in ueber_e))
 if len(sys.argv) > 1 and sys.argv[1]:
-    with open(sys.argv[1], "w", encoding="utf-8") as f: f.write("\n".join(B_).rstrip() + "\n")
+    with open(sys.argv[1], "w", encoding="utf-8", errors="replace") as f: f.write("\n".join(B_).rstrip() + "\n")
 # --- iPhone: höchstens 3 Zeilen plus Hinweis, ohne Pfade und Hashes ---
 print("Du musst heute: %d Punkt%s" % (len(aufgaben), "e" if len(aufgaben) != 1 else "") if aufgaben else "Nichts nötig")
 print("Nacht: " + einfach(nacht, 160))
@@ -599,7 +602,7 @@ ZEILEN=(${(f)"$(MB_HEUTE=$HEUTE MB_NB=$NB MB_NACHT_ZUSTAND=$NACHT_ZUSTAND MB_HAN
   MB_INFO=${(F)INFO} MB_TB=${(F)TB_LISTE} MB_KW=$KW MB_K5=$K5 MB_SOLL=$T[SOLL] MB_SOLL_TEXT=$SOLL_TEXT MB_WIN=$WIN MB_CI=$CI_ZEILE \
   MB_PAUSE=$TR_PAUSE MB_VOLLDAMPF=$TR_VD MB_BOARD=$BOARD_JSON MB_BOARD_INFO=$BOARD_INFO MB_START=$TR_START \
   MB_IM_SOLL=$(cv IM_SOLL 3) MB_SPAR_MAX=$(cv SPAR_MAX 10) MB_5H_MAX=$(cv FUENF_STUNDEN_MAX 80) \
-  python3 -I -c $BERICHT_PY "$AUSGABE")"})
+  python3 -X utf8 -I -c $BERICHT_PY "$AUSGABE")"})
 [[ -z $HALO_MB_BOARD && -n $BOARD_JSON ]] && rm -f $BOARD_JSON
 (( $#ZEILEN )) || ZEILEN=("Morgenbrief: Bericht ließ sich nicht bauen (python3?)" "Bericht in der Sitzung neon mit /bericht öffnen")
 TEXT="Morgenbrief ${HEUTE[9,10]}.${HEUTE[6,7]}.: ${(j: / :)ZEILEN}"

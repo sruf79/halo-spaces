@@ -231,4 +231,12 @@ A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-21T08:30
 pruefe "Morgenbrief nach freiem Reset: Soll weiter ab Di 01:00, kein „Soll bis nächster Reset“" 'grep -q "Kontingent: Woche 20 % (Soll 61.6 %, -41.6)" $T/anker.md && ! grep -q "Soll bis nächster Reset" $T/anker.md'
 A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-24T08:30:00+01:00 $T/anker2.md)
 pruefe "Morgenbrief nach dem automatischen Reset: Anker verfallen, 168-h-Kurve" 'grep -q "Kontingent: Woche 20 % (Soll 4.5 %" $T/anker2.md'
+# Ohne Locale (LaunchAgent, Python liest Umgebung als ASCII): Sonderzeichen „ä“, „–“, „…“ im Bericht dürfen nicht an UTF-8 scheitern
+# (Fehler vom 24.11.2026: UnicodeEncodeError, Brief leer). Mit /usr/bin/python3 und mit dem PATH-Python.
+LC_ALL=C LANG=C LC_CTYPE=C lauf $MO $T/c.md >/dev/null
+pruefe "Ohne Locale: Bericht mit „ä“, „–“, „…“ wird geschrieben" 'grep -q "schöner" $T/c.md && grep -q "–" $T/c.md'
+PATH=/usr/bin:/bin LC_ALL=C LANG=C lauf $MO $T/c2.md >/dev/null
+pruefe "Ohne Locale mit /usr/bin/python3: Bericht mit Sonderzeichen wird geschrieben" 'grep -q "schöner" $T/c2.md && grep -q "–" $T/c2.md'
+pruefe "Skript legt UTF-8 fest (zsh schneidet sonst mitten durch „ä“) und schreibt den Bericht tolerant" 'grep -q "^export LC_ALL=en_US.UTF-8" $SKRIPT && grep -q "errors=\"replace\") as f: f.write" $SKRIPT'
+pruefe "kürzen nach Zeichen statt Bytes unter LC_ALL=en_US.UTF-8" '[[ $(env -i LC_ALL=en_US.UTF-8 zsh -c "s=äöü; print -r -- \${s[1,2]}") == äö ]]'
 exit $FEHLER

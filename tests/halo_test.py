@@ -17688,6 +17688,7 @@ def run_checks(m, version, profile, results):
         # Heute-Fensters darf der Hinweis (wie der übrige Mailinhalt) am Ende nicht mehr springen. Gemessen wird seine Lage
         # im Fenster in jedem Bild; nach dem letzten Bild, in dem sich die Breite des Heute-Fensters ändert, darf er sich
         # nicht mehr als 2,5 px bewegen (Rundung der Endbreite). Nur macOS (verdecktes Fenster: übersprungen).
+        # Vier Läufe im vorgefundenen Zustand, zwei weitere (aus, ein) mit fester Breite der Mailspalte.
         if sys.platform != "darwin":
             return True, "übersprungen: nur auf macOS gemessen"
         res = m.js(MESSAGE_JS + r'''
@@ -17701,8 +17702,18 @@ def run_checks(m, version, profile, results):
             return br ? [Math.round((o.left + mb.left + br.left) * 100) / 100, Math.round((o.top + mb.top + br.top) * 100) / 100, Math.round(br.width * 100) / 100] : null;
           };
           const panel = d.getElementById("today-pane-panel");
-          for (const label of ["a", "b", "c", "d"]) {
+          // Läufe e und f: Mailspalte mit fester Breite in px statt „100%“ (so steht sie nach jedem gesetzten Maß am
+          // Teiler, im vollen Lauf durch frühere Prüfungen): Thunderbirds Raster führt die Mail dann nicht selbst mit
+          // der gleitenden Liste nach, sie rückte erst nach dem Ende um bis zu 20 px. Vor Lauf f bei ausgeblendetem
+          // Heute-Fenster gesetzt, danach zurück
+          const grid = a3.document.getElementById("paneLayout"), MP = "--messagePaneSplitter-width";
+          const mpSaved = grid.style.getPropertyValue(MP); let fest = false;
+          for (const label of ["a", "b", "c", "d", "e", "f"]) {
             const frames = [];
+            if (label == "f" && !w.TodayPane?.isVisible && a3.document.body.classList.contains("layout-vertical")) {
+              const mw = Math.round(a3.document.getElementById("messagePane").getBoundingClientRect().width);
+              if (mw > 0) { grid.style.setProperty(MP, mw + "px"); fest = true; await ruhig(600); }
+            }
             d.getElementById("mcTodayToggle").click();
             const t0 = performance.now();
             while (performance.now() - t0 < 900) {
@@ -17711,7 +17722,8 @@ def run_checks(m, version, profile, results):
             }
             out.push(frames); await ruhig(1200);
           }
-          return { out };''')
+          if (fest) { if (mpSaved) grid.style.setProperty(MP, mpSaved); else grid.style.removeProperty(MP); await ruhig(300); }
+          return { out, fest, mpSaved };''')
         if res.get("skip"):
             return True, "nicht gemessen (Fenster verdeckt)"
         bad, info = [], []

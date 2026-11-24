@@ -1176,12 +1176,30 @@ class EnhancerKalender {
       return doc?.documentURI?.startsWith("about:3pane") && doc.body?.classList.contains("layout-vertical") ? doc.getElementById("threadPane") : null;
     })();
     const listFrom = listEl?.getBoundingClientRect().width || null;
+    // Mail neben der Liste: Die Liste gleitet nur als Element (--mt-list-hold). Füllt Thunderbirds Mailspalte den Rest
+    // (--messagePaneSplitter-width: 100%), folgt ihr die Mail von selbst; steht dort eine feste Breite in px (nach
+    // jedem gesetzten Maß am Teiler), behält die Listenspalte ihre Breite, neben der schmaleren Liste blieb eine Lücke
+    // und die ganze Mail rückte erst im Bild nach dem Ende um bis zu 20 px nach (bzw. sprang beim Ausblenden am
+    // Anfang). Abstand der Mail vom Anfang des Fensters vorher und nachher messen und pro Bild nur verschieben, was
+    // das Raster nicht selbst nachführt
+    const msgEl = listEl?.ownerDocument.getElementById("messagePane") || null;
+    const msgWin = msgEl?.ownerDocument.defaultView || null;
+    const msgRtl = msgWin ? msgWin.getComputedStyle(msgEl).direction == "rtl" : false;
+    const msgStart = () => {
+      if (!msgWin || !msgEl.isConnected || !msgEl.offsetWidth) {
+        return null;
+      }
+      return msgRtl ? msgWin.innerWidth - msgEl.offsetLeft - msgEl.offsetWidth : msgEl.offsetLeft;
+    };
+    const msgFrom = msgStart();
+    let msgTo = null;
     const lineVars = ["--mc-list-right", "--mc-lh-right"];
     const lineOf = () => lineVars.map(v => parseFloat(barTarget(d).style.getPropertyValue(v)));
     const lineFrom = lineOf();
     let listTo = null, lineTo = null;
     const listToNow = () => {
       listTo = listEl?.isConnected ? listEl.getBoundingClientRect().width || null : null;
+      msgTo = msgStart();
       lineTo = lineOf();
     };
     if (showing) {
@@ -1352,6 +1370,7 @@ class EnhancerKalender {
       panel.__mcListRide = true;
     }
     const lineRide = listRide && lineFrom.every(Number.isFinite) && lineTo.every(Number.isFinite);
+    const msgRide = listRide && msgFrom != null && msgTo != null && Math.abs(msgTo - msgFrom) >= 1;
     const toAll = kidsAll.map(place);
     // gleiten: vorher und nachher sichtbar; erscheinen: werden eingeblendet
     const riders = kidsAll.filter((_, i) => fromAll[i] != null && toAll[i] != null);
@@ -1411,6 +1430,12 @@ class EnhancerKalender {
         listEl.style.setProperty("--mt-list-hold", `${(listFrom + (listTo - listFrom) * p).toFixed(2)}px`);
         if (lineRide) {
           lineVars.forEach((v, i) => barTarget(d).style.setProperty(v, `${(lineFrom[i] + (lineTo[i] - lineFrom[i]) * p).toFixed(2)}px`));
+        }
+        // (msgStart misst die Lage im Raster ohne die Verschiebung; unter 1 px führt das Raster selbst nach)
+        const msgNow = msgRide ? msgStart() : null;
+        if (msgNow != null) {
+          const shift = msgFrom + (msgTo - msgFrom) * p - msgNow;
+          msgEl.style.transform = Math.abs(shift) >= 1 ? `translateX(${((msgRtl ? -1 : 1) * shift).toFixed(2)}px)` : "";
         }
       }
     };
@@ -1488,6 +1513,9 @@ class EnhancerKalender {
       row?.removeAttribute("data-mc-tp-anim");
       row?.style.removeProperty("--mc-tt-off");
       listEl?.style.removeProperty("--mt-list-hold");
+      if (msgRide) {
+        msgEl.style.removeProperty("transform");
+      }
       delete panel.__mcListRide;
       // Toolbar einmal neu anordnen (während der Animation ausgesetzt)
       for (const f of [...(this.sideEdgeUpdaters || []), ...(this.offsetUpdaters || [])]) {

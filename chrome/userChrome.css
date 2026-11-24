@@ -12672,6 +12672,21 @@ addon-card .addon-inline-options {
   color: var(--mt-text) !important;
 }
 
+#compose-notification-bottom notification-message[type="warning"] moz-button.notification-button {
+  --button-background-color: var(--mt-window) !important;
+  --button-background-color-ghost: var(--mt-window) !important;
+  --button-background-color-hover: var(--mt-window) !important;
+  --button-background-color-ghost-hover: var(--mt-window) !important;
+  --button-background-color-active: var(--mt-window) !important;
+  --button-background-color-ghost-active: var(--mt-window) !important;
+  --button-text-color: var(--mt-text) !important;
+  --button-text-color-ghost: var(--mt-text) !important;
+  --button-text-color-hover: var(--mt-text) !important;
+  --button-text-color-ghost-hover: var(--mt-text) !important;
+  --button-text-color-active: var(--mt-text) !important;
+  --button-text-color-ghost-active: var(--mt-text) !important;
+}
+
 /* Kontakte-Seitenleiste: Kopf im Seitenleisten-Grau mit Haarlinie */
 #contactsSidebar > .sidebar-header {
   background: var(--mt-sidebar) !important;
@@ -16737,6 +16752,68 @@ notification-message:not([type="warning"]) :is(button, toolbarbutton).notificati
   color: var(--mt-text) !important;
 }
 
+/* ab Thunderbird 162 sind die Knöpfe ein moz-button: die Kapsel malt sein
+   Innenteil im Schatten-DOM (.button-background, ohne part), gesteuert über
+   die Variablen des Knopfs (auch für die Art „ghost“) – dieselbe Kapsel
+   wie oben */
+notification-message moz-button.notification-button {
+  align-self: center !important;
+  margin-block: 4px !important;
+  --button-min-height: 28px !important;
+  --button-min-height-small: 28px !important;
+  --button-padding: 0 14px !important;
+  --button-padding-block-small: 0 !important;
+  --button-padding-inline-small: 14px !important;
+  --button-border: none !important;
+  --button-border-radius: var(--mt-radius-capsule, 999px) !important;
+  --button-font-size: 1em !important;
+  --button-font-size-small: 1em !important;
+  --button-font-weight: 500 !important;
+  --button-background-color: rgba(255, 255, 255, 0.72) !important;
+  --button-background-color-ghost: rgba(255, 255, 255, 0.72) !important;
+  --button-background-color-hover: rgba(255, 255, 255, 0.95) !important;
+  --button-background-color-ghost-hover: rgba(255, 255, 255, 0.95) !important;
+  --button-background-color-active: rgba(255, 255, 255, 0.95) !important;
+  --button-background-color-ghost-active: rgba(255, 255, 255, 0.95) !important;
+  --button-text-color: #000 !important;
+  --button-text-color-ghost: #000 !important;
+  --button-text-color-hover: #000 !important;
+  --button-text-color-ghost-hover: #000 !important;
+  --button-text-color-active: #000 !important;
+  --button-text-color-ghost-active: #000 !important;
+}
+
+notification-message:not([type="warning"]) moz-button.notification-button {
+  --button-background-color: var(--mt-window) !important;
+  --button-background-color-ghost: var(--mt-window) !important;
+  --button-background-color-hover: var(--mt-window) !important;
+  --button-background-color-ghost-hover: var(--mt-window) !important;
+  --button-background-color-active: var(--mt-window) !important;
+  --button-background-color-ghost-active: var(--mt-window) !important;
+  --button-text-color: var(--mt-text) !important;
+  --button-text-color-ghost: var(--mt-text) !important;
+  --button-text-color-hover: var(--mt-text) !important;
+  --button-text-color-ghost-hover: var(--mt-text) !important;
+  --button-text-color-active: var(--mt-text) !important;
+  --button-text-color-ghost-active: var(--mt-text) !important;
+}
+
+/* Menüknöpfe (moz-button.button-menu-list, z. B. „Preferences“ bei externen
+   Inhalten) malt Thunderbird auf das Element selbst – eckig, mit Rahmen und
+   Pfeil, das Innenteil durchsichtig: dieselbe Kapsel wie oben ohne Pfeil */
+notification-message moz-button.notification-button.button-menu-list {
+  padding-inline-end: 0 !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background-image: none !important;
+  background-color: var(--button-background-color) !important;
+  color: var(--button-text-color) !important;
+}
+
+notification-message moz-button.notification-button.button-menu-list:not([disabled]):hover {
+  background-color: var(--button-background-color-hover) !important;
+}
+
 /* „Später erinnern“ (Anhang-Hinweis im Verfassen-Fenster) ist ein
    Menü-Knopf, den Thunderbird selbst einhängt: dieselbe Kapsel wie die
    übrigen Knöpfe, die Innenteile tragen den Abstand */
@@ -16816,6 +16893,31 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) :is(button, toolbarbutton).notification-button:hover {
   background: var(--mt-control-hover) !important;
+}
+
+/* dasselbe für den moz-button ab Thunderbird 162 (Variablen wie oben) */
+#mail-notification-top notification-message moz-button.notification-button {
+  margin-block: 0 !important;
+  --button-min-height: var(--mt-btn-h-small, 24px) !important;
+  --button-min-height-small: var(--mt-btn-h-small, 24px) !important;
+  --button-padding: 0 12px !important;
+  --button-padding-inline-small: 12px !important;
+  --button-font-weight: 400 !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) moz-button.notification-button {
+  --button-background-color: var(--mt-control) !important;
+  --button-background-color-ghost: var(--mt-control) !important;
+  --button-background-color-hover: var(--mt-control-hover) !important;
+  --button-background-color-ghost-hover: var(--mt-control-hover) !important;
+  --button-background-color-active: var(--mt-control-hover) !important;
+  --button-background-color-ghost-active: var(--mt-control-hover) !important;
+  --button-text-color: var(--mt-text) !important;
+  --button-text-color-ghost: var(--mt-text) !important;
+  --button-text-color-hover: var(--mt-text) !important;
+  --button-text-color-ghost-hover: var(--mt-text) !important;
+  --button-text-color-active: var(--mt-text) !important;
+  --button-text-color-ghost-active: var(--mt-text) !important;
 }
 
 /* keine Mehrtages-Pfeile (⇕ ↓ ↑) neben den Terminen – wie in Apple Kalender */

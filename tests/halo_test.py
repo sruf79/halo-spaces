@@ -4278,7 +4278,9 @@ def compose_checks(m, results):
             if (!msg) return { bar: false };
             await ruhig(800);
             const all = sel => [...msg.querySelectorAll(sel), ...(msg.shadowRoot?.querySelectorAll(sel) || [])].find(vis);
-            const b = all("button.notification-button"), t = all("toolbarbutton.notification-button");
+            // ab Thunderbird 162 ist „Anhang hinzufügen“ ein moz-button: gemessen wird die Kapsel in seinem Schatten-DOM
+            const bh = all(":is(button, moz-button).notification-button"), t = all("toolbarbutton.notification-button");
+            const b = bh?.shadowRoot?.querySelector(".button-background") || bh;
             if (!b || !t) return { bar: true, buttons: false };
             const rb = b.getBoundingClientRect(), rt = t.getBoundingClientRect(), st = csOf(t);
             const stack = msg.closest(".notificationbox-stack") || cd.querySelector("#compose-notification-bottom .notificationbox-stack");
@@ -16096,11 +16098,13 @@ def run_checks(m, version, profile, results):
           const probe = md.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.color = "var(--mt-hint-bg)"; probe.style.backgroundColor = "var(--mt-text-secondary)";
           md.documentElement.append(probe); const hint = cs(probe).color, grey = cs(probe).backgroundColor, text = cs(md.documentElement).getPropertyValue("--mt-text").trim(); probe.remove();
           const sr = n?.shadowRoot, box = sr?.querySelector("div.container"), tx = sr?.querySelector(".text-container"), icon = sr?.querySelector("img.icon");
-          const btn = n?.querySelector("button"), close = sr?.querySelector("moz-button.close"), closeBtn = close?.shadowRoot?.querySelector('[part~="button"]');
+          // ab Thunderbird 162 ist „Preferences“ ein moz-button (Menüknopf): seine Fläche malt je nach Art das Element selbst
+          // oder die Kapsel in seinem Schatten-DOM – gemessen wird das Element, als Fläche zählt die sichtbare der beiden
+          const btn = n?.querySelector(":is(button, moz-button).notification-button"), btnIn = btn?.shadowRoot?.querySelector(".button-background"), close = sr?.querySelector("moz-button.close"), closeBtn = close?.shadowRoot?.querySelector('[part~="button"]');
           return { bar: !!n, styled: !!sr?.querySelector("style.mc-layout"), pane: md.documentElement.clientWidth, card: R(n), box: R(box),
                    hostBg: n && cs(n).backgroundColor, boxBg: box && cs(box).backgroundColor, hint, radius: box && [cs(n).borderTopLeftRadius, cs(box).borderBottomRightRadius],
                    shadow: box && cs(box).boxShadow, text: R(tx), textColor: tx && cs(tx).color, iconColor: icon && cs(icon).color, grey,
-                   btn: R(btn), btnBg: btn && cs(btn).backgroundColor, close: R(closeBtn), closeRadius: closeBtn && cs(closeBtn).borderTopLeftRadius,
+                   btn: R(btn), btnBg: btn && [btnIn, btn].map(e => e && cs(e).backgroundColor).find(c => c && !["rgba(0, 0, 0, 0)", "transparent"].includes(c)) || cs(btn).backgroundColor, close: R(closeBtn), closeRadius: closeBtn && cs(closeBtn).borderTopLeftRadius,
                    closeBg: closeBtn && cs(closeBtn).backgroundColor };""")
         c, box, b, x, t = res.get("card") or {}, res.get("box") or {}, res.get("btn") or {}, res.get("close") or {}, res.get("text") or {}
         inside = lambda e: bool(e) and e["l"] >= c["l"] - 0.5 and e["r"] <= c["r"] + 0.5 and e["t"] >= c["t"] - 0.5 and e["b"] <= c["b"] + 0.5

@@ -13387,6 +13387,80 @@ def run_checks(m, version, profile, results):
         return ok, f"{pre} {res}"
     check("Mailansicht: Trennlinie lässt sich nicht so weit ziehen, dass die Mail wegklappt (mindestens 300 px, Knöpfe bleiben in der Zeile)", message_min_width, results)
 
+    def list_splitter_drag_cards():
+        # GitHub #75: Kartenansicht, ungruppiert, Today-Pane offen und wenig Platz für Liste und Mail (rund 700 px, z. B.
+        # Laptop): nie gezogen steht die Liste wie bisher auf 300 px (sie gibt zuerst nach), die Trennlinie folgt aber dem
+        # Ziehen nach rechts (Mail bis 300 px) und wieder nach links; vorher bewegte sie sich in keine Richtung. Das
+        # Fenster wird so breit gemacht, dass der Platz im Band liegt (gemessen, auf jeder Plattform gleich)
+        def drag(dx):
+            p = m.js(r"""
+              const a3 = tm.currentAbout3Pane, sp = a3.document.getElementById("messagePaneSplitter");
+              const fr = a3.frameElement.getBoundingClientRect(), r = sp.getBoundingClientRect();
+              return { x: Math.round(fr.left + r.left + r.width / 2), y: Math.round(fr.top + r.top + 200) };""")
+            m.pointer([{"type": "pointerMove", "x": p["x"], "y": p["y"], "origin": "viewport"}, {"type": "pointerDown", "button": 0},
+                       {"type": "pointerMove", "x": p["x"] + (dx // 3), "y": p["y"], "origin": "viewport", "duration": 100},
+                       {"type": "pointerMove", "x": p["x"] + dx, "y": p["y"], "origin": "viewport", "duration": 200},
+                       {"type": "pointerUp", "button": 0}])
+            return m.js(r"""
+              const a3 = tm.currentAbout3Pane; await ruhig(800);
+              return { list: Math.round(a3.document.getElementById("threadPane").getBoundingClientRect().width),
+                       msg: Math.round(a3.document.getElementById("messagePane").getBoundingClientRect().width) };""")
+        def shot(name):
+            # mit HALO_SHOTS ein Bild des ganzen Fensters (Testprofil)
+            if not os.environ.get("HALO_SHOTS"):
+                return
+            import base64
+            png = m.js(r"""
+              const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(0, 0, w.innerWidth, w.innerHeight), 1, "white");
+              const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+              cv.getContext("2d").drawImage(bm, 0, 0); return cv.toDataURL("image/png").split(",")[1];""")
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            path = os.path.join(os.environ["HALO_SHOTS"], f"mailliste-trennlinie-schmal-{name}.png")
+            open(path, "wb").write(base64.b64decode(png))
+            print(f"Bild {path}", flush=True)
+        pre = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards();
+          const PREF = "extensions.mailcards.listWidth";
+          w.__mcPrev75 = { list: Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : 0,
+                           msg: a3.document.getElementById("messagePaneSplitter").width, threaded: a3.gViewWrapper.showThreaded,
+                           tp: w.TodayPane.isVisible, ww: w.outerWidth, wh: w.outerHeight, ws: w.windowState };
+          // (vorige Prüfungen lassen das Fenster teils maximiert zurück, dann wirkt resizeTo nicht)
+          if (w.windowState != w.STATE_NORMAL) { w.restore(); await bis(() => w.windowState == w.STATE_NORMAL, "Fenster normal", 3000); await ruhig(500); }
+          a3.gViewWrapper.showUnthreaded = true; await ruhig(800);
+          if (!w.TodayPane.isVisible) { d.getElementById("calendar_toggle_todaypane_command").doCommand(); await ruhig(1500); }
+          // nie gezogen
+          Services.prefs.clearUserPref(PREF);
+          const tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
+          const room = () => Math.round(tp.getBoundingClientRect().width + mp.getBoundingClientRect().width);
+          // (eine vorige Prüfung kann der Mail eine feste Breite gelassen haben, die das Fenster nicht schmaler werden lässt;
+          // die Mail bekommt danach wieder den Rest)
+          a3.document.getElementById("messagePaneSplitter").width = 300;
+          w.resizeTo(1500, 900); await wait(1000); await ruhig(800);
+          // Platz für Liste und Mail auf rund 700 px bringen (zwei Schritte, falls Ordnerliste oder Today-Pane mitwachsen)
+          for (let i = 0; i < 2; i++) { w.resizeTo(Math.round(w.outerWidth - (room() - 700)), 900); await wait(1000); await ruhig(800); }
+          return { room: room(), win: w.outerWidth, list: Math.round(tp.getBoundingClientRect().width), max: a3.getComputedStyle(tp).maxWidth,
+                   msg: Math.round(mp.getBoundingClientRect().width), unthreaded: a3.gViewWrapper.showUnthreaded, cards: Services.prefs.getIntPref("mail.threadpane.listview", 0) == 0 };""")
+        try:
+            shot("vorher")
+            right = drag(80)
+            shot("rechts")
+            left = drag(-60)
+        finally:
+            m.js(r"""
+              const a3 = tm.currentAbout3Pane, p = w.__mcPrev75 || {};
+              if (p.threaded) a3.gViewWrapper.showThreaded = true;
+              if (p.list) Services.prefs.setIntPref("extensions.mailcards.listWidth", p.list); else Services.prefs.clearUserPref("extensions.mailcards.listWidth");
+              if (p.ww) w.resizeTo(p.ww, p.wh);
+              if (p.ws == w.STATE_MAXIMIZED) w.maximize();
+              if (p.msg) a3.document.getElementById("messagePaneSplitter").width = p.msg;
+              if (!p.tp && w.TodayPane.isVisible) { d.getElementById("calendar_toggle_todaypane_command").doCommand(); await ruhig(1500); }
+              await wait(1000); await ruhig(800); return true;""")
+        band = 620 <= pre["room"] <= 780 and pre["unthreaded"] and pre["cards"]
+        default = abs(pre["list"] - max(300, pre["room"] - 480)) <= 2
+        ok = band and default and right["list"] - pre["list"] >= 40 and right["msg"] >= 299 and right["list"] - left["list"] >= 30
+        return ok, f"vorher {pre}, nach rechts {right}, nach links {left}" + ("" if band else " (Platz nicht im Band 620–780)") + ("" if default else " (Liste nie gezogen nicht wie bisher)")
+    check("Mailansicht: Trennlinie zwischen Mailliste und Mail folgt dem Ziehen auch bei wenig Platz mit Today-Pane (Kartenansicht, ungruppiert, nie gezogen zuerst wie bisher; GitHub #75)", list_splitter_drag_cards, results)
+
     def toolbar_wider_list():
         # Mailliste breiter ziehen (Today-Pane offen): weichen Pillen, dann nur so viele, wie nötig – die zuletzt ausgeblendete
         # Pille hätte neben der Suche keinen Platz mehr (sie weichen streng der Reihe nach und immer ganz, siehe SQUEEZE_PILLS)

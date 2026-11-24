@@ -13439,10 +13439,16 @@ def run_checks(m, version, profile, results):
           // (eine vorige Prüfung kann der Mail eine feste Breite gelassen haben, die das Fenster nicht schmaler werden lässt;
           // die Mail bekommt danach wieder den Rest)
           a3.document.getElementById("messagePaneSplitter").width = 300;
-          // kleiner Bildschirm: die Mindestbreite des Fensters endet am Bildschirm, für Liste und Mail bleiben rund 700 px
-          w.screen = { availWidth: 1280, availHeight: 860, availLeft: 0, availTop: 0, width: 1280, height: 900, left: 0, top: 0 };
-          w.dispatchEvent(new w.Event("resize")); await ruhig(300); d.documentElement.style.minWidth = "";
-          w.resizeTo(1280, 860); await until(() => w.outerWidth == 1280, 3000); await stabil(() => [room(), w.innerWidth], 4000);
+          // kleiner Bildschirm: die Mindestbreite des Fensters endet am Bildschirm. Erst 1280 px, dann so nachgestellt, dass
+          // für Liste und Mail auf jeder Plattform rund 700 px bleiben (unter Linux sind Ordnerliste und Today-Pane zusammen
+          // rund 30 px breiter: bei 1280 px blieben 669 px, die Mail hält mit ihren Knöpfen bei rund 340 px, und die
+          // Trennlinie hatte nur 29 px Weg statt der verlangten 40)
+          const small = async W => {
+            w.screen = { availWidth: W, availHeight: 860, availLeft: 0, availTop: 0, width: W, height: 900, left: 0, top: 0 };
+            w.dispatchEvent(new w.Event("resize")); await ruhig(300); d.documentElement.style.minWidth = "";
+            w.resizeTo(W, 860); await until(() => w.outerWidth == W, 3000); await stabil(() => [room(), w.innerWidth], 4000); };
+          await small(1280);
+          for (let i = 0; i < 2 && Math.abs(room() - 700) > 2; i++) await small(Math.round(w.outerWidth + 700 - room()));
           return { room: room(), win: w.outerWidth, list: Math.round(tp.getBoundingClientRect().width), max: a3.getComputedStyle(tp).maxWidth,
                    msg: Math.round(mp.getBoundingClientRect().width), unthreaded: a3.gViewWrapper.showUnthreaded, cards: Services.prefs.getIntPref("mail.threadpane.listview", 0) == 0 };""")
         try:

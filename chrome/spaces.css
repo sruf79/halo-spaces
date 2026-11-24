@@ -11796,18 +11796,25 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    nach (bis 300 px), danach die Mail (bis 300 px, beides Thunderbirds Grenze).
    --mt-3p-room: Platz für Liste und Mail (Fenster ohne Ordnerliste und die
    beiden 1-px-Teiler); --mt-list-hold hält die Liste während der Animation
-   der Today-Pane fest (kalenderfenster.js) */
+   der Today-Pane fest (kalenderfenster.js).
+   Hat der Nutzer die Liste gezogen (GitHub #75), behält sie ihre Breite
+   (--mt-list-want, gesetzt von oberflaeche.js aus extensions.mailcards.listWidth)
+   und die Mail gibt nach, bis 300 px; während des Ziehens gilt nur 300/300,
+   sonst ließ sich die Trennlinie bei wenig Platz (Today-Pane offen, schmales
+   Fenster) in keine Richtung bewegen. --mt-msg-want: gewünschte Mailbreite,
+   ohne gezogene Liste wie bisher 480 px */
 body.layout-vertical {
   --mt-list-min: 300px;
   --mt-3p-room: calc(100vw - var(--folderPaneSplitter-width, 0px) - 2px);
+  --mt-msg-want: clamp(300px, calc(var(--mt-3p-room) - var(--mt-list-want, 0px)), 480px);
 }
 
 body.layout-vertical #threadPane {
-  max-width: var(--mt-list-hold, max(var(--mt-list-min), calc(var(--mt-3p-room) - 480px))) !important;
+  max-width: var(--mt-list-hold, max(var(--mt-list-min), calc(var(--mt-3p-room) - var(--mt-msg-want)))) !important;
 }
 
 body.layout-vertical #messagePane {
-  min-width: max(300px, min(480px, calc(var(--mt-3p-room) - var(--mt-list-min)))) !important;
+  min-width: max(300px, min(var(--mt-msg-want), calc(var(--mt-3p-room) - var(--mt-list-min)))) !important;
 }
 
 /* Absendername etwas größer, wie bei Apple – einzeilig, notfalls mit „…“ */

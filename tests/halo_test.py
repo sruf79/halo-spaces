@@ -10109,8 +10109,13 @@ def calendar_checks(m, results):
             x, y, wd, ht = (res.get("rects") or {}).get(str(n), [0, 0, 0, 0])
             m.pointer([{"type": "pointerMove", "duration": 0, "x": int(x + wd / 2), "y": int(y + ht / 2), "origin": "viewport"}])
             hv = m.js(r"""
-              await ruhig(250);
               const mm = d.getElementById("today-minimonth"), td = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")].find(c => c.textContent.trim() == "%d");
+              // Ist die Zahl das echte Heute (am 5. bzw. 25. des Monats), zeigt sie den roten Kreis mit weißen Ziffern
+              // statt des grauen Hovers: für die Messung heute/ausgewählt kurz wegnehmen, danach zurück
+              const saved = ["today", "selected"].filter(a => td.hasAttribute(a)).map(a => [a, td.getAttribute(a)]);
+              for (const [a] of saved) td.removeAttribute(a);
+              try {
+              await ruhig(250);
               const r = td.getBoundingClientRect(), cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
               cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
               try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"), 0, 0); }
@@ -10125,7 +10130,8 @@ def calendar_checks(m, results):
                 if (dark ? s > 500 : s < 250) add(tx, x, y);
               }
               const mid = b => b.r < 0 ? null : { x: (b.l + b.r + 1) / 2, y: (b.t + b.b + 1) / 2, w: b.r - b.l + 1, h: b.b - b.t + 1 };
-              return { hover: td.matches(":hover"), shape: mid(sh), text: mid(tx), cell: [r.width, r.height] };""" % n)
+              return { hover: td.matches(":hover"), shape: mid(sh), text: mid(tx), cell: [r.width, r.height], ohne: saved.map(s => s[0]) };
+              } finally { for (const [a, v] of saved) td.setAttribute(a, v); }""" % n)
             res["hover"][n] = hv
             sh, tx = hv.get("shape"), hv.get("text")
             ok = ok and hv.get("hover") and bool(sh and tx) and abs(sh["w"] - sh["h"]) <= 1 and abs(sh["x"] - tx["x"]) <= 1 and abs(sh["y"] - tx["y"]) <= 1

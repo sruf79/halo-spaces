@@ -1130,3 +1130,8 @@ Deutung von neon (kein Wortlaut): Sitzungen sollen einander Nachrichten schicken
 
 Herkunft: Maintainer in der Sitzung neon, 25.11.2026, auf den Bericht ~/halo-berichte/2026-11-25-modelle.md (Abschnitt 8). Wortlaut: „fable wert ist aktuell 20%. vergiss nicht, dass heute erst mittwoch ist. ja alle empfehlungen von fable folgen ausser punkt 3, wir lassen einfach das modell sonnet low für neon-board.“
 Damit gelten: Modelle je Stelle wie im Bericht (director Opus, designer Opus hoch, engineer nach Sollkurve, orga Sonnet, inspector Opus, comms Sonnet niedrig, neon Sonnet, neon-board Sonnet niedrig); Gegenprüfung darf rund 10 Wochenpunkte aus Puffer und Reserve nehmen; kein Haiku-Versuch für neon-board; Klasse C für E1 bis E6 freigegeben; Auskünfte frei, Aufträge nach Matrix mit Regel „Antrag, kein Befehl; Verweigertes wird nicht weitergereicht“; Arbeitssitzungen des Maintainers künftig im Modus auto (das stellt nur er selbst ein). Fable-Wert 20 % am 25.11.
+
+## Antwortregel: reine Mitteilungen brauchen keine Antwort (25.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 25.11.2026, auf die Auslegung von neon zur Regel „jede session soll bei anfragen einer anderen session IMMER antworten, selbst wenn es eine ablehnung ist.“ Wortlaut: „ja deine auslegung passt so.“
+Die Auslegung (von neon, damit bestätigt): Reine Mitteilungen („Danke“, „erledigt“) brauchen keine Antwort, damit sich Sitzungen nicht endlos gegenseitig bestätigen. Antwort ist Pflicht auf jede Frage, jeden Auftrag und jeden Antrag, auch bei Ablehnung (mit Grund).

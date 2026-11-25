@@ -24457,12 +24457,32 @@ Neu
         # „Show“ legt die halo.spaces-Seite erst an; kommt ihre Höhe erst nach dem Sprung zur Option an (unter Linux in der
         # CI ist der neue Browser beim Sprung teils noch nicht bemessen), stand die Zeile danach halb über dem oberen Rand
         # (CI: first.inView False). Nachgestellt: der neue Browser ist beim Sprung 1 px hoch und wächst erst danach
-        res = m.js(PREFS_OPEN_JS + r"""
+        res = m.js(r"""
+          w.resizeTo(1500, 900); await wait(400);
+          // Thunderbird legt nach dem Laden der Einstellungen im Leerlauf alle Kategorien an (findInPage.js:
+          // requestIdleCallback → initializeCategories). Kommt das erst nach der Anmeldung unserer Kategorie (Linux-CI,
+          // langsamer Läufer), gibt es die halo.spaces-Seite schon vor „Show“ und der nachgestellte Fall entsteht nicht
+          // (Beta-CI 22.11.2026: fresh False, sonst alles grün). Deshalb abwarten, bis dieser Durchgang vorbei ist, und
+          // nur dann den Tab neu öffnen (höchstens viermal); „fresh“ bleibt Bedingung der Prüfung
+          const out = { versuche: 0 };
+          let pw, pd, box;
+          for (;;) {
+            out.versuche++;
+            w.openPreferencesTab("paneGeneral");
+            pw = await bis(() => tm.currentTabInfo.browser?.contentWindow?.document.getElementById("paneDeck") && tm.currentTabInfo.browser.contentWindow, "Einstellungen geladen", 8000);
+            pd = pw.document;
+            box = await bis(() => pd.getElementById("mcPane-paneMcHalo"), "halo.spaces-Kategorie", 6000);
+            await bis(() => pw.gSearchResultsPane?.categoriesInitialized, "Kategorien im Leerlauf angelegt", 10000);
+            // (die Kategorien werden nacheinander angelegt, jede mit await: warten, bis ihr Stand sich nicht mehr ändert)
+            await stabil(() => [...pw.gCategoryInits.values()].map(c => c.inited));
+            out.fresh = !box.querySelector("browser");
+            if (out.fresh || out.versuche >= 4) break;
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }
           const input = pd.getElementById("searchInput");
           const fire = q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true })); };
           const hit = () => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.hidden && !e.classList.contains("visually-hidden")
             && e.getBoundingClientRect().height > 0 && e.querySelector(".mc-halo-found-name")?.textContent == "Logos from sender websites");
-          const box = pd.getElementById("mcPane-paneMcHalo"), out = { fresh: !box.querySelector("browser") };
           // 1 px schon ab dem Anlegen des Browsers (Regel vor dem Klick): am Element gesetzt kam die Begrenzung in der
           // Linux-CI teils erst nach dem Sprung an (atJump.ih 826), dann prüfte die Prüfung nichts
           const klein = pd.createElementNS("http://www.w3.org/1999/xhtml", "style");

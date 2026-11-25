@@ -1113,3 +1113,9 @@ Deutung von neon (kein Wortlaut): Das Schließen der Issues bleibt bei comms (da
 
 Herkunft: Maintainer in der Sitzung neon, 25.11.2026, nachdem er nach den Modellen der Sitzungen (u. a. Haiku für neon-board) gefragt hatte. Wortlaut: „wie gesagat, wir müssen für die karten und die dahinter liegenden sessions auch ki-modelle wählen (haiku, sonnet, opus, fable). das bitte soll fable auch entscheiden.“
 Deutung von neon (kein Wortlaut): Fable legt je Stelle, Sitzung, Dienst und Routine das Modell (Haiku, Sonnet, Opus, Fable) und die Stärke fest; der Maintainer gibt keine Vorgabe außer dem Grundsatz vom 25.11. („für den umbau sollten wir immer fable und opus prüfen lassen …“) und den bestehenden Entscheidungen (zum Beispiel Designer mindestens Opus, 14.11.). Bericht ~/halo-berichte/2026-11-25-modelle.md.
+
+## Jede Sitzung antwortet auf jede Anfrage einer anderen Sitzung (25.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 25.11.2026 (Tag 2 der Umbau-Woche). Wortlaut: „und noch etwas ist mir wichtig - jede session soll bei anfragen einer anderen session IMMER antworten, selbst wenn es eine ablehnung ist.“
+Vorläufer (unverändert, ENTSCHEIDUNGEN.md und AGENTS.md): 16.11.2026 „ab sofort schreibst du bei ablehnungen anfragen anderer sessions betreffend IMMER eine rückmeldung. Immer.“
+Deutung von neon (kein Wortlaut): Die Regel von 16.11. (Ablehnung) wird auf jede Anfrage erweitert und kommt als gemeinsamer Teil in alle Stellenkarten und den Rollenblock aller Sitzungen (Pflichtpunkt Satz P1, Do 10:15): Wer eine Anfrage einer anderen Sitzung bekommt, antwortet ausdrücklich (erledigt, teilweise, abgelehnt mit Grund, später mit Zeitpunkt), auch bei Fehler des Sendewegs auf einem anderen Weg. Reine Mitteilungen ohne Frage oder Auftrag („Danke“, „nichts mehr offen“) brauchen keine Antwort, damit keine Endlosschleife entsteht; im Zweifel kurz antworten.

@@ -70,6 +70,12 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   Fehlerzeilen und das Ende), Testläufe dabei im Hintergrund. Board nur über
   `tests/board.sh` (`liste [Muster]`, `zeige`, `neu`, `status`, `notiz`,
   `archiv`, `suche <Begriff>`, `archiv-zeige <id>`), nie `gh project item-list` ungefiltert.
+- **Testläufe zu Ende laufen lassen** (Vorfall 24./25.11.2026: ein abgebrochener Lauf ließ Thunderbird verwaist zurück und
+  hielt den Nachtlauf eine Stunde auf). Muss ein Lauf doch abgebrochen werden: `halo_test.py` mit SIGTERM beenden
+  (`kill`/`pkill`, nie `kill -9`), es räumt dann selbst auf; danach mit `pgrep -fl -- '-profile .*/halo-test-'` prüfen,
+  nicht mit dem Port (der steht nur im Profil, nicht in der Befehlszeile). Übrig gebliebene Prozesse nur mit
+  `halo-test-`-Profil beenden, nie Nutzerprofile oder andere Programme; den Rest erledigt `verwaiste_tb_beenden`
+  (`tests/lauf-hilfen.zsh`) vor Nachtlauf und Tagesroutine.
 - Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
   Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
 - **Keine festen Kennungen, nur Namen** (wiederholt 9.11.2026, Regel in `docs/github-komm.md`): Sitzungen

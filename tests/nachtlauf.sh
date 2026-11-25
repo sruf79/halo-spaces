@@ -201,6 +201,7 @@ notbericht() {
     print "Kurz: $titel${grund:+ – $grund}"
     print
     print "$(zeit), $(hostname -s)"
+    [[ -n $VERWAIST ]] && { print; print -r -- "$VERWAIST" }
     if [[ -n $3 ]]; then
       print
       print "## Commits dieser Nacht"
@@ -248,6 +249,10 @@ trap 'rm -f $LOCK; pausen_aufraeumen; volldampf_aufraeumen' EXIT
 # CI bis zu ihrem Ende, längstens 03:30 (dann bleiben bis 06:30 drei Stunden für Arbeit, CI-Runde und Release und
 # die Vollrunde startet noch vor 04:30); Testläufe 60 Minuten, release.sh/publish.sh 20 Minuten; andere Sitzung,
 # Windows-VM und Reste sofort auslassen. Nach 03:30 von Hand gestartet: CI wie früher höchstens 90 Minuten.
+# Vorher verwaiste Test-Thunderbird beenden und alte Testprofile löschen (verwaiste_tb_beenden, lauf-hilfen.zsh; Maintainer
+# 25.11.2026: „ich brauche einen Automatismus damit solche Situationen automatisch gelöst werden“): ein Rest eines
+# abgebrochenen Laufs hielt den Nachtlauf sonst als „Thunderbird mit Marionette“ bis zur Wartegrenze auf
+VERWAIST=$(verwaiste_tb_beenden)
 WARTE_GRENZE=$(date -j -v3H -v30M -v0S +%s)
 (( $(date +%s) >= WARTE_GRENZE )) && WARTE_GRENZE=$(( $(date +%s) + 5400 ))
 if ! GRUND=$(nachtlauf_warten $WARTE_GRENZE); then
@@ -405,6 +410,7 @@ fi
   print -r -- "- ${EG:-Arbeit beendet: Fertig-Datei ohne Prüfung (unbekannt)}"
   print -r -- "- Fortsetzungen nach der Fertig-Datei (Schritt 5): $FORTSETZ"
   [[ -n $VD_STATUS ]] && print -r -- "- $VD_STATUS (Stand Ende der Arbeit)"
+  [[ -n $VERWAIST ]] && ! grep -qxF -- "$VERWAIST" $BERICHT && print -r -- "- $VERWAIST"
 } >> $BERICHT
 # Pflichtvermerk (Maintainer 13.11.2026): steht Volldampf nicht in „Kurz:“, setzt das Skript ihn davor
 KURZ=$(bericht_kurz)

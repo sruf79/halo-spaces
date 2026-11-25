@@ -878,6 +878,83 @@ belegt() {
   return 1
 }
 
+# Verwaiste Test-Thunderbird beenden und alte Testprofile löschen, ohne Rückfrage (Maintainer 25.11.2026: „Nein ich kann
+# solche entscheidungen nicht nachts treffen, ich brauche einen Automatismus damit solche Situationen automatisch gelöst
+# werden“, ENTSCHEIDUNGEN.md; Vorfall ~/halo-berichte/2026-11-25-verwaiste-testprozesse.md). Engste Fassung:
+# - nur wenn kein Testlauf (BELEGT_TEST_MUSTER) und keine CI (Runner.Worker) läuft;
+# - beendet nur Thunderbird, dessen Befehlszeile mit …/thunderbird bzw. …/thunderbird-bin beginnt und
+#   „-profile …/halo-test-…“ sowie „-marionette“ enthält, mit Elternprozess 1 (launchd: Testlauf tot) und älter als
+#   3 Stunden; die Befehlszeile wird unmittelbar vor dem Beenden noch einmal geprüft (PID nicht neu vergeben);
+# - löscht danach Ordner halo-test-* im temporären Ordner ($TMPDIR, /var/folders/…/T), älter als 24 Stunden, die in
+#   keiner Befehlszeile eines laufenden Prozesses vorkommen.
+# Nie ein Nutzerprofil, nie ein anderes Programm. Jede Handlung mit PID und Alter in ~/halo-nacht/aufraeumen-testprozesse.log,
+# eine Zusammenfassung ins Protokoll des Aufrufers (log, falls $LOG gesetzt). Ausgabe: „Verwaiste Testprozesse beendet: n“.
+# Zum Proben: VERWAIST_ALTER (Sekunden, Standard 10800), VERWAIST_PROFIL_ALTER (Sekunden, Standard 86400),
+# VERWAIST_TMP (temporärer Ordner), VERWAIST_LOG (Protokoll), VERWAIST_PROFIL_MUSTER (Pfad des Profils, ERE),
+# VERWAIST_CI_MUSTER (CI-Prozess, ERE).
+verwaist_sekunden() {   # Ausgabe von ps -o etime= ([[TT-]hh:]mm:ss) in Sekunden
+  local e=${1//[[:space:]]/} t=0 h=0 m=0 s=0
+  [[ $e == *-* ]] && { t=${e%%-*}; e=${e#*-} }
+  local -a teile=(${(s.:.)e})
+  case $#teile in
+    3) h=$teile[1] m=$teile[2] s=$teile[3] ;;
+    2) m=$teile[1] s=$teile[2] ;;
+    *) print -- -1; return ;;
+  esac
+  print $(( 10#$t * 86400 + 10#$h * 3600 + 10#$m * 60 + 10#$s ))
+}
+verwaiste_tb_beenden() {
+  local alter_max=${VERWAIST_ALTER:-10800} profil_max=${VERWAIST_PROFIL_ALTER:-86400}
+  local prot=${VERWAIST_LOG:-$HOME/halo-nacht/aufraeumen-testprozesse.log}
+  local tmp=${VERWAIST_TMP:-${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || print /tmp)}}
+  local profil=${VERWAIST_PROFIL_MUSTER:-/[^ ]*/halo-test-[A-Za-z0-9_-]+}
+  local ci=${VERWAIST_CI_MUSTER:-actions-runner/bin[^/ ]*/Runner\.Worker}
+  local muster="^/[^ ]*/(thunderbird|thunderbird-bin) (.* )?-profile $profil( |$)"
+  local n=0 g=0 pid cmd eltern alter i d grund= jetzt=$(date '+%F %T')
+  tmp=${tmp%/}
+  mkdir -p ${prot:h} 2>/dev/null
+  if pgrep -f -- "$BELEGT_TEST_MUSTER" >/dev/null; then grund="Testlauf läuft"
+  elif pgrep -f -- "$ci" >/dev/null; then grund="CI-Lauf läuft"
+  fi
+  if [[ -n $grund ]]; then
+    print -r -- "$jetzt nichts angefasst: $grund" >> $prot
+    [[ -n $LOG ]] && log "Verwaiste Testprozesse: nichts angefasst ($grund)"
+    print "Verwaiste Testprozesse beendet: 0"
+    return 0
+  fi
+  for pid in ${(f)"$(pgrep -f -- "$muster")"}; do
+    [[ $pid == <-> && $pid != $$ ]] || continue
+    cmd=$(ps -o command= -p $pid 2>/dev/null)
+    [[ $cmd =~ $muster && $cmd == *' -marionette'* ]] || continue
+    eltern=${$(ps -o ppid= -p $pid 2>/dev/null)//[[:space:]]/}
+    [[ $eltern == 1 ]] || continue
+    alter=$(verwaist_sekunden "$(ps -o etime= -p $pid 2>/dev/null)")
+    (( alter >= alter_max )) || continue
+    # unmittelbar vor dem Beenden: noch derselbe Prozess?
+    [[ $(ps -o command= -p $pid 2>/dev/null) == $cmd ]] || continue
+    kill -TERM $pid 2>/dev/null || continue
+    for i in {1..30}; do kill -0 $pid 2>/dev/null || break; sleep 0.5; done
+    if kill -0 $pid 2>/dev/null && [[ $(ps -o command= -p $pid 2>/dev/null) == $cmd ]]; then
+      kill -KILL $pid 2>/dev/null
+      print -r -- "$jetzt beendet (SIGKILL nach 15 s) PID $pid, Alter ${alter} s, Eltern 1: $cmd" >> $prot
+    else
+      print -r -- "$jetzt beendet PID $pid, Alter ${alter} s, Eltern 1: $cmd" >> $prot
+    fi
+    (( n++ ))
+  done
+  # alte Testprofile: nur Ordner halo-test-* direkt im temporären Ordner, die in keiner Befehlszeile vorkommen
+  if [[ -d $tmp ]]; then
+    local alle=$(ps -axo command= 2>/dev/null)
+    for d in $tmp/halo-test-*(N/ms+$profil_max); do
+      [[ ${d:t} == halo-test-[A-Za-z0-9_-]## ]] || continue
+      [[ $alle == *"$d"* ]] && continue
+      rm -rf -- $d && { print -r -- "$jetzt Profil gelöscht: $d" >> $prot; (( g++ )) }
+    done
+  fi
+  [[ -n $LOG ]] && log "Verwaiste Testprozesse beendet: $n, alte Testprofile gelöscht: $g"
+  print "Verwaiste Testprozesse beendet: $n"
+}
+
 # Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48, 19.11.2026): Anlass 3.33.0, Stand fc2701d wartete über
 # 60 Minuten auf „belegt“, weil Worker und Tagesroutine laufend neue Testläufe begannen. Der Wächter
 # tests/zwischen-schleife.zsh schreibt bei fälligem, grünem Stand und belegtem neon die Marke

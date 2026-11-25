@@ -713,6 +713,7 @@ COMMIT_ZWEIG=$PRUEF
 uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
 LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
+VERWAIST_N=0   # verwaiste Test-Thunderbird, die verwaiste_tb_beenden heute beendet hat
 ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG= DESIGNFRAGEN=
 RUT_INFO= RUT_ERG=   # Release unter Tage (Maintainer 15.11.2026)
 PLANRUNDE=0 OHNE_ERGEBNIS=0 ERLEDIGT_VOR_PLAN=0 PLAN_RUNDEN=   # Neuplanen nach abgearbeitetem Plan (13.11.2026)
@@ -767,6 +768,7 @@ bericht_schreiben() {
     print "## Ende"
     print
     print -r -- "- ${ENDGRUND:-unbekannt} ($(date +%H:%M))"
+    print -r -- "- Verwaiste Testprozesse beendet: $VERWAIST_N"
   } > $BERICHT
 }
 
@@ -877,6 +879,9 @@ GEPLANT=
 while true; do
   if (( $(date +%s) >= LETZTER )); then ENDGRUND="$KONF[LETZTER_BEGINN] erreicht, kein neuer Eintrag"; break; fi
   if g=$(pause_aktiv tagesroutine); then ENDGRUND="Pause $g"; break; fi
+  # verwaiste Test-Thunderbird zuerst beenden (lauf-hilfen.zsh, Maintainer 25.11.2026), sonst hielten sie die Routine als
+  # „Thunderbird mit Marionette“ auf
+  VW_ZEILE=$(verwaiste_tb_beenden); [[ ${VW_ZEILE##*: } == <-> ]] && VERWAIST_N=$(( VERWAIST_N + ${VW_ZEILE##*: } ))
   # Mac belegt (CI, Testlauf, andere Sitzung, ungespeicherte Änderungen, Routine)? Warten, dann neu versuchen
   w=0
   while GRUND=$(belegt_tag) && (( w < KONF[BELEGT_WARTEN] && $(date +%s) < LETZTER )); do

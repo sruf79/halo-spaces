@@ -16930,9 +16930,13 @@ def run_checks(m, version, profile, results):
         # dieselbe Bewegung in einer Phase im Takt, in der nächsten nicht) – dort so viele Schritte, wie neben dem
         # längsten Bild in 250 ms bei der gemessenen Bildzeit möglich sind (im Takt weiter 6); Sprung, Mitgleiten und
         # Aufwand je Bild gelten überall
+        # Die Ausnahme gilt nur außerhalb von macOS (Entscheidung Fable 25.11.2026 zu 254e1a34): meldet der Mac einmal
+        # „WebRender (Software)“, bleibt der Takt dort trotzdem ein Fehler. Ohne Ausnahme gilt zusätzlich wieder die
+        # alte Grenze „kein Bild springt um die halbe Breite“ (maxJump < start/2), damit ein einzelnes langes Bild mit
+        # Grafikkarte nicht als Lastbild durchgeht
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
-        soft = bool(res.get("software"))
+        soft = bool(res.get("software")) and sys.platform != "darwin"
         def glatt(v, ende=True):
             takt = v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
             schritte = 6 if not soft else min(6, max(2, (250 - v["maxFrameMs"]) // max(17, v["medianFrameMs"])))
@@ -16941,7 +16945,7 @@ def run_checks(m, version, profile, results):
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
                     and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
-                    and (soft or takt))
+                    and (soft or (takt and v["maxJump"] < res["start"] / 2)))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
         ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"

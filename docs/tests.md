@@ -129,6 +129,8 @@ Today-Pane“). Sie misst seit 21.11.2026 den Sprung je Bild an der Zeit dieses 
 `requestAnimationFrame`, mit dem auch die Animation rechnet): höchstens der Weg, den die Bewegungskurve in dieser Zeit
 zulässt (bei 60 Hz 46 statt früher 140 px), dazu die Neuanordnung je Bild (`windowUtils.framesReflowed`, auf jedem Rechner
 gleich). Der Takt in Echtzeit (`medianFrameMs`) ist nur mit Grafikkarte ein Fehler; ohne (xvfb, `layerManagerType`
-„WebRender (Software)“) schwankt die Bildzeit mit der Last zwischen 17 und 150 ms.
+„WebRender (Software)“) schwankt die Bildzeit mit der Last zwischen 17 und 150 ms. Diese Ausnahme gilt nur außerhalb
+von macOS (Entscheidung Fable 25.11.2026, `ENTSCHEIDUNGEN.md`); ohne sie verlangt die Prüfung zusätzlich wieder, dass kein
+Bild um die halbe Breite der Pane springt (`maxJump < start/2`).
 Weitere Prüfungen erst umstellen, wenn sie nachweislich an ausgefallenen Bildern scheitern. Wer nur
 prüft, ob Animationen gleichzeitig laufen, nimmt eine Stichprobe je Bild (`requestAnimationFrame`) statt einer festen Pause.

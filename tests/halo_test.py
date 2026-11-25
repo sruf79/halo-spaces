@@ -20,6 +20,7 @@ import os
 import platform
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -921,8 +922,36 @@ def run_in_vm(args, xpi):
             vmf.lauf_warten_ende()
 
 
+# Abbruch von außen (pkill, Zeitgrenze eines Werkzeugs, beendete Sitzung): SIGTERM und SIGHUP lösen SystemExit aus, damit
+# die finally-Blöcke laufen – Thunderbird beenden, Profil löschen, VM herunterfahren. Ohne das starb Python sofort und
+# Thunderbird lief unter launchd weiter (Vorfall 24./25.11.2026: verwaister Test-Thunderbird hielt den Nachtlauf eine
+# Stunde auf, ~/halo-berichte/2026-11-25-verwaiste-testprozesse.md). Gegen SIGKILL hilft das nicht (dafür
+# verwaiste_tb_beenden in tests/lauf-hilfen.zsh). Exitcode 128 + Signalnummer wie bei einem Abbruch durch das Signal.
+AUFRAEUMEN = False    # True, solange das Aufräumen läuft: ein weiteres Signal unterbricht es dann nicht mehr
+SIGNAL_CODE = None    # Signal während des Aufräumens: Exitcode für danach
+ABGEBROCHEN = False   # durch Signal abgebrochen: keine Nachträge mehr über Marionette (Antwort evtl. noch unterwegs)
+
+
+def signal_beenden(signum, frame):
+    global SIGNAL_CODE, ABGEBROCHEN
+    if AUFRAEUMEN:
+        SIGNAL_CODE = SIGNAL_CODE or 128 + signum
+        return
+    ABGEBROCHEN = True
+    print(f"\nAbbruch durch Signal {signum}: räume auf (Thunderbird beenden, Profil löschen) …", flush=True)
+    raise SystemExit(128 + signum)
+
+
+def signale_abfangen():
+    signal.signal(signal.SIGTERM, signal_beenden)
+    # SIGHUP gibt es unter Windows nicht; mit nohup gestartet (SIGHUP ignoriert) bleibt es beim Ignorieren
+    if hasattr(signal, "SIGHUP") and signal.getsignal(signal.SIGHUP) != signal.SIG_IGN:
+        signal.signal(signal.SIGHUP, signal_beenden)
+
+
 def main():
-    global LAST_END, CHECK_M, KONSOLE_DUNKEL, KONSOLE_VERGLEICH, VERGLEICH_AUS
+    global LAST_END, CHECK_M, KONSOLE_DUNKEL, KONSOLE_VERGLEICH, VERGLEICH_AUS, AUFRAEUMEN
+    signale_abfangen()
     ap = argparse.ArgumentParser()
     ap.add_argument("--xpi", help="Paket (Standard: neuestes dist/halo-spaces-*.xpi)")
     ap.add_argument("--tb", default=DEFAULT_TB, help="Thunderbird-Programm")
@@ -981,14 +1010,15 @@ def main():
         KONSOLE_VERGLEICH = vergleich_laden(args.tb, args.port, args.dark, args.vergleich_neu)
 
     profile = create_profile(xpi, args.port, args.dark)
-    print(f"halo.spaces {version} · Paket {os.path.basename(xpi)} · Profil {profile}", flush=True)
-    if args.vm_args:  # in der VM: welches System und welche Thunderbird-Version (application.ini, tb_ini)
-        tbv = re.search(r"^Version=(.+)$", tb_ini(args.tb) or "", re.M)
-        print(f"{platform.system()} {platform.release() if sys.platform.startswith('linux') else platform.version()}"
-              f" · Thunderbird {tbv.group(1).strip() if tbv else '?'}", flush=True)
-    proc = start_thunderbird(args.tb, profile, args.tb_log)
+    proc = None
     results = []
     try:
+        print(f"halo.spaces {version} · Paket {os.path.basename(xpi)} · Profil {profile}", flush=True)
+        if args.vm_args:  # in der VM: welches System und welche Thunderbird-Version (application.ini, tb_ini)
+            tbv = re.search(r"^Version=(.+)$", tb_ini(args.tb) or "", re.M)
+            print(f"{platform.system()} {platform.release() if sys.platform.startswith('linux') else platform.version()}"
+                  f" · Thunderbird {tbv.group(1).strip() if tbv else '?'}", flush=True)
+        proc = start_thunderbird(args.tb, profile, args.tb_log)
         if not wait_port(args.port):
             sys.exit("Thunderbird hat Marionette nicht geöffnet")
         time.sleep(8)  # Erweiterung und Fenster fertig aufbauen lassen
@@ -1006,7 +1036,7 @@ def main():
         try:
             run_checks(m, version, profile, results)
         finally:
-            if KONSOLE_STAND is None:  # Prüfungen abgebrochen: Konsole und Protokoll trotzdem ausgeben (oft die Erklärung)
+            if KONSOLE_STAND is None and not ABGEBROCHEN:  # Prüfungen abgebrochen: Konsole und Protokoll trotzdem ausgeben (oft die Erklärung)
                 konsole_nachtrag(m, "bis zum Abbruch der Prüfungen")
         try:  # wie oft ruhig() bis zur Höchstzeit (der früheren festen Pause) gewartet hat
             full = m.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + "return w.__haloRuhigVoll || {};", "args": []}).get("value")
@@ -1024,13 +1054,19 @@ def main():
             try:
                 take_shots(m, args.shots, "dark" if args.dark else "light")
             finally:
-                konsole_nachtrag(m, "bei den Screenshots")
+                if not ABGEBROCHEN:
+                    konsole_nachtrag(m, "bei den Screenshots")
             if args.compare:
                 compare_shots(m, args.compare, args.shots)
     finally:
-        stop_thunderbird(args.port, proc)
+        AUFRAEUMEN = True
+        if proc:
+            stop_thunderbird(args.port, proc)
         if not args.keep:
             shutil.rmtree(profile, ignore_errors=True)
+        AUFRAEUMEN = False
+    if SIGNAL_CODE:  # Signal kam während des Aufräumens: Aufräumen fertig, dann mit dem Signalcode enden
+        sys.exit(SIGNAL_CODE)
 
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)} von {len(results)} Prüfungen OK" + (f", {len(failed)} FEHLER" if failed else ""))

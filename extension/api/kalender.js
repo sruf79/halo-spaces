@@ -39,6 +39,14 @@ const MULTIWEEK_BUFFER_WEEKS = 12;
 // nächstgelegenen zuerst. Unter MULTIWEEK_DEFER_MIN Terminen alles auf einmal
 const MULTIWEEK_DEFER_MIN = 60;
 const MULTIWEEK_SLICE_MS = 4;
+// CI-Rot 22. und 24.11.2026 (Mac): das Bild nach jedem Neuaufbau beim Scrollen
+// trug alle Termine der sichtbaren Wochen in einem Stück ein (20–28 ms Eintragen,
+// 50–74 ms Bildzeit). Unter dem Standbild sieht man die Tage ohnehin nicht: dort
+// kommen auch die sichtbaren Wochen in Häppchen von MULTIWEEK_MASK_SLICE_MS je
+// Bild (vorne in der Warteschlange), das Standbild geht erst, wenn sie stehen;
+// sofort nur, was unter dem wandernden Standbild schon hervorkommt (nicht unter
+// Windows, dort bleibt es beim Eintragen in einem Stück)
+const MULTIWEEK_MASK_SLICE_MS = 8;
 // Rückmeldung 17.11.2026 („das nachladen dauert noch immer zu lange, wenn man
 // ein paar monate in die vergangenheit scrollt“): Thunderbird leert bei jedem
 // Neuaufbau alle Tage und fragt die Kalender für den ganzen geladenen Bereich
@@ -247,10 +255,27 @@ function hookMultiweekScroll(mv, win, B) {
     // Termine der Wochen im Bild und der nächsten noch nicht eingetragen
     // (Warteschlange nach einem Neuaufbau): jetzt, vor dem Zeichnen
     if (rowBase && mv.__mcQueue) {
-      const r = B + Math.floor(pos / rowH());
-      const day = 864e5, base = rowBase.getTime();
-      mv.__mcFlush?.(base + 7 * (r - 1) * day, base + 7 * (r + (mv.weeksInView || 4) + 2) * day);
+      if (mask && mv.__mcMasked) {
+        // unter dem Standbild nur die Wochen, die schon unter ihm hervorkommen
+        // (es wandert mit); die übrigen kommen in Häppchen, bevor es geht
+        const h = rowH(), r = B + Math.floor(pos / h), f = pos - Math.floor(pos / h) * h;
+        const off = mask.__mcAt - (moved + pos), H = mask.__mcH || 0;
+        const day = 864e5, base = rowBase.getTime(), at = k => base + 7 * k * day;
+        if (off < 0) {
+          mv.__mcFlush?.(at(r + Math.floor((H + off + f) / h)), at(r + Math.floor((H + f) / h) + 1));
+        } else if (off > 0) {
+          mv.__mcFlush?.(at(r), at(r + Math.floor((off + f) / h) + 1));
+        }
+      } else {
+        mv.__mcFlush?.(...visibleRange());
+      }
     }
+  };
+  // sichtbare Wochen mit einer Woche Rand davor und zwei danach (ms)
+  const visibleRange = () => {
+    const r = B + Math.floor(pos / rowH());
+    const day = 864e5, base = rowBase.getTime();
+    return [base + 7 * (r - 1) * day, base + 7 * (r + (mv.weeksInView || 4) + 2) * day];
   };
   const apply = () => {
     const was = mv.hasAttribute("mc-mw-scroll");
@@ -284,8 +309,10 @@ function hookMultiweekScroll(mv, win, B) {
       ctx.scale(dpr, dpr);
       ctx.drawWindow(win, r.left, r.top, r.width, r.height, win.getComputedStyle(mv).backgroundColor || "rgb(255,255,255)");
       c.__mcAt = moved + pos;
+      c.__mcH = r.height;
       mv.append(c);
       mask = c;
+      mv.__mcMasked = Services.appinfo.OS != "WINNT";
     } catch (e) {
       log("multiweek mask error", String(e).slice(0, 120));
     }
@@ -307,12 +334,27 @@ function hookMultiweekScroll(mv, win, B) {
       }
       gone = true;
       win.clearTimeout(cap);
-      win.requestAnimationFrame(() => {
-        if (mask == m) {
-          mask.remove();
-          mask = null;
+      // erst, wenn die sichtbaren Wochen aus der Warteschlange eingetragen
+      // sind (Häppchen unter dem Standbild), höchstens 500 ms länger; was
+      // dann noch fehlt, sofort
+      const t0 = win.performance.now();
+      const step = () => {
+        if (mask != m) {
+          return;
         }
-      });
+        const range = rowBase && mv.__mcQueue ? visibleRange() : null;
+        if (range && mv.__mcMasked && mv.__mcPending?.(...range) && win.performance.now() - t0 < 500) {
+          win.requestAnimationFrame(step);
+          return;
+        }
+        mv.__mcMasked = false;
+        if (range) {
+          mv.__mcFlush?.(...range);
+        }
+        mask.remove();
+        mask = null;
+      };
+      win.requestAnimationFrame(step);
     };
     const cap = win.setTimeout(drop, 1500);
     try {
@@ -577,6 +619,7 @@ function hookMultiweekScroll(mv, win, B) {
       }
     }
     mask?.remove();
+    delete mv.__mcMasked;
     unpark();
     const t = table();
     if (t) {
@@ -919,7 +962,8 @@ function hookMultiweekBuffer(mv, restorers) {
     q.frame = 0;
     const t0 = win.performance.now();
     try {
-      while (q.items.length && win.performance.now() - t0 < MULTIWEEK_SLICE_MS) {
+      const slice = view.__mcMasked ? MULTIWEEK_MASK_SLICE_MS : MULTIWEEK_SLICE_MS;
+      while (q.items.length && win.performance.now() - t0 < slice) {
         orig.addItems.call(view, q.items.splice(0, 8).map(x => x.item));
       }
     } catch (e) {
@@ -953,6 +997,11 @@ function hookMultiweekBuffer(mv, restorers) {
     done(view, q);
   };
   mv.__mcFlush = (from, to) => flush(mv, from, to);
+  // warten noch Termine dieser Wochen (from bis to in ms)?
+  mv.__mcPending = (from, to) => {
+    const s = from * 1000 - DAY_US, e = to * 1000 + DAY_US;
+    return !!mv.__mcQueue?.items.some(x => x.a < e && x.b >= s);
+  };
   proto.addItems = function (items) {
     // seit dem letzten Leeren eingetragen (Vorrat überspringt sie); schon aus
     // dem Vorrat eingetragene von Thunderbirds Abfrage nur bestätigen
@@ -987,13 +1036,34 @@ function hookMultiweekBuffer(mv, restorers) {
         rest.push(x);
       }
     }
+    const order = list => list.map(x => [dist(x), x]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+    if (this.__mcMasked) {
+      // unter dem Standbild: auch die sichtbaren Wochen in Häppchen, vor allen
+      // anderen (MULTIWEEK_MASK_SLICE_MS)
+      const first = [], direct = [];
+      for (const item of now) {
+        const x = span(item);
+        x ? first.push(x) : direct.push(item);
+      }
+      if (direct.length) {
+        orig.addItems.call(this, direct);
+      }
+      const q = this.__mcQueue ||= { items: [], frame: 0 };
+      const old = [], vis = [];
+      for (const x of q.items) {
+        (x.a < hi && x.b >= lo ? vis : old).push(x);
+      }
+      q.items = order(vis.concat(first)).concat(order(old.concat(rest)));
+      done(this, q);
+      return undefined;
+    }
     orig.addItems.call(this, now);
     if (!rest.length) {
       return undefined;
     }
     // zu den wartenden (mehrere Kalender) und nach Entfernung ordnen
     const q = this.__mcQueue ||= { items: [], frame: 0 };
-    q.items = q.items.concat(rest).map(x => [dist(x), x]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+    q.items = order(q.items.concat(rest));
     done(this, q);
     return undefined;
   };
@@ -1047,6 +1117,7 @@ function hookMultiweekBuffer(mv, restorers) {
     stopScroll();
     dropQueue(mv);
     delete mv.__mcFlush;
+    delete mv.__mcPending;
     cal.manager.removeCalendarObserver(observer);
     if (idleLoad) {
       (win.cancelIdleCallback || win.clearTimeout).call(win, idleLoad);

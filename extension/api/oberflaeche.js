@@ -1102,7 +1102,7 @@ class EnhancerOberflaeche {
         }
       }
     };
-    this.restorers.push(() => win.document.body?.style.removeProperty("--mt-list-want"));
+    this.addWinRestorer(win, () => win.document.body?.style.removeProperty("--mt-list-want"));
     // gezogen: neue Listenbreite merken
     if (msgSplitter && !msgSplitter.__mcListWatch) {
       msgSplitter.__mcListWatch = true;

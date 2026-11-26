@@ -2581,11 +2581,21 @@ function installDialogBox(win, restorers) {
       return;
     }
     // gemessene Breite (SubDialog setzt sie beim Laden fest)
-    const wide = parseFloat(frame.style.width) || 0;
+    let wide = parseFloat(frame.style.width) || 0;
     const fit = () => {
       if (!frame.isConnected) {
         win.removeEventListener("resize", fit);
         return;
+      }
+      // Breite nachziehen, wenn der Inhalt nach dem Messen breiter wird: beim
+      // Nutzer (Intel-Mac, auch im breiten Fenster) stand die Kachel schmaler als
+      // die Rückfrage mit ihrer Mindestbreite, Text und „Save“ ragten rechts
+      // heraus (GitHub #45). Höchstens fensterbreit (max-inline-size in
+      // userChrome.css), im schmalen Fall (mc-narrow) bricht der Text um
+      const needW = Math.ceil(root.scrollWidth);
+      if (!root.hasAttribute("mc-narrow") && needW > frame.clientWidth + 1) {
+        wide = needW;
+        frame.style.width = `${needW}px`;
       }
       root.toggleAttribute("mc-narrow", frame.getBoundingClientRect().width + 1 < wide);
       const need = Math.ceil(root.scrollHeight);

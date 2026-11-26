@@ -20352,6 +20352,50 @@ Neu
     check("Nachfragen: im kleinen Verfassen-Fenster bleibt die Kachel im Fenster, alle Knöpfe ganz sichtbar (GitHub #45); "
           "das Blatt ist fest an, auch mit altem Wert der früheren Option", inline_prompt_narrow, results)
 
+    def inline_prompt_late_wide():
+        # GitHub #45 (Nutzer, Intel-Mac, auch bei breitem Fenster): SubDialog misst die Breite der Kachel einmal beim Laden;
+        # wurde der Inhalt danach breiter (beim Nutzer stand die Kachel rund 320 px breit, der Inhalt mit min-width 29em
+        # rund 377), ragten Text und „Save“ rechts heraus. Nachgestellt wird das spätere Breiterwerden über eine größere
+        # Schrift an der Wurzel des Dialogs nach dem Öffnen: die Kachel muss mitwachsen (höchstens fensterbreit), alle
+        # Knöpfe ganz in der Kachel, nichts rechts abgeschnitten
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const cw = await compose({ width: 900 });
+          const out = {};
+          try {
+            const host = cw.document.getElementById("mcDialogBox");
+            if (!host) return { kachel: false };
+            const P = Ci.nsIPromptService;
+            const p = Services.prompt.asyncConfirmEx(cw.browsingContext, P.MODAL_TYPE_INTERNAL_WINDOW, "Save Message",
+              "Save this message to your drafts folder (Drafts) and close the Write window?",
+              P.BUTTON_TITLE_SAVE * P.BUTTON_POS_0 + P.BUTTON_TITLE_CANCEL * P.BUTTON_POS_1 + P.BUTTON_TITLE_IS_STRING * P.BUTTON_POS_2,
+              null, null, "Discard changes", null, false);
+            const dl = await bis(() => host.open && host.querySelector(".dialogFrame")?.contentDocument?.querySelector("dialog#commonDialog"), "Rückfrage offen", 5000);
+            await bis(() => w.getComputedStyle(host.querySelector(".dialogOverlay")).visibility != "hidden", "Kachel sichtbar", 3000); await ruhig(400);
+            const frame = host.querySelector(".dialogFrame"), doc = frame.contentDocument, root = doc.documentElement;
+            const measure = () => {
+              const card = host.querySelector(".dialogBox").getBoundingClientRect(), fr = frame.getBoundingClientRect();
+              const btns = ["accept", "cancel", "extra1"].map(k => dl.getButton(k)).filter(b => b && !b.hidden).map(b => b.getBoundingClientRect());
+              const text = doc.getElementById("infoBody").getBoundingClientRect();
+              return { card: Math.round(card.width), content: root.scrollWidth, frame: Math.round(fr.width), btns: btns.length,
+                inside: btns.every(r => fr.left + r.right <= card.right + 0.5 && fr.top + r.bottom <= card.bottom - 4),
+                textInside: fr.left + text.right <= card.right + 0.5 };
+            };
+            out.vorher = measure();
+            // später breiterer Inhalt: Schrift an der Wurzel um gut ein Sechstel größer (29em wächst mit)
+            const fs = parseFloat(doc.defaultView.getComputedStyle(root).fontSize);
+            root.style.setProperty("font-size", `${Math.round(fs * 1.18)}px`, "important");
+            await bis(() => measure().card >= out.vorher.card + 20, "Kachel wächst mit", 3000).catch(() => {}); await ruhig(400);
+            out.nachher = measure(); out.win = cw.innerWidth;
+            dl.cancelDialog(); await p.catch(() => {}); await ruhig(300);
+          } finally { await closeCompose(cw); }
+          return out;""")
+        v, n = res.get("vorher") or {}, res.get("nachher") or {}
+        ok = (v.get("btns") == 3 and v.get("inside") and n.get("btns") == 3 and n.get("inside") and n.get("textInside")
+              and n.get("card", 0) >= v.get("card", 999) + 20 and n.get("card", 0) >= n.get("content", 9999) - 1 and n.get("card", 0) <= res.get("win", 0))
+        return ok, f"{res}"
+    check("Nachfragen: wird der Inhalt einer Rückfrage nach dem Messen breiter, wächst die Kachel mit, Text und Knöpfe bleiben ganz sichtbar (GitHub #45)",
+          inline_prompt_late_wide, results)
+
     def type_switch():
         # großer Dialog beim Anlegen: Umschalter „Event | Task“ oben in voller Breite wie im Schnell-Dialog; „Task“ macht aus
         # dem neuen Termin eine neue Aufgabe mit demselben Titel (ohne Rückfrage); beim Bearbeiten kein Umschalter

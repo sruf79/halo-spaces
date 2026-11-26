@@ -863,12 +863,14 @@ offene_planzeilen() {
 # laufen Doku-Prüfung (Sa 08:00) bzw. Wochenprüfung (So 08:00) evtl. noch, wenn die Tagesroutine um 09:00 beginnt
 # (Doku-Prüfung 7.11.2026 bis 09:57); der Rundgang (Sa 10:00, derzeit pausiert) wartet bis 14:00. Sie sehen
 # unsere Claude-Runden nicht als belegt (aktive_sitzung() übergeht eigene Läufe), daher warten wir.
+# Ungespeichertes in ~/halo-spaces hält die Tagesroutine nicht mehr auf (BELEGT_OHNE_REPO, Umbau P2 K3, Satz P2 des
+# Maintainers 25.11.2026): sie arbeitet seit 18.11.2026 in ~/halo-tagesroutine; CI, Testläufe, andere Sitzungen zählen weiter.
 belegt_tag() {
   local l
   for l in lauf:Nachtlauf woche:Wochenprüfung doku:Doku-Prüfung rundgang:Design-Rundgang; do
     [[ -e $DIR/${l%%:*}.lock ]] && kill -0 $(<$DIR/${l%%:*}.lock) 2>/dev/null && { print "${l#*:} läuft oder wartet"; return 0 }
   done
-  belegt
+  BELEGT_OHNE_REPO=1 belegt
 }
 
 # --- Kontingent am Anfang ---

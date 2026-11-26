@@ -856,10 +856,13 @@ aktive_sitzung() {
 BELEGT_TEST_MUSTER='^([^ ]*/)?[Pp]ython[0-9.]*( -[^ ]+)* ([^ ]*/)?tests/(halo_test|ui_tour|update_test|store_shots)\.py'
 BELEGT_RELEASE_MUSTER='^(([^ ]*/)?(ba|z)?sh( -[^ ]+)* )?([^ ]*/)?(release|publish)\.sh( |$)'
 BELEGT_TB_MUSTER='^/.*/(thunderbird|thunderbird-bin) .*-marionette'
+BELEGT_CI_MUSTER='actions-runner/bin[^/ ]*/Runner\.Worker'
+# BELEGT_OHNE_REPO=1: Ungespeichertes in $REPO zählt nicht als belegt (Tagesroutine, arbeitet seit 18.11.2026 in
+# ~/halo-tagesroutine; Umbau-Woche P2 K3, Satz P2 des Maintainers 25.11.2026); CI, Testläufe usw. zählen weiter
 belegt() {
   local s
   s=$(aktive_sitzung) && { print "Claude-Sitzung ${s[1,8]} arbeitet gerade am Repo"; return 0 }
-  pgrep -f 'actions-runner/bin[^/ ]*/Runner\.Worker' >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
+  pgrep -f -- "$BELEGT_CI_MUSTER" >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
   # nur echte Prozesse am Anfang der Befehlszeile, nicht Auftragstexte laufender claude -p-Sitzungen (Worker,
   # Tagesroutine): die nennen „tests/halo_test.py“ und „release.sh“ und hielten sonst Nachtlauf und Testsperre an (17.11.2026)
   pgrep -f "$BELEGT_TEST_MUSTER" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
@@ -873,7 +876,7 @@ belegt() {
   pgrep -f "$BELEGT_RELEASE_MUSTER" >/dev/null && { print "release.sh/publish.sh läuft"; return 0 }
   # der Nachtlauf (REST_MITNEHMEN=1) übernimmt liegengebliebene Änderungen selbst –
   # ob noch jemand daran arbeitet, sagt schon aktive_sitzung()
-  [[ -z $REST_MITNEHMEN && -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \
+  [[ -z $REST_MITNEHMEN && -z $BELEGT_OHNE_REPO && -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \
     && { print "ungespeicherte Änderungen in $REPO (eine andere Sitzung arbeitet)"; return 0 }
   return 1
 }

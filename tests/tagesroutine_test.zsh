@@ -380,4 +380,37 @@ pruefe "Start 08:45: Platzhalter-Woche 0 schreibt keinen Anker und keinen Wochen
 # Nachtlauf: ohne Volldampf (aus, Ende) sofort wieder alle normalen Grenzen samt Ende 08:00
 pruefe "Nachtlauf: Rückfall setzt auch ENDE auf 08:00 zurück und meldet „Volldampf aus“" "$(<${SKRIPT:h}/nachtlauf.sh)" \
   'ENDE=\$NORMAL_ENDE NACHT_ENDE_TEXT=\$NORMAL_ENDE_TEXT' 'Volldampf aus \(von Hand ausgeschaltet'
+# belegt_tag (Umbau P2 K3, Satz P2 des Maintainers 25.11.2026): Ungespeichertes in ~/halo-spaces zählt nicht als belegt,
+# CI und Testlauf weiter. Eigene Probe-Repo, Muster auf $T eingeengt, Probeprozesse als Kinder (exec -a), Ports und
+# Sitzungen als Attrappe; echte Prozesse, Sperren und das echte Repo fasst der Test nicht an
+BT=$(sed -n '/^belegt_tag() {/,/^}/p' $SKRIPT)
+mkdir -p $T/bt-nacht $T/bt-home
+git -C $T init -q bt-repo && print a > $T/bt-repo/f && git -C $T/bt-repo add f \
+  && git -C $T/bt-repo -c user.name=t -c user.email=t@t commit -qm a && print b > $T/bt-repo/f
+bt() {   # <Probe: leer|ci|test> – Ausgabe „frei“ oder der Grund von belegt_tag, dazu der Grund von belegt
+  (
+    LOG=/dev/null; source ${SKRIPT:h}/lauf-hilfen.zsh; eval $BT
+    aktive_sitzung() { return 1 }; lsof() { return 1 }
+    HOME=$T/bt-home DIR=$T/bt-nacht REPO=$T/bt-repo REST_MITNEHMEN=
+    BELEGT_CI_MUSTER="$T/bt-ci/Runner\.Worker" BELEGT_TEST_MUSTER="$T/bt-probe/tests/halo_test\.py"
+    BELEGT_TB_MUSTER="$T/bt-kein-tb" BELEGT_RELEASE_MUSTER="$T/bt-kein-release"
+    local p=
+    case $1 in
+      ci) ( exec -a $T/bt-ci/Runner.Worker zsh -fc 'zmodload zsh/zselect; zselect -t 3000' ) & p=$! ;;
+      test) ( exec -a python3 zsh -fc 'zmodload zsh/zselect; zselect -t 3000' $T/bt-probe/tests/halo_test.py ) & p=$! ;;
+    esac
+    [[ -n $p ]] && sleep 0.5
+    print -r -- "tag=$(belegt_tag || print frei) gesamt=$(belegt || print frei)"
+    [[ -n $p ]] && kill $p 2>/dev/null
+  )
+}
+pruefe "belegt_tag: Ungespeichertes in ~/halo-spaces hält die Tagesroutine nicht auf (belegt() selbst meldet es weiter)" "$(bt leer)" \
+  '^tag=frei gesamt=ungespeicherte Änderungen in '
+pruefe "belegt_tag: CI-Lauf zählt als belegt" "$(bt ci)" '^tag=CI-Lauf auf dem GitHub-Runner '
+pruefe "belegt_tag: Testlauf zählt als belegt" "$(bt test)" '^tag=Testlauf \(halo_test\.py o\. ä\.\) '
+print 1234567 > $T/bt-nacht/lauf.lock
+pruefe "belegt_tag: Sperre eines toten Nachtlaufs zählt nicht" "$(bt leer)" '^tag=frei '
+print $$ > $T/bt-nacht/lauf.lock
+pruefe "belegt_tag: laufender Nachtlauf zählt als belegt" "$(bt leer)" '^tag=Nachtlauf läuft oder wartet '
+rm -f $T/bt-nacht/lauf.lock
 exit $FEHLER

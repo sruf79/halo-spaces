@@ -187,6 +187,15 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.38.0
+
+- **Message list**: the divider between the message list and the message can be dragged again in narrow windows with the Today pane open; the message gives way down to 300 px and buttons that no longer fit move into the "»" menu (GitHub #75)
+- **Touch screens**: the multi-week calendar view scrolls with your finger, snaps to a week and glides on after a quick swipe; swiping in from the left window edge shows the hidden sidebar, swiping left hides it again
+- **Calendar**: if a calendar server refuses to store a dismissed reminder, Thunderbird's "error writing to the calendar" window no longer pops up on its own; scrolling through many weeks in the multi-week view is smoother
+- **Animations**: hiding the sidebar with its button ends with the message list at its remembered width; with the Today pane sliding in or out, the open message moves along smoothly
+- **Conversations**: scrolling while a message card is still loading no longer jumps back to the selected message
+- **Thunderbird 162**: buttons in notification bars are capsules again
+
 ## What's new in 3.37.0
 
 - **Shortcuts**: on Windows and Linux Ctrl+B shows and hides the sidebar and Ctrl+T the Today pane, and the View and app menu items show the shortcuts; in the Compose window and in the task notes Ctrl+B stays bold

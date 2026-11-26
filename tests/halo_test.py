@@ -9136,19 +9136,21 @@ def calendar_checks(m, results):
                 if (![...row.querySelectorAll("calendar-month-day-box-item")].some(i => /^Halo Woche/.test(i.occurrence?.title || ""))) n++; }
               return n; };
             const times = []; let miss = 0, last = performance.now();
+            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – 13 Zehntelpixel
+            // gleich nach der letzten schnellen Bewegung, ohne Pause dazwischen (wie „Einrasten ohne Nachladen“, 0123606a:
+            // halo.spaces misst die Geschwindigkeit an den letzten 13 Bewegungen; kam die Bremse erst ein Bild plus 16 ms
+            // später, lag das unter Linux über den 70 ms, nach denen ein schneller Wischer als losgelassen gilt – Schwung,
+            // Woche 26 statt 25)
+            const halt = el => { for (let i = 0; i < 13; i++)
+              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); };
             for (let i = 0; i < 75; i++) {
               target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 }));
+              if (i == 74) halt(target);
               await frame(); const t = performance.now(); times.push(t - last); last = t; miss += missing();
             }
             out.frames = { n: times.length, median: Math.round([...times].sort((a, b) => a - b)[37] * 10) / 10, max: Math.round(Math.max(...times) * 10) / 10,
                            slow: times.filter(t => t > 2 * out.idle + 2).length };
             out.missing = miss;
-            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – acht Zehntelpixel im
-            // Abstand von 16 ms (feste Pausen wie ein Trackpad, länger als das Messfenster des Schwungs von 100 ms), so
-            // rastet die Ansicht ohne Schwung ein
-            const halt = async el => { for (let i = 0; i < 8; i++) { await new Promise(r => w.setTimeout(r, 16));
-              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); } };
-            await halt(target);
             // Einrasten: während des Neuaufbaus nie leere sichtbare Tage
             let emptyFrames = 0; const t0 = performance.now();
             while (performance.now() - t0 < 1200) { await frame(); emptyFrames += missing() ? 1 : 0; }

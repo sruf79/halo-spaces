@@ -71,6 +71,7 @@ lauf() {
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
   HALO_MB_RELEASES=$T/rel.json HALO_MB_CI=$T/ci.json HALO_MB_WINDOWS=${HALO_MB_WINDOWS:-failure} HALO_MB_BOARD=$T/board.json \
   HALO_KONTINGENT_WOCHE=${HALO_KONTINGENT_WOCHE:-40} HALO_KONTINGENT_5H=5 HALO_MB_AUSGABE=$2 \
+  HALO_MB_ZWEIGE_REPO=${HALO_MB_ZWEIGE_REPO:-$T/kein-repo} HALO_MB_UMBAU=${HALO_MB_UMBAU:-nein} \
     zsh $SKRIPT --trocken 2>&1
 }
 MO=2026-11-16T08:30:00+01:00   # Montag; Reset Di 10.11. 00:00 UTC → Soll 90 %
@@ -239,4 +240,30 @@ PATH=/usr/bin:/bin LC_ALL=C LANG=C lauf $MO $T/c2.md >/dev/null
 pruefe "Ohne Locale mit /usr/bin/python3: Bericht mit Sonderzeichen wird geschrieben" 'grep -q "schöner" $T/c2.md && grep -q "–" $T/c2.md'
 pruefe "Skript legt UTF-8 fest (zsh schneidet sonst mitten durch „ä“) und schreibt den Bericht tolerant" 'grep -q "^export LC_ALL=en_US.UTF-8" $SKRIPT && grep -q "errors=\"replace\") as f: f.write" $SKRIPT'
 pruefe "kürzen nach Zeichen statt Bytes unter LC_ALL=en_US.UTF-8" '[[ $(env -i LC_ALL=en_US.UTF-8 zsh -c "s=äöü; print -r -- \${s[1,2]}") == äö ]]'
+
+# Budget der Woche und Zweige außerhalb von main (Umbau-Woche P2 K4, Satz P2 des Maintainers 25.11.2026)
+# Woche ab Di 10.11.: Nacht 11.11. 10 → 14 (4), Tag 12.11. 20 → 23 (3); übrige Tage ohne Zahl; Woche 40 → Rest 33
+print "# Nachtlauf 2026-11-11\n\nKurz: x\n\n- Zeitbudget 01:30–06:30. Kontingent Start: Woche 10 %, 5 Std. 1 %; Ende: Woche 14 %, 5 Std. 3 %." > $T/berichte/2026-11-11-nachtlauf.md
+print "# Tagesroutine 2026-11-12\n\nKurz: x\n\n## Kontingent\n\n- Anfang: Woche 20 % (Soll 19.0 %)\n- Ende: Woche 23 % (Soll 25.6 %)\n" > $T/berichte/2026-11-12-tagesroutine.md
+A=$(lauf $MO $T/bu.md)
+pruefe "Budget Alltag: Nacht, Tag und Reserve aus budget.conf, verbraucht aus den Berichten" 'grep -qF -- "- Budget Alltag: verbraucht/Budget: Nacht 4/50 (1 von 7 gelesen), Tag 3/35 (1 von 6 gelesen), Rest 33/15 (Reserve)" $T/bu.md'
+A=$(HALO_MB_UMBAU=ja lauf $MO $T/bu2.md)
+pruefe "Budget Umbau-Woche: Nacht 25, Tag 50, Fable und Reserve 25" 'grep -qF -- "- Budget Umbau-Woche: verbraucht/Budget: Nacht 4/25 (1 von 7 gelesen), Tag 3/50 (1 von 6 gelesen), Rest 33/25 (Fable und Reserve)" $T/bu2.md'
+print "ALLTAG_NACHT=50" > $T/budget-halb.conf
+A=$(HALO_BUDGET_CONF=$T/budget-halb.conf lauf $MO $T/bu3.md)
+pruefe "Budget: fehlende Schlüssel melden statt raten" 'grep -qF -- "- Budget: verbraucht/Budget nicht lesbar (Schlüssel fehlen in budget.conf)" $T/bu3.md'
+rm -f $T/berichte/2026-11-11-nachtlauf.md $T/berichte/2026-11-12-tagesroutine.md
+pruefe "budget.conf: Werte der Entscheidungen (Umbau 25/50/10/15, Alltag 50/35/15)" '[[ $(grep -E "^(UMBAU|ALLTAG)_" $HIER/budget.conf | tr "\n" " ") == "UMBAU_NACHT=25 UMBAU_TAG=50 UMBAU_FABLE=10 UMBAU_RESERVE=15 ALLTAG_NACHT=50 ALLTAG_TAG=35 ALLTAG_FABLE=0 ALLTAG_RESERVE=15 " ]]'
+# Zweige: Probe-Repo mit origin/main; gezählt nur pruef/a (eigene Änderung), nicht pruef/b (Änderung schon in main,
+# per cherry-pick), pruef/diag-x (Diagnose), pruef/leer (ohne eigenen Commit)
+Z=$T/zrepo; git init -q -b main $Z
+g() { git -C $Z -c user.name=t -c user.email=t@t "$@" }
+print a > $Z/a; g add a; g commit -qm a
+g branch pruef/leer; g checkout -q -b pruef/a; print b > $Z/b; g add b; g commit -qm b
+g checkout -q -b pruef/b main; print c > $Z/c; g add c; g commit -qm c
+g checkout -q -b pruef/diag-x main; print d > $Z/d; g add d; g commit -qm d
+g checkout -q main; g cherry-pick pruef/b >/dev/null; g update-ref refs/remotes/origin/main main
+A=$(HALO_MB_ZWEIGE_REPO=$Z lauf $MO $T/zw.md)
+pruefe "fertig, nicht in main: nur Zweige mit eigener Änderung (Patch-Vergleich), ohne Diagnose" 'grep -qF -- "- fertig, nicht in main: 1 Zweige (davon 1 mit Commit in den letzten 7 Tagen: pruef/a)" $T/zw.md'
+pruefe "ohne origin/main: nicht gezählt" 'grep -qF -- "- fertig, nicht in main: nicht gezählt (kein origin/main)" $T/b.md'
 exit $FEHLER

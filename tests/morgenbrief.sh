@@ -25,6 +25,8 @@ export HALO_LAUF=morgenbrief
 #   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 00:00 UTC) / 168 × 100 %, auch nach einem freien
 #   Reset (wochen_soll, lauf-hilfen.zsh, Maintainer 23.11.2026)
 #   tests/board.sh export (Vorschau), ~/halo-nacht/volldampf.txt, ~/.config/halo-spaces/tagesroutine.conf (Schwellen)
+#   tests/budget.conf und die Kontingent-Zeilen der Nachtlauf-/Tagesroutine-Berichte seit Di (Zeile „verbraucht/Budget“),
+#   Zweige im Repo gegen origin/main (git cherry, nur lesend, kein fetch; Zeile „fertig, nicht in main“; Umbau P2 K4)
 # Geschrieben (nur echter Lauf): ~/halo-berichte/<heute>-bericht.md, ~/halo-nacht/<heute>-morgenbrief.log,
 #   ~/halo-nacht/kontingent-tage.tsv (eine Zeile je Tag, Grundlage für vergleich-6-12.sh)
 # Meldung: erste Zeile „Du musst heute: …“ oder „Nichts nötig“, danach höchstens 2 Zeilen und der Hinweis auf /bericht.
@@ -34,6 +36,7 @@ export HALO_LAUF=morgenbrief
 # (Ordner), HALO_MB_HANDELN (handeln.log zum Lesen), HALO_PAUSEN_DATEI; HALO_KONTINGENT_WOCHE /
 # HALO_KONTINGENT_5H (Prozent); HALO_MB_RELEASES und HALO_MB_CI (JSON-Dateien wie `gh release list
 # --json tagName,publishedAt` bzw. `gh run list --json databaseId,headSha,status,conclusion,event,createdAt`);
+# HALO_BUDGET_CONF, HALO_MB_UMBAU=ja|nein (statt tests/umbau-woche.sh aktiv), HALO_MB_ZWEIGE_REPO (Repo für die Zweige);
 # HALO_MB_ZURTEIL/HALO_MB_ZERGEBNIS (zwischen-urteil.txt, zwischen-ergebnis.txt); HALO_MB_WINDOWS=success|failure|cancelled|läuft|keiner (Ergebnis des Jobs „windows“); HALO_MB_BOARD (JSON wie
 # `board.sh export`), HALO_BNR_ZWEIFEL (Zweifel-Liste von board-nach-release.zsh), HALO_ABN_FRAGEN (Fragen der Abnahme), HALO_VOLLDAMPF_DATEI, HALO_TAGESROUTINE_CONF; HALO_MB_AUSGABE: im Trockenlauf den Bericht dorthin
 # schreiben (sonst schreibt der Trockenlauf keinen Bericht).
@@ -333,6 +336,74 @@ if [[ -n $KW ]]; then
   [[ -z $TROCKEN ]] && print -r -- "$HEUTE	$KW	$T[SOLL]	$K5" >> $NACHT/kontingent-tage.tsv
 else
   INFO+=("Kontingent: nicht gelesen${TROCKEN:+ (trocken)}")
+fi
+
+# --- 7b. Budget der Woche und Zweige außerhalb von main (Umbau-Woche P2 K4, Satz P2 des Maintainers 25.11.2026) ---
+# verbraucht/Budget: Nacht = Summe (Ende − Anfang) der Zeile „Kontingent Start … Woche x % … Ende … Woche y %“ der
+# Nachtlauf-Berichte seit dem Wochenbeginn (Di), Tag = Summe (Ende − Anfang) der Abschnitte „## Kontingent“ der
+# Tagesroutine-Berichte; Rest = Woche − Nacht − Tag (Fable, Reserve, Sitzungen). Budgets aus tests/budget.conf
+# (HALO_BUDGET_CONF), Satz Umbau-Woche solange tests/umbau-woche.sh aktiv (Probe: HALO_MB_UMBAU=ja|nein), sonst Alltag.
+BUDGET_CONF=${HALO_BUDGET_CONF:-$HIER/budget.conf}
+[[ -r $BUDGET_CONF ]] || BUDGET_CONF=$REPO/tests/budget.conf
+if [[ -n $HALO_MB_UMBAU ]]; then UMBAU=${HALO_MB_UMBAU:#nein}
+else UMBAU=; zsh $REPO/tests/umbau-woche.sh aktiv >/dev/null 2>&1 && UMBAU=ja
+fi
+BUDGET_ZEILE=$(MB_KW=$KW MB_UMBAU=$UMBAU MB_JETZT=$T[JETZT] python3 -X utf8 -I -c '
+import os, re, sys, datetime as dt
+from zoneinfo import ZoneInfo
+conf, ber = sys.argv[1], sys.argv[2]
+k = {}
+try:
+    for z in open(conf, encoding="utf-8"):
+        m = re.match(r"\s*([A-Z_]+)\s*=\s*([0-9]+)", z)
+        if m: k[m.group(1)] = int(m.group(2))
+except OSError:
+    print("Budget: verbraucht/Budget nicht lesbar (budget.conf fehlt)"); sys.exit()
+satz = "UMBAU" if os.environ.get("MB_UMBAU") else "ALLTAG"
+b = {t: k.get(satz + "_" + t) for t in ("NACHT", "TAG", "FABLE", "RESERVE")}
+if None in (b["NACHT"], b["TAG"], b["RESERVE"]):
+    print("Budget: verbraucht/Budget nicht lesbar (Schlüssel fehlen in budget.conf)"); sys.exit()
+W = ZoneInfo("Europe/Vienna"); UTC = dt.timezone.utc
+jetzt = dt.datetime.fromisoformat(os.environ["MB_JETZT"]).astimezone(W)
+ju = jetzt.astimezone(UTC)
+beginn = ju.date() - dt.timedelta(days=(ju.isoweekday() - 2) % 7)   # Reset Di 00:00 UTC = Di 01:00 Wien
+tage = [beginn + dt.timedelta(days=i) for i in range((jetzt.date() - beginn).days + 1)]
+def lesen(pfad, muster):
+    try: t = open(pfad, encoding="utf-8", errors="replace").read()
+    except OSError: return None
+    m = re.search(muster, t, re.S | re.M)
+    return max(0, int(m.group(2)) - int(m.group(1))) if m else None
+nacht = [lesen(os.path.join(ber, "%s-nachtlauf.md" % d), r"Kontingent Start:?\s*Woche (\d+) %.*?Ende:?\s*Woche (\d+) %") for d in tage]
+tag = [lesen(os.path.join(ber, "%s-tagesroutine.md" % d), r"^## Kontingent.*?^- Anfang: Woche (\d+) %.*?^- Ende: Woche (\d+) %") for d in tage if d < jetzt.date()]
+def teil(name, werte, budget):
+    g = [w for w in werte if w is not None]
+    s = "%s %d/%d" % (name, sum(g), budget)
+    return s + (" (%d von %d gelesen)" % (len(g), len(werte)) if len(g) < len(werte) else "")
+n = sum(w for w in nacht if w is not None); t = sum(w for w in tag if w is not None)
+kw = os.environ.get("MB_KW") or ""
+rb = (b["FABLE"] or 0) + b["RESERVE"]
+rname = "Fable und Reserve" if b["FABLE"] else "Reserve"
+rest = ("Rest %d/%d (%s)" % (max(0, int(kw) - n - t), rb, rname)) if kw else "Rest ?/%d (%s)" % (rb, rname)
+print("Budget %s: verbraucht/Budget: %s, %s, %s" % ("Umbau-Woche" if satz == "UMBAU" else "Alltag",
+      teil("Nacht", nacht, b["NACHT"]), teil("Tag", tag, b["TAG"]), rest))
+' $BUDGET_CONF $BERICHTE 2>/dev/null)
+INFO+=("${BUDGET_ZEILE:-Budget: verbraucht/Budget nicht berechnet}")
+# fertig, nicht in main: Zweige (lokal und origin, ohne main und ohne diag/flackern/probe) mit mindestens einem Commit,
+# dessen Änderung nicht in origin/main steht (Patch-Vergleich git cherry); nur lesend, kein fetch. Probe: HALO_MB_ZWEIGE_REPO
+ZR=${HALO_MB_ZWEIGE_REPO:-$REPO}
+if git -C $ZR rev-parse -q --verify origin/main >/dev/null 2>&1; then
+  typeset -A gesehen; typeset -a zw_alle zw_neu; typeset zb zn
+  for zb in ${(f)"$(git -C $ZR for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads refs/remotes/origin 2>/dev/null)"}; do
+    zn=${zb#origin/}
+    [[ $zn == (main|HEAD|origin) || $zn == *(diag|flackern|probe)* || -n ${gesehen[$zn]} ]] && continue
+    gesehen[$zn]=1
+    git -C $ZR cherry origin/main $zb 2>/dev/null | grep -q '^+' || continue
+    zw_alle+=($zn)
+    (( $(git -C $ZR log -1 --format=%ct $zb) > $(date +%s) - 7 * 86400 )) && zw_neu+=($zn)
+  done
+  INFO+=("fertig, nicht in main: $#zw_alle Zweige (davon $#zw_neu mit Commit in den letzten 7 Tagen${zw_neu:+: ${(j:, :)zw_neu[1,5]}${${zw_neu[6]:+ …}:-}})")
+else
+  INFO+=("fertig, nicht in main: nicht gezählt (kein origin/main)")
 fi
 
 # --- 8. Vorschau Tagesroutine: Pause, Volldampf, Schwellen, offene Einträge (ohne Sprachmodell) ---

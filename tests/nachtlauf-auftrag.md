@@ -627,7 +627,10 @@ Reihenfolge:
    „JETZT: Eintrag <id> „<Titel>“; Vorab-Prüfung: <Zeile aus dem Plan>;
    Lauf: Nachtlauf <Heute>; Ergebnisdatei ~/halo-nacht/<Heute>-designer-<id>.erg;
    Berichtsabschnitt ~/halo-nacht/<Heute>-designer-<id>.md“. Nacheinander,
-   nie zwei Designer zugleich. Danach die Ergebnisdatei lesen:
+   nie zwei Designer zugleich. Nach 06:00 beginnst du keinen Designer-Unteragenten
+   mehr (auch keinen Einspruch-Durchgang); der Eintrag bleibt für die nächste
+   Nacht, Grund „nach 06:00 kein Designer mehr“ in den Bericht (Umbau-Woche P2 K5,
+   Satz P2 des Maintainers 25.11.2026). Danach die Ergebnisdatei lesen:
    - erledigt <Hash>: Ergebnis gegen G1–G15 prüfen (design-vorgaben.md
      Abschnitt 7: Berichtsabschnitt, Vorher/Nachher-Bilder, Prüfungen). Verstößt
      es gegen eine Regel: Einspruch an den Designer mit Kennung und Zitat der
@@ -831,7 +834,11 @@ Reihenfolge:
    oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
    der Grund ist, und das im Bericht sagen), Aufgeräumt (Schritt 6a), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.
-7. Fertig-Datei (Pfad oben) anlegen, erste Zeile „Grund: <Endegrund>“
+7. Vorher auf alle noch laufenden Unteragenten warten (Designer und andere): erst
+   wenn jeder sein Ergebnis geliefert hat und du die Ergebnisdateien und
+   Berichtsabschnitte in den Bericht (Schritt 6) übernommen hast, ohne Platzhalter
+   (Umbau-Woche P2 K5). Dann die
+   Fertig-Datei (Pfad oben) anlegen, erste Zeile „Grund: <Endegrund>“
    (Schritt 5 d; z. B. „Grund: rote CI in Schritt 4“, „Grund: nichts
    Machbares mehr“, „Grund: Sechs-Commits-Grenze“). Keine eigene Push-Meldung
    schicken, das macht das Skript.

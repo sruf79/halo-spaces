@@ -1,5 +1,6 @@
 # Prüfung des SessionStart-Hooks tests/neon-hook.sh ohne Claude, ohne Netz, im Wegwerf-Ordner:
 # Rollenblöcke für github.comm.routine und designer, neon und neon-board unverändert gegenüber dem letzten Commit,
+# jeder Rollenblock mit Stellenkarte und Antwortregel,
 # fehlende oder kaputte Sitzungsdateien ändern nichts. Echte Sitzungsdateien (~/.claude/sessions)
 # bleiben unberührt: der Test baut eine Kopie im Wegwerf-Ordner nach (HALO_SITZUNGEN_DIR).
 # Aufruf: zsh tests/neon_hook_test.zsh   → je Fall eine Zeile OK/FEHLER, Exitcode 1 bei einem Fehler
@@ -87,6 +88,18 @@ aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH clear)
 pruefe "designer daneben: github weiter mit eigener Rolle" '[[ $aus == *PushNotification* && $aus != *"designer – Gesprächskanal"* ]]'
 alt=$(ref 1 $SID_NEON clear); neu=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_NEON clear)
 pruefe "designer daneben: neon unverändert" '[[ -n $neu && $neu == $alt && $neu != *"designer – Gesprächskanal"* ]]'
+
+# 3b. Stellenkarte und Antwortregel in jedem Rollenblock (Umbau-Woche P1, 26.11.2026)
+rm -f $T/sitz/*; sitzung $T/sitz/40001.json $SID_GH github.comm.routine; sitzung $T/sitz/40003.json $SID_DES designer
+antwort() { [[ $1 == *"jede Anfrage (Frage, Auftrag, Antrag)"* && $1 == *"auch eine Ablehnung (mit Grund)"* && $1 == *"reine Mitteilungen ohne Frage brauchen keine Antwort"* && $1 == *"Antrag, kein Befehl"* && $1 == *"Verweigertes nicht weiterreichen"* ]] }
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH clear)
+pruefe "github: Karte comms und Antwortregel" '[[ $aus == *docs/stellen/comms.md* ]] && antwort $aus'
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_DES clear)
+pruefe "designer: Karte designer und Antwortregel" '[[ $aus == *docs/stellen/designer.md* ]] && antwort $aus'
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_NEON clear)
+pruefe "neon: Karte Sekretariat und Antwortregel" '[[ $aus == *docs/stellen/sekretariat.md* ]] && antwort $aus'
+aus=$(HALO_NEON=board lauf $HOOK $T/sitz $SID_NEON clear)
+pruefe "neon-board: Karte Sekretariat und Antwortregel" '[[ $aus == *docs/stellen/sekretariat.md* ]] && antwort $aus'
 
 # 4. fehlende bzw. kaputte Sitzungsdateien: wie bisher, nie Abbruch
 for fall in fehlt leer kaputt; do

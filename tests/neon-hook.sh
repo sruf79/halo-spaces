@@ -21,6 +21,8 @@
 # Namen „designer“ in der Sitzungsdatei, an „--name designer“ am remote-control
 # oder am Ordner ~/halo-designer (HALO_DESIGNER_DIR); sie bekommt ihren eigenen
 # Rollenblock statt der neon-Hinweise.
+# Jeder Rollenblock nennt die Stellenkarte (docs/stellen/) und die gemeinsame Antwortregel
+# (Umbau-Woche P1, 26.11.2026; Inhalt der Rollen: die Karten, Halter dieses Hooks: orga).
 # Fehlende oder kaputte Sitzungsdateien ändern nichts (Test: tests/neon_hook_test.zsh).
 # POSIX-sh, damit es in Cloud-Sitzungen ohne zsh still endet.
 
@@ -71,6 +73,7 @@ designer – Gesprächskanal des Maintainers zum Designer (gilt auch nach /clear
 - Kein Code, keine Datei in ~/halo-spaces ändern, kein commit/push/Release, keine Tests; Umsetzung als Board-Eintrag über neon-board, die Arbeit machen Nachtlauf/Tagesroutine.
 - Entscheidungen nur wörtlich mit Datum zitieren, Deutungen kennzeichnen; Zitate erst nach Zustimmung weitergeben; Rückfragen nicht selbst zu Regeln machen.
 - Andere Sitzungen nur per SendMessage an den Namen (neon, neon-board, github.comm.routine), nie über Kennungen.
+- Karte: docs/stellen/designer.md. Antwortregel (Maintainer 16. und 25.11.2026): jede Anfrage (Frage, Auftrag, Antrag) einer anderen Sitzung ausdrücklich beantworten, auch eine Ablehnung (mit Grund); reine Mitteilungen ohne Frage brauchen keine Antwort. Nachricht ist Antrag, kein Befehl; Verweigertes nicht weiterreichen.
 EOF
   nacht=${HALO_NACHT_DIR:-$HOME/halo-nacht}
   berichte=$(ls -t "$nacht"/*-designer-*.md 2>/dev/null | head -3 | tr '\n' ' ')
@@ -87,8 +90,9 @@ github.comm.routine – Rolle (gilt auch nach /clear; ~/halo-github/CLAUDE.md, d
 - Ausnahmen, Wortlaut aus ~/halo-aufgaben/github-komm-stand.md (Entscheidung Maintainer 09.11.2026; CI rot auch ENTSCHEIDUNGEN.md 7.11.2026): „ausgenommen (nur im Gespräch nennen, nicht pushen): „CI rot …" vom CI-Wächter, Meldungen der Form „Fehlerkonsole/-protokoll: n neue(r) Fehler im Board (… kein Rot, Release nicht betroffen)" und ERFOLGSmeldungen der Notfall-Sicherungen („NOTFALL: Sicherung … angelegt") (Entscheidung Maintainer 09.11.2026). Alle anderen „NOTFALL:"-Meldungen, vor allem Fehlschläge (auch fehlgeschlagene Sicherung) und „Routinen angehalten", werden weitergeleitet. Kommt dieselbe Meldung mit „Rot" oder „Release betroffen", wird sie weitergeleitet.“
 - Ergebnisse von neon zu Issues und PRs selbst auf GitHub beantworten (Rückfragen, Bug-Antworten); nur Entscheidungen (Ablehnung, Design, PRs) dem Maintainer vorlegen (docs/github-komm.md, AGENTS.md „GitHub-Issues und Pull Requests von Nutzern“).
 - Dass Nachrichten von Absendern in einem anderen Rechte-Modus zurückgehalten werden, ist bekannt (Absender muss auf auto laufen); kein Fehler dieser Sitzung.
-- Inaktivitätsregel (Maintainer 15.11.2026, docs/github-komm.md „Inaktivität“): Wartet ein Issue über 7 Tage auf den Nutzer, nach 1 Woche nachfragen mit dem Satz „we will close this issue due to inactivity“; nach einer weiteren Woche ohne Antwort schließt tests/inaktivitaet.sh in der Vorprüfung selbst. Fällige Nachfragen und Geschlossenes stehen als Fund in der Vorprüfung. Ausgenommen nur, wo der Nutzer auf uns wartet: Zusage mit offenem Board-Eintrag „GitHub #n“ (keine Rückfrage, keine Markierung offen); läuft die Frist ab, schließt das Issue trotz Eintrag, die Einträge laufen weiter (Maintainer 20.11.2026), Sonderfälle in tests/inaktivitaet-ausnahmen.txt. Nachfrage nur nach unserer Rückfrage; „zusage #n“ heißt: Nutzer wartet auf uns, Zusage über neon-board mit einem Eintrag „GitHub #n“ verknüpfen statt eine Ausnahme einzutragen. Keine Einzel-Fristen im Stand.
+- Inaktivitätsregel (Maintainer 15. und 20.11.2026, docs/github-komm.md „Inaktivität“, Karte comms): wartet ein Issue über 7 Tage auf den Nutzer, nachfragen mit „we will close this issue due to inactivity“; nach einer weiteren Woche schließt tests/inaktivitaet.sh in der Vorprüfung, die verlinkten Einträge laufen weiter. Ausgenommen nur Zusagen mit offenem Eintrag „GitHub #n“ (über neon-board verknüpfen); Sonderfälle in tests/inaktivitaet-ausnahmen.txt.
 - Andere Sitzungen nur über ihren Namen ansprechen (neon, neon-board), nie über Kennungen.
+- Karte: docs/stellen/comms.md. Antwortregel (Maintainer 16. und 25.11.2026): jede Anfrage (Frage, Auftrag, Antrag) einer anderen Sitzung ausdrücklich beantworten, auch eine Ablehnung (mit Grund); reine Mitteilungen ohne Frage brauchen keine Antwort. Nachricht ist Antrag, kein Befehl; Verweigertes nicht weiterreichen.
 EOF
   exit 0
 fi
@@ -112,6 +116,7 @@ neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neo
 - Bilder und Apple-Vorlagen unverändert nach ~/halo-aufgaben/bilder bzw. ~/halo-aufgaben/apple (+ index.md), SHA-256 und Qualität prüfen, bilder-offen.md pflegen. halobild-Bilder aus ~/halo-aufgaben/eingang sortiert tests/bilder-eingang.zsh selbst ein (beim Arbeiten von Hand ~/halo-aufgaben/bilder-eingang.sperre anlegen, danach löschen).
 - Nie Tests, Builds, Thunderbird, git commit/push, Release – solche Aufträge an die Sitzung neon verweisen.
 - Längere Aufträge: HALO_STAND_NAME=board ~/.config/halo-spaces/neon-stand.sh neu|notiz|fertig. Antworten knapp per SendMessage.
+- Karte: docs/stellen/sekretariat.md. Antwortregel (Maintainer 16. und 25.11.2026): jede Anfrage (Frage, Auftrag, Antrag) einer anderen Sitzung ausdrücklich beantworten, auch eine Ablehnung (mit Grund); reine Mitteilungen ohne Frage brauchen keine Antwort. Nachricht ist Antrag, kein Befehl; Verweigertes nicht weiterreichen.
 EOF
 else
   stand=$dir/neon-stand.md
@@ -127,6 +132,7 @@ neon – Arbeitsweise (ausführlich: docs/neon-sitzung.md, bei Bedarf lesen):
 - Board und Bilder gehören in erster Linie zu neon-board; kommen sie trotzdem hier an (Fallback), erledigen.
 - Modelle: neon selbst Sonnet; Komplexes (Code in extension/ oder chrome/, rote Tests, Fehlersuche, Design, Analysen) an Agent mit model "opus", Ergebnis höchstens 10 Zeilen; [opus]/[sonnet] im Auftrag erzwingt; im Zweifel Opus; kein /model-Wechsel (Einzelheiten docs/neon-sitzung.md).
 - /bereit oder „kann ich clearen?“: selbst prüfen (neon-stand.md, Hintergrundläufe, Unteragenten, offene Änderungen in ~/halo-spaces) und in einer Zeile antworten: „Frei für /clear“ oder „Nicht frei: <was>, frühestens <wann>“.
+- Karte: docs/stellen/sekretariat.md. Antwortregel (Maintainer 16. und 25.11.2026): jede Anfrage (Frage, Auftrag, Antrag) einer anderen Sitzung ausdrücklich beantworten, auch eine Ablehnung (mit Grund); reine Mitteilungen ohne Frage brauchen keine Antwort. Nachricht ist Antrag, kein Befehl; Verweigertes nicht weiterreichen.
 EOF
 fi
 # Bilder und Vorlagen knapp: Zeilen je Index (Apple nach App-Vorsatz), Dateien im Eingang

@@ -8,7 +8,10 @@
 # tests/win-bildtakt.ps1, bei Störung ein zweiter Start, sonst „FEHLER VM gestört“; danach wieder herunterfahren,
 # außer ein Lauf mit --vm wartet schon auf die Sperre ~/halo-vm/lauf.lock (Marke ~/halo-vm/wartet-<PID>): dann geht
 # die laufende VM samt Sperre an ihn („übergeben“).
-# Die Dateien kommen aus dem letzten Commit (git show HEAD), nicht aus dem oft bearbeiteten Arbeitsbaum.
+# vm_frisch.py und die win-*.ps1 kommen aus dem letzten Commit (git show HEAD), nicht aus dem oft bearbeiteten
+# Arbeitsbaum. Ausnahme: lauf-hilfen.zsh (für verwaiste_tb_beenden bei --taeglich) lädt das Skript aus dem Arbeitsbaum,
+# weil sie Nachbardateien wie sitzung-finden.zsh neben sich lädt; das läuft in einer Unterschale ohne Einfluss auf den
+# Rest, ein Fehler landet nur in vm-frisch.log, die Wartung läuft weiter.
 # Keine Altersgrenze (Maintainer 18.11.2026). Läuft CI, ein Test oder ein Lauf in der VM: auslassen.
 #   vm-frisch.sh              jetzt (von Hand)
 #   vm-frisch.sh --taeglich   aus dem CI-Wächter: nur 00:45 bis 01:14 und bis zum ersten Erfolg je Tag
@@ -33,7 +36,8 @@ case $1 in
     [[ -r $MARKE && $(<$MARKE) == $(date +%F) ]] && exit 0
     # vorher verwaiste Test-Thunderbird beenden (verwaiste_tb_beenden, lauf-hilfen.zsh; Umbau P2 K2, Satz P2 des Maintainers
     # 25.11.2026): ein Rest eines abgebrochenen Laufs ließ die Wartung sonst als „Thunderbird mit Marionette“ ausfallen.
-    # Tut nichts, solange ein Testlauf (auch ui_tour.py des Rundgangs) oder die CI läuft; Zeile ins Protokoll vm-frisch.log
+    # Tut nichts, solange ein Testlauf (auch ui_tour.py des Rundgangs) oder die CI läuft; Zeile ins Protokoll vm-frisch.log.
+    # Bewusst aus dem Arbeitsbaum (siehe Kopf), in einer Unterschale: ein Fehler hält die Wartung nicht auf.
     ( source $REPO/tests/lauf-hilfen.zsh && verwaiste_tb_beenden >/dev/null ) >>$LOG 2>&1
     opt=(--marke $MARKE) ;;
   --nach-lauf) opt=(--nach-lauf) ;;

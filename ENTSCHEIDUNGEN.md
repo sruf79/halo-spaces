@@ -1151,3 +1151,8 @@ Deutung von neon (kein Wortlaut): Organisatorische Fragen zu Abläufen (Zeitpunk
 
 Herkunft: Maintainer in der Sitzung neon, 26.11.2026, auf die Frage von neon, warum der Board-Eintrag „Ablauf: Wochenprüfung prüft am ersten Sonntag im Monat jede automatische Aufgabe …“ auf „Wartet auf OK“ bleibt (Regeländerung am Auftrag und an der Karte inspector). Wortlaut: „ich folge den empfehlungen von fable“
 Deutung von neon (kein Wortlaut): Angenommen ist Fables Empfehlung samt Wortlautvorschlag und Zusatzsatz (monatlich am ersten Sonntag, erster Lauf 3.1.2027, drittes Mal 7.3.2027 mit Bericht zum Takt, Vorschläge innerhalb der drei Empfehlungen je Woche, orga prüft nicht selbst); Einbau frühestens ab 14.12.2026. Nicht angenommen ist die allgemeine Ausweitung („auch Regeländerungen zu Abläufen entscheidet Fable“); die hatte neon nur empfohlen, nicht Fable; sie bleibt offen, bis der Maintainer sie ausdrücklich so sagt.
+
+## Issues mit einem einzigen Wunsch schließen, sobald der Wunsch abgelehnt wurde (26.11.2026)
+
+Herkunft: Maintainer in der Sitzung github.comm.routine, 26.11.2026, laut github.comm.routine (von neon nicht selbst gehört; Vermerk im Stand der GitHub-Kommunikation). Wortlaut: „bitte ab sofort und für die zukunft gilt immer dass issues mit einem einzigen wunsch geschlossen werden, sobald der wunsch abgelehnt wurde.“
+Deutung von github.comm.routine (nicht Wortlaut): Hat ein Issue genau einen Wunsch und ist er abgelehnt und auf GitHub begründet gepostet, schließt comms das Issue sofort als „nicht geplant“; bei mehreren Punkten oder Teilablehnung nicht. Fünfter Schließweg neben den vier der Karte comms. Erster Fall: #77. Ob #59 darunter fällt, klärt github.comm.routine mit dem Maintainer.

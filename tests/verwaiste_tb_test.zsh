@@ -16,6 +16,7 @@ mkdir -p $S/T $S/bin $S/Library/Thunderbird/Profiles/abc.default-release
 export VERWAIST_TMP=$S/T VERWAIST_LOG=$S/aufraeumen.log VERWAIST_PROFIL_ALTER=3600
 export VERWAIST_PROFIL_MUSTER="${S}/[^ ]*halo-test-[A-Za-z0-9_-]+"
 export VERWAIST_CI_MUSTER="$S/ci-probe/Runner\.Worker"
+BELEGT_TEST_MUSTER_ECHT=$BELEGT_TEST_MUSTER
 BELEGT_TEST_MUSTER="$S/probe/tests/halo_test\.py"
 LOG=$S/aufrufer.log
 fehler=0
@@ -73,6 +74,19 @@ pruefe "Testlauf: altes Profil bleibt" '[[ -d $S/T/halo-test-alt ]]'
 pruefe "Testlauf: Grund im Protokoll" 'grep -q "nichts angefasst: Testlauf läuft" $S/aufraeumen.log'
 kill $PROBE
 
+# 2b. Rundgang: ui_tour.py zählt als Testlauf (Auflage Fable zu Satz P2, 25.11.2026: läuft auch um 00:45 aus dem
+# CI-Wächter und tut nichts, solange ein Testlauf läuft); das echte Muster erkennt die Befehlszeile (nur Text, kein Prozess)
+pruefe "echtes Muster erkennt ui_tour.py" '[[ "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -u /Users/x/halo-spaces/tests/ui_tour.py --port 2850" =~ $BELEGT_TEST_MUSTER_ECHT ]]'
+pruefe "echtes Muster erkennt halo_test.py" '[[ "python3 tests/halo_test.py --port 2851 --only x" =~ $BELEGT_TEST_MUSTER_ECHT ]]'
+pruefe "echtes Muster: Auftragstext einer Sitzung zählt nicht" '! [[ "claude -p Prüfe mit python3 tests/halo_test.py" =~ $BELEGT_TEST_MUSTER_ECHT ]]'
+BELEGT_TEST_MUSTER="$S/probe/tests/(halo_test|ui_tour)\.py"
+starte TOUR kind python3 $S/probe/tests/ui_tour.py --port 2998
+AUS=$(VERWAIST_ALTER=1 verwaiste_tb_beenden)
+pruefe "Rundgang (ui_tour.py): Ausgabe 0" '[[ $AUS == "Verwaiste Testprozesse beendet: 0" ]]'
+pruefe "Rundgang (ui_tour.py): Waise lebt" 'lebt $WAISE'
+kill $TOUR
+BELEGT_TEST_MUSTER="$S/probe/tests/halo_test\.py"
+
 # 3. CI läuft: nichts angefasst
 starte CI kind $S/ci-probe/Runner.Worker spawnclient
 AUS=$(VERWAIST_ALTER=1 verwaiste_tb_beenden)
@@ -104,6 +118,12 @@ pruefe "Protokoll ohne Nutzerprofil" '! grep -q "default" $S/aufraeumen.log'
 # 5. zweiter Aufruf: nichts mehr zu tun
 AUS=$(VERWAIST_ALTER=1 verwaiste_tb_beenden)
 pruefe "zweiter Aufruf: 0" '[[ $AUS == "Verwaiste Testprozesse beendet: 0" ]]'
+
+# 6. Aufrufer ohne extendedglob (vm-frisch.sh, release-unter-tage.sh): altes Profil wird trotzdem erkannt
+mkdir $S/T/halo-test-alt2; alt_machen $S/T/halo-test-alt2
+AUS=$(unsetopt extendedglob; VERWAIST_ALTER=1 verwaiste_tb_beenden)
+pruefe "ohne extendedglob: altes Profil gelöscht" '[[ ! -e $S/T/halo-test-alt2 ]]'
+pruefe "ohne extendedglob: Nutzerprofil lebt weiter" 'lebt $NUTZER && lebt $NUTZER2'
 
 print
 (( fehler )) && print "FEHLER: verwaiste_tb_beenden" || print "alle Prüfungen OK"

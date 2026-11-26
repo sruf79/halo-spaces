@@ -881,7 +881,8 @@ belegt() {
 # Verwaiste Test-Thunderbird beenden und alte Testprofile löschen, ohne Rückfrage (Maintainer 25.11.2026: „Nein ich kann
 # solche entscheidungen nicht nachts treffen, ich brauche einen Automatismus damit solche Situationen automatisch gelöst
 # werden“, ENTSCHEIDUNGEN.md; Vorfall ~/halo-berichte/2026-11-25-verwaiste-testprozesse.md). Engste Fassung:
-# - nur wenn kein Testlauf (BELEGT_TEST_MUSTER) und keine CI (Runner.Worker) läuft;
+# - nur wenn kein Testlauf (BELEGT_TEST_MUSTER: halo_test.py, ui_tour.py des Rundgangs, update_test.py, store_shots.py)
+#   und keine CI (Runner.Worker) läuft;
 # - beendet nur Thunderbird, dessen Befehlszeile mit …/thunderbird bzw. …/thunderbird-bin beginnt und
 #   „-profile …/halo-test-…“ sowie „-marionette“ enthält, mit Elternprozess 1 (launchd: Testlauf tot) und älter als
 #   3 Stunden; die Befehlszeile wird unmittelbar vor dem Beenden noch einmal geprüft (PID nicht neu vergeben);
@@ -904,6 +905,7 @@ verwaist_sekunden() {   # Ausgabe von ps -o etime= ([[TT-]hh:]mm:ss) in Sekunden
   print $(( 10#$t * 86400 + 10#$h * 3600 + 10#$m * 60 + 10#$s ))
 }
 verwaiste_tb_beenden() {
+  setopt localoptions extendedglob   # Muster halo-test-…## auch bei Aufrufern ohne extendedglob (vm-frisch.sh, release-unter-tage.sh)
   local alter_max=${VERWAIST_ALTER:-10800} profil_max=${VERWAIST_PROFIL_ALTER:-86400}
   local prot=${VERWAIST_LOG:-$HOME/halo-nacht/aufraeumen-testprozesse.log}
   local tmp=${VERWAIST_TMP:-${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || print /tmp)}}

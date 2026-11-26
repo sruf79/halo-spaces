@@ -72,7 +72,7 @@ Tagesroutine nach der Sollkurve: Abschnitt „Modellwahl nach Sollkurve“ unten
 | Stelle bzw. Sitzung | Modell | Stärke | Hinweis |
 |---|---|---|---|
 | director (Plan-Schritt, Urteile; Sitzung ab Fr 27.11.) | Opus | medium | Fable nur als Schiedsrichter nach der Einspruchsregel |
-| designer (Unteragent und Sitzung) | Opus, nie darunter (Maintainer 14.11.2026) | high | liegt die Modellstufe des Tages unter Opus, wird der Eintrag nicht beauftragt |
+| designer (Unteragent und Sitzung) | Opus, nie darunter (Maintainer 14.11.2026) | high | liegt die Modellstufe des Tages unter Opus, wird der Eintrag nicht beauftragt, statt kleiner zu gestalten |
 | engineer (kein Dauerdienst) | Opus für Code, Fehlersuche, Tests; Sonnet für Kleines mit benannter Ursache; Haiku nur im Sparmodus | Standard | Aufstieg nach „Rot bleibt rot“ |
 | orga (Sitzung ab Sa 28.11.) | Sonnet | medium | Umbauvorschläge und Regeländerungen an einen Opus-Unteragenten |
 | inspector (Sitzung ab So 29.11.) | Opus | Sitzung medium | Revision nie schwächer als die Geprüften |

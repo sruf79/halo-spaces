@@ -23309,8 +23309,10 @@ Neu
           await toMail();
           const refs = w.__haloSpeicherTabs || []; delete w.__haloSpeicherTabs;
           // Speicher bereinigen, bis höchstens einer übrig ist (feste Pause: die Bereinigung gibt Dokumente erst in späteren Runden frei)
+          // (mit Verwerfen des JIT-Codes wie bei Speicherknappheit: unter ESR 153 hielten Inline-Caches gemeinsam genutzter
+          //  Funktionen die Formen geschlossener Mailansichten fest, nach Cu.forceGC() blieben 5 von 5 auch ohne Halter in halo.spaces)
           let alive = refs.length, runden = 0;
-          for (; runden < 12 && alive > 1; runden++) { Cu.forceGC(); Cu.forceCC(); await wait(250); alive = refs.filter(r => r.get()).length; }
+          for (; runden < 12 && alive > 1; runden++) { Cu.forceShrinkingGC(); Cu.forceCC(); await wait(250); alive = refs.filter(r => r.get()).length; }
           return { tabs: refs.length, alive, runden, wer: refs.map(r => r.get() ? 1 : 0), offen: tm.tabInfo.filter(t => t.mode.name == "mail3PaneTab").length };""")
         return res["tabs"] == 5 and res["alive"] <= 1 and res["offen"] == 1, f"{res}"
     check("Speicher: geschlossene Ordner-Tabs werden freigegeben (von fünf bleibt höchstens der zuletzt benutzte)", folder_tab_freed, results)

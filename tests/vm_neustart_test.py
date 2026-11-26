@@ -389,8 +389,11 @@ open(stub, "w").write("import sys\nopen(%r, 'a').write(' '.join(sys.argv[1:]) + 
 
 
 def skript(hm, *opt):
+    # verwaiste_tb_beenden (Umbau P2 K2) nur auf Probepfade: kein echter Prozess, kein echtes Profil, eigenes Protokoll
     env = {**os.environ, "HALO_NACHT": nacht, "HALO_JETZT_HM": hm, "HALO_VM_FRISCH_PY": f"python3 {stub}",
-           "HALO_VM_FRISCH_ARBEITSBAUM": "1"}
+           "HALO_VM_FRISCH_ARBEITSBAUM": "1", "VERWAIST_TMP": os.path.join(nacht, "T"),
+           "VERWAIST_LOG": os.path.join(nacht, "aufraeumen.log"),
+           "VERWAIST_PROFIL_MUSTER": nacht + "/kein-profil/halo-test-[a-z]+", "VERWAIST_CI_MUSTER": nacht + "/kein-ci"}
     return subprocess.run(["zsh", os.path.join(HIER, "vm-frisch.sh"), *opt], env=env).returncode
 
 
@@ -406,6 +409,9 @@ check("vm-frisch.sh --taeglich: startet vm_frisch.py aus eigener Kopie im Hinter
 open(os.path.join(nacht, "vm-frisch.tag"), "w").write(time.strftime("%Y-%m-%d") + "\n")
 skript("0100", "--taeglich")
 check("vm-frisch.sh --taeglich: nach Erfolg am selben Tag nichts mehr", len(aufgerufen()) == 1, f"{aufgerufen()}")
+vlog = open(os.path.join(nacht, "vm-frisch.log")).read() if os.path.exists(os.path.join(nacht, "vm-frisch.log")) else ""
+check("vm-frisch.sh --taeglich: vorher verwaiste_tb_beenden, genau einmal (Zeile im Protokoll)",
+      len(re.findall(r"Verwaiste Testprozesse(: nichts angefasst| beendet: 0)", vlog)) == 1, vlog[-400:])
 skript("1500", "--nach-lauf")
 check("vm-frisch.sh --nach-lauf: jederzeit, mit --nach-lauf", len(aufgerufen()) == 2 and "--nach-lauf" in aufgerufen()[-1], f"{aufgerufen()}")
 sk = open(os.path.join(HIER, "vm-frisch.sh")).read()

@@ -31,6 +31,10 @@ case $1 in
     hm=${HALO_JETZT_HM:-$(date +%H%M)}
     (( 10#$hm >= 45 && 10#$hm < 115 )) || exit 0   # 00:45 bis 01:14: fertig, bevor um 01:30 der Nachtlauf beginnt
     [[ -r $MARKE && $(<$MARKE) == $(date +%F) ]] && exit 0
+    # vorher verwaiste Test-Thunderbird beenden (verwaiste_tb_beenden, lauf-hilfen.zsh; Umbau P2 K2, Satz P2 des Maintainers
+    # 25.11.2026): ein Rest eines abgebrochenen Laufs ließ die Wartung sonst als „Thunderbird mit Marionette“ ausfallen.
+    # Tut nichts, solange ein Testlauf (auch ui_tour.py des Rundgangs) oder die CI läuft; Zeile ins Protokoll vm-frisch.log
+    ( source $REPO/tests/lauf-hilfen.zsh && verwaiste_tb_beenden >/dev/null ) >>$LOG 2>&1
     opt=(--marke $MARKE) ;;
   --nach-lauf) opt=(--nach-lauf) ;;
   '') ;;

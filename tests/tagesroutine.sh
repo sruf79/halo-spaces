@@ -887,7 +887,13 @@ while true; do
   # Mac belegt (CI, Testlauf, andere Sitzung, ungespeicherte Änderungen, Routine)? Warten, dann neu versuchen
   w=0
   while GRUND=$(belegt_tag) && (( w < KONF[BELEGT_WARTEN] && $(date +%s) < LETZTER )); do
-    log "warte: $GRUND"; sleep 300; w=$((w + 5))
+    log "warte: $GRUND"
+    # in jeder Warterunde, die an Thunderbird mit Marionette bzw. einem belegten Port hängt, verwaiste Test-Thunderbird
+    # beenden (Umbau P2 K2, Satz P2 des Maintainers 25.11.2026); tut nichts, solange ein Testlauf oder die CI läuft
+    if [[ $GRUND == (Thunderbird\ mit\ Marionette*|Marionette-Port*) ]]; then
+      VW_ZEILE=$(verwaiste_tb_beenden); [[ ${VW_ZEILE##*: } == <-> ]] && VERWAIST_N=$(( VERWAIST_N + ${VW_ZEILE##*: } ))
+    fi
+    sleep 300; w=$((w + 5))
   done
   if GRUND=$(belegt_tag); then log "belegt nach $w Min.: $GRUND – später erneut"; continue; fi
   if (( MAX_COMMITS > 0 && $(eigene_commits_zahl) >= MAX_COMMITS )); then   # im Volldampf MAX_COMMITS_VOLLDAMPF (0 = keine)

@@ -240,6 +240,9 @@ if [[ -z $TROCKEN ]]; then
   NACHT_BIS=$(date -j -v9H -v15M -v0S +%s)
   WARTE_GRENZE=$(date -j -v10H -v0M -v0S +%s)
   (( $(date +%s) >= WARTE_GRENZE )) && WARTE_GRENZE=$(( $(date +%s) + 5400 ))
+  # vorher verwaiste Test-Thunderbird beenden (verwaiste_tb_beenden, lauf-hilfen.zsh; Umbau P2 K2, Satz P2 des
+  # Maintainers 25.11.2026); tut nichts, solange ein Testlauf oder die CI läuft, Zeile ins Protokoll
+  verwaiste_tb_beenden >/dev/null
   if ! GRUND=$(woche_warten $NACHT_BIS $WARTE_GRENZE $DOKU); then
     log "ausgelassen: $GRUND"
     notbericht "ausgelassen" "$GRUND"

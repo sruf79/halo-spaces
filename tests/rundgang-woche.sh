@@ -119,7 +119,12 @@ if [[ -n $ONLY ]]; then
     return 1
   }
 fi
+# vorher verwaiste Test-Thunderbird beenden (verwaiste_tb_beenden, lauf-hilfen.zsh; Umbau P2 K2, Satz P2 des Maintainers
+# 25.11.2026), danach in jeder Warterunde, die an Thunderbird mit Marionette bzw. einem belegten Port hängt; tut nichts,
+# solange ein Testlauf (auch ui_tour.py) oder die CI läuft. Probelauf (--only) von Hand: nicht
+[[ -z $ONLY ]] && verwaiste_tb_beenden >/dev/null
 while GRUND=$(belegt_rundgang); do
+  [[ -z $ONLY && $GRUND == (Thunderbird\ mit\ Marionette*|Marionette-Port*) ]] && verwaiste_tb_beenden >/dev/null
   if (( $(date +%s) >= SPAETESTENS )); then
     log "Rundgang ausgelassen (23:30 erreicht): $GRUND"
     notbericht "ausgelassen" "bis 23:30 belegt: $GRUND"

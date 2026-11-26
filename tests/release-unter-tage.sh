@@ -61,6 +61,9 @@ fi
 if [[ -n ${HALO_BELEGT+x} ]]; then GR=$HALO_BELEGT
 else
   LOG=/dev/null; source $HIER/lauf-hilfen.zsh
+  # vorher verwaiste Test-Thunderbird beenden (Umbau P2 K2, Satz P2 des Maintainers 25.11.2026); tut nichts, solange ein
+  # Testlauf oder die CI läuft, Protokoll ~/halo-nacht/aufraeumen-testprozesse.log
+  verwaiste_tb_beenden >/dev/null
   GR=$(belegt) || GR=
   [[ -z $GR && -e $HOME/halo-nacht/lauf.lock ]] && kill -0 $(<$HOME/halo-nacht/lauf.lock) 2>/dev/null && GR="Nachtlauf läuft"
 fi

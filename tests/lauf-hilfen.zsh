@@ -893,6 +893,10 @@ belegt() {
 #   keiner Befehlszeile eines laufenden Prozesses vorkommen.
 # Nie ein Nutzerprofil, nie ein anderes Programm. Jede Handlung mit PID und Alter in ~/halo-nacht/aufraeumen-testprozesse.log,
 # eine Zusammenfassung ins Protokoll des Aufrufers (log, falls $LOG gesetzt). Ausgabe: „Verwaiste Testprozesse beendet: n“.
+# Aufrufer (vor jeder Wartestelle auf Thunderbird mit Marionette; Umbau P2 K1/K2, Satz P2 des Maintainers 25.11.2026):
+# nachtlauf.sh vor nachtlauf_warten, tagesroutine.sh vor und in jeder Warterunde mit Thunderbird/Port als Grund,
+# wochenpruefung.sh vor woche_warten, rundgang-woche.sh vor und in der Warteschleife, vm-frisch.sh --taeglich (00:45 aus
+# dem CI-Wächter), release-unter-tage.sh vor belegt. Textprüfung der Aufrufer in tests/verwaiste_tb_test.zsh.
 # Zum Proben: VERWAIST_ALTER (Sekunden, Standard 10800), VERWAIST_PROFIL_ALTER (Sekunden, Standard 86400),
 # VERWAIST_TMP (temporärer Ordner), VERWAIST_LOG (Protokoll), VERWAIST_PROFIL_MUSTER (Pfad des Profils, ERE),
 # VERWAIST_CI_MUSTER (CI-Prozess, ERE).

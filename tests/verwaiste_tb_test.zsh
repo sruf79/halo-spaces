@@ -125,6 +125,24 @@ AUS=$(unsetopt extendedglob; VERWAIST_ALTER=1 verwaiste_tb_beenden)
 pruefe "ohne extendedglob: altes Profil gelöscht" '[[ ! -e $S/T/halo-test-alt2 ]]'
 pruefe "ohne extendedglob: Nutzerprofil lebt weiter" 'lebt $NUTZER && lebt $NUTZER2'
 
+# 7. Aufrufer (Umbau P2 K2, Satz P2 des Maintainers 25.11.2026): vor jeder Wartestelle auf Thunderbird mit Marionette
+# (Textprüfung: Aufruf steht vor der Wartestelle bzw. in der Warterunde)
+H=${0:A:h}
+vor() {   # <Datei> <Muster des Aufrufs> <Muster der Wartestelle>: erster Aufruf vor der ersten Wartestelle
+  local a w
+  a=$(grep -nE -- "$2" $H/$1 | grep -v '^[0-9]*:[[:space:]]*#' | head -1 | cut -d: -f1)
+  w=$(grep -nE -- "$3" $H/$1 | grep -v '^[0-9]*:[[:space:]]*#' | head -1 | cut -d: -f1)
+  [[ -n $a && -n $w ]] && (( a < w ))
+}
+pruefe "Aufrufer nachtlauf.sh: vor nachtlauf_warten" 'vor nachtlauf.sh "verwaiste_tb_beenden" "nachtlauf_warten \\$"'
+pruefe "Aufrufer wochenpruefung.sh: vor woche_warten" 'vor wochenpruefung.sh "^  verwaiste_tb_beenden" "GRUND=\\$\\(woche_warten"'
+pruefe "Aufrufer rundgang-woche.sh: vor der Warteschleife" 'vor rundgang-woche.sh "verwaiste_tb_beenden" "^while GRUND=\\$\\(belegt_rundgang"'
+pruefe "Aufrufer rundgang-woche.sh: in der Warterunde bei Thunderbird" 'grep -q "Marionette-Port\*) \]\] && verwaiste_tb_beenden" $H/rundgang-woche.sh'
+pruefe "Aufrufer vm-frisch.sh: im Zweig --taeglich vor vm_frisch.py" 'vor vm-frisch.sh "verwaiste_tb_beenden" "opt=\\(--marke"'
+pruefe "Aufrufer release-unter-tage.sh: vor belegt" 'vor release-unter-tage.sh "^  verwaiste_tb_beenden" "GR=\\$\\(belegt\\)"'
+pruefe "Aufrufer tagesroutine.sh: vor der Warteschleife und in jeder Warterunde bei Thunderbird" \
+  '[[ $(sed -n "/^  while GRUND=\$(belegt_tag)/,/^  done/p" $H/tagesroutine.sh | grep -c "VW_ZEILE=\$(verwaiste_tb_beenden)") == 1 ]] && vor tagesroutine.sh "VW_ZEILE=" "^  while GRUND=\\$\\(belegt_tag"'
+
 print
 (( fehler )) && print "FEHLER: verwaiste_tb_beenden" || print "alle Prüfungen OK"
 exit $fehler

@@ -757,8 +757,6 @@ class EnhancerMailliste {
       },
     };
     MailServices.mfn.addListener(listener, MailServices.mfn.msgAdded);
-    // Tab geschlossen: Listener abmelden – er hielt sonst die geschlossene Mailansicht im Speicher
-    win.addEventListener("unload", () => MailServices.mfn.removeListener(listener), { once: true });
     this.addWinRestorer(win, () => {
       mo.disconnect();
       MailServices.mfn.removeListener(listener);
@@ -936,7 +934,7 @@ class EnhancerMailliste {
       win.threadTree.addEventListener("scroll", onScroll, { passive: true, capture: true });
       this.addWinRestorer(win, () => win.threadTree?.removeEventListener("scroll", onScroll, { capture: true }));
     });
-    safely("account rows", () => colorAccountRows(doc, { push: fn => this.addWinRestorer(win, fn) }));
+    safely("account rows", () => colorAccountRows(doc, this.restorers));
     safely("search pause", () => this.hookSearchPause(win));
     safely("search stages", () => this.hookSearchStages(win));
     const mb = win.messageBrowser?.contentDocument;
@@ -1022,7 +1020,7 @@ class EnhancerMailliste {
       };
     }
 
-    this.addWinRestorer(win, () => {
+    this.restorers.push(() => {
       if (reg.owner !== token) {
         return; // eine neuere Version hat übernommen
       }
@@ -1110,14 +1108,14 @@ class EnhancerMailliste {
       top.__mcSearchPlaceholder?.();
     };
     win.addEventListener("folderURIChanged", leave);
-    this.addWinRestorer(win, () => win.removeEventListener("folderURIChanged", leave));
+    this.restorers.push(() => win.removeEventListener("folderURIChanged", leave));
     // Platzhalter der Suche auch bei der Auswahl in der Ordnerliste:
     // scheitert das Öffnen der Ansicht (z. B. „Alle Eingänge“), meldet
     // Thunderbird folderURIChanged nicht
     const selected = () => win.setTimeout(() => top.__mcSearchPlaceholder?.(), 0);
     win.folderTree?.addEventListener("select", selected);
-    this.addWinRestorer(win, () => win.folderTree?.removeEventListener("select", selected));
-    this.addWinRestorer(win, () => {
+    this.restorers.push(() => win.folderTree?.removeEventListener("select", selected));
+    this.restorers.push(() => {
       tph.onFolderSelected = origSelected;
       tph.updateMessageCount = origCount;
       if (origRows && origInvalidate) {
@@ -1520,7 +1518,7 @@ class EnhancerMailliste {
     MailServices.mailSession.AddFolderListener(starListener, Ci.nsIFolderListener.propertyFlagChanged);
     win.addEventListener("unload", () => MailServices.mailSession.RemoveFolderListener(starListener), { once: true });
     this.countStarred(() => apply());
-    this.addWinRestorer(win, () => {
+    this.restorers.push(() => {
       top?.removeEventListener("activate", syncActive);
       top?.removeEventListener("deactivate", syncActive);
       doc.documentElement.removeAttribute("mc-inactive");

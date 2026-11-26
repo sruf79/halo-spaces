@@ -29,8 +29,17 @@
 # Auswahl in der Sitzung). claude remote-control kennt weder --model noch
 # --effort („Unknown argument“, 2.1.319); deshalb als ANTHROPIC_MODEL und
 # CLAUDE_CODE_EFFORT_LEVEL, die die Kindprozesse erben und die settings.json
-# übersteuern. Gesetzt nur in at.halo-spaces.github-comm (sonnet/low,
-# Entscheidung des Maintainers vom 8.11.2026, Wortlaut: „ja 1c umsetzen“).
+# übersteuern. Pflicht für jede Instanz (P3a, 26.11.2026, Bericht
+# 2026-11-25-modelle.md E2 b): ohne beide Werte verweigert das Skript den Start
+# (Zeile „START VERWEIGERT“ im Protokoll). Soll: docs/alltagsmodus.md „Modelle je
+# Stelle und Sitzung“. Der Server gibt der Kindsitzung ihr gespeichertes Modell
+# als --model mit, das schlägt ANTHROPIC_MODEL; tests/mac-mini-setup.sh --check
+# vergleicht deshalb am Kindprozess (E6).
+# Netz (KZcAg): vor dem Start wartet das Skript, bis api.anthropic.com per nc
+# oder curl erreichbar ist; nach 10 Minuten Warten eine Zeile in
+# ~/halo-nacht/handeln.log. Ein Wechsel der Umgebung (env_…) steht als
+# „UMGEBUNG GEWECHSELT“ im Protokoll und in ~/halo-nacht/umgebung-wechsel.log;
+# Meldung an neon, nur bei neon selbst als „handeln“ aufs iPhone (P3a E5).
 # Vierte Instanz designer (Gesprächskanal des Maintainers zum Designer, Auftrag
 # des Maintainers vom 15.11.2026: „bitte erstelle mir eine eigene remote session
 # welche auf neon läuft und "designer" heisst. diese session soll wie ein
@@ -60,7 +69,7 @@ zeit() { date '+%F %T' }
 board_ordner() {
   local d=$1 cfg=$HOME/.config/halo-spaces
   mkdir -p $d/.claude || return 1
-  cat > $d/CLAUDE.md <<TEXT || return 1
+  cat > $d/.CLAUDE.md.neu <<TEXT || return 1
 # neon-board – nur Board und Bilder
 
 Diese Sitzung (Remote Control „neon-board“ auf dem Mac mini neon) bedient
@@ -93,42 +102,65 @@ Erlaubt:
   melden; ~/halo-aufgaben/bilder-offen.md pflegen.
 - Zitate und Entscheidungen des Maintainers wörtlich mit Herkunft eintragen.
 
-Nie: Tests, Builds, Thunderbird, Screenshots aufnehmen, git commit/push,
-Release, Änderungen im Checkout ~/halo-spaces, LaunchAgents. Solche Aufträge
-gehören an die Sitzung neon – dem Absender das so antworten.
+Nie: Tests, Builds, Thunderbird, Screenshots aufnehmen, git-Befehle, Release,
+Änderungen im Checkout ~/halo-spaces, in ~/halo-nacht, ~/halo-berichte oder
+~/.config, LaunchAgents; auf GitHub antworten, Issues oder Pull Requests
+schließen oder mergen, gh außerhalb des Boards (Board über board.sh, gh project
+bleibt erlaubt). Solche Aufträge gehören an die Sitzung neon (GitHub an
+github.comm.routine) – dem Absender das so antworten (technisch gesperrt seit
+P3a, Bericht 2026-11-25-berechtigungen.md T1).
 
 Arbeitsweise:
 - Längere Aufträge: HALO_STAND_NAME=board $cfg/neon-stand.sh neu <von> "<Auftrag>",
   Stand mit notiz, nach der Antwort fertig (~/halo-aufgaben/board-stand.md).
 - Mehrere Einträge oder Bilder an einen Unteragenten (Agent, immer mit
   model "sonnet"), Ergebnis höchstens 10 Zeilen.
-- Antworten mit SendMessage an den Namen der Sitzung aus ListAgents, knapp:
-  Ergebnis, id, Fehlerzeile.
+- Antworten mit SendMessage an den Namen der Sitzung aus ListAgents.
+  Antwort höchstens 5 Zeilen: OK oder FEHLER, id, Titel, bei Fehler die
+  Fehlerzeile. Keine Wiederholung des Auftrags, keine Erklärung, kein Dank.
+  Listen nur, wenn danach gefragt wurde, und nur die gefragten Felder.
 - Zeitangaben gegenüber dem Maintainer immer in Wiener Zeit (nicht UTC); Zeitstempel in Logs, Dateien und auf GitHub dürfen UTC bleiben, werden aber beim Berichten umgerechnet (Entscheidung vom 7.11.2026).
 TEXT
-  cat > $d/.claude/settings.json <<TEXT || return 1
+  cat > $d/.claude/.settings.json.neu <<TEXT || return 1
 {
   "model": "sonnet",
   "effortLevel": "low",
   "permissions": {
+    "additionalDirectories": [ "$HOME/halo-aufgaben" ],
     "allow": [
       "ListAgents",
       "SendMessage",
       "Bash($cfg/board.sh *)",
       "Bash(HALO_STAND_NAME=board $cfg/neon-stand.sh *)",
       "Bash(shasum *)",
-      "Edit(~/halo-aufgaben/**)"
+      "Edit(~/halo-aufgaben/**)",
+      "Write(~/halo-aufgaben/**)"
     ],
     "deny": [
-      "Bash(git push*)",
-      "Bash(git commit*)",
+      "Bash(git *)",
+      "Bash(gh issue*)", "Bash(gh pr*)", "Bash(gh release*)", "Bash(gh workflow*)",
+      "Bash(gh run*)", "Bash(gh repo*)", "Bash(gh api*)",
+      "Edit(~/halo-spaces/**)", "Write(~/halo-spaces/**)",
+      "Edit(~/halo-nacht/**)", "Write(~/halo-nacht/**)",
+      "Edit(~/halo-berichte/**)", "Write(~/halo-berichte/**)",
+      "Edit(~/.config/**)", "Write(~/.config/**)",
+      "Edit(~/Library/**)", "Write(~/Library/**)",
+      "Edit(/CLAUDE.md)", "Write(/CLAUDE.md)",
+      "Edit(/.claude/**)", "Write(/.claude/**)",
       "Bash(*halo_test.py*)",
       "Bash(*ui_tour.py*)",
       "Bash(*build.sh*)",
+      "Bash(*install.sh*)",
       "Bash(*release.sh*)",
       "Bash(*publish.sh*)",
       "Bash(prlctl *)",
-      "Bash(launchctl *)"
+      "Bash(launchctl *)",
+      "Bash(security *)",
+      "Bash(*hosts.yml*)",
+      "Bash(*atn.env*)",
+      "Read(~/.config/gh/**)",
+      "Read(**/hosts.yml)",
+      "Read(~/.config/halo-spaces/atn.env)"
     ]
   },
   "hooks": {
@@ -138,6 +170,7 @@ TEXT
   }
 }
 TEXT
+  mv -f $d/.CLAUDE.md.neu $d/CLAUDE.md && mv -f $d/.claude/.settings.json.neu $d/.claude/settings.json
 }
 
 # Rolle und Einstellungen von designer (Ordner ohne Checkout, wie neon-board):
@@ -297,6 +330,11 @@ elif [[ $NAME == designer ]]; then
   designer_ordner $REPO || { print -u2 "$(zeit) Ordner $REPO für designer nicht anlegbar"; exit 1 }
 fi
 [[ $2 == --nur-ordner ]] && exit 0
+if [[ -z $HALO_RC_MODELL || -z $HALO_RC_EFFORT ]]; then
+  print -u2 "$(zeit) START VERWEIGERT: $NAME ohne HALO_RC_MODELL/HALO_RC_EFFORT in der Dienst-Datei (docs/alltagsmodus.md „Modelle je Stelle und Sitzung“)"
+  sleep ${HALO_RC_WARTE_VERWEIGERT:-300}   # KeepAlive startet sonst jede Minute neu
+  exit 1
+fi
 cd $REPO 2>/dev/null || { print -u2 "$(zeit) Repo-Ordner $REPO fehlt"; exit 1 }
 claude=${commands[claude]}
 [[ -n $claude ]] || { print -u2 "$(zeit) claude nicht gefunden (Abschnitt 12)"; exit 1 }
@@ -331,9 +369,34 @@ fi
 # Kindprozesse selbst ab (neon-board erschien in ListAgents als „halo-board-de“,
 # SendMessage an den Namen „neon-board“ scheiterte). Die Kindprozesse erben sie;
 # --name setzt nur den Namen der Remote-Control-Verbindung (claude.ai).
+NETZ=${HALO_RC_NETZ_HOST:-api.anthropic.com}
+netz_da() {   # bestanden, wenn einer der beiden Wege durchkommt (jede HTTP-Antwort zählt)
+  /usr/bin/nc -z -G 5 $NETZ 443 2>/dev/null ||
+    /usr/bin/curl -s -o /dev/null -m 5 https://$NETZ/ 2>/dev/null
+}
+integer gewartet=0
+until netz_da; do
+  (( gewartet % 600 == 0 )) && print "$(zeit) $NAME wartet auf das Netz ($NETZ weder per nc noch per curl erreichbar, seit $((gewartet / 60)) min)"
+  (( gewartet == 600 )) && print -r -- "$(zeit) remote-control $NAME startet nicht: wartet seit 10 min auf das Netz ($NETZ), Protokoll ${HALO_RC_LOG:-~/Library/Logs/halo-remote-control.log}" >> $HOME/halo-nacht/handeln.log
+  sleep 30; gewartet+=30
+done
+(( gewartet )) && print "$(zeit) $NAME: Netz wieder da nach $((gewartet / 60)) min"
 export CLAUDE_CODE_SESSION_NAME=$NAME
 [[ -n $HALO_RC_MODELL ]] && export ANTHROPIC_MODEL=$HALO_RC_MODELL
 [[ -n $HALO_RC_EFFORT ]] && export CLAUDE_CODE_EFFORT_LEVEL=$HALO_RC_EFFORT
+alt_env=$(grep -o 'env_[A-Za-z0-9]*' $LOGDATEI 2>/dev/null | tail -1)
+{ sleep 120
+  neu_env=$(grep -o 'env_[A-Za-z0-9]*' $LOGDATEI 2>/dev/null | tail -1)
+  if [[ -n $alt_env && -n $neu_env && $alt_env != $neu_env ]]; then
+    link="https://claude.ai/code?environment=$neu_env"
+    print "$(zeit) UMGEBUNG GEWECHSELT $NAME: $alt_env -> $neu_env"
+    print "$(zeit) $NAME $alt_env -> $neu_env $link" >> $HOME/halo-nacht/umgebung-wechsel.log
+    if [[ $NAME == neon ]]; then   # neon kann sich selbst nicht helfen: aufs iPhone
+      zsh -c "source $HOME/.config/halo-spaces/lauf-hilfen.zsh && push 'Sitzung neon hat eine neue Umgebung. Alte Unterhaltung in der App ist tot; neu öffnen: $link' remote-control handeln" 2>/dev/null
+    else                           # Regel „Wächter melden an neon“ (18.11.2026)
+      zsh -c "source $HOME/.config/halo-spaces/lauf-hilfen.zsh && an_neon 'Sitzung $NAME hat eine neue Umgebung ($alt_env -> $neu_env). Alte Unterhaltung ist tot; Link für den Maintainer: $link' remote-control || push 'Sitzung $NAME hat eine neue Umgebung, neon nicht erreichbar: $link' remote-control" 2>/dev/null
+    fi
+  fi } &!
 print "$(zeit) Start: $claude remote-control in $REPO als $NAME${HALO_RC_MODELL:+, Modell $HALO_RC_MODELL}${HALO_RC_EFFORT:+, Effort $HALO_RC_EFFORT}"
 exec $claude remote-control --spawn=same-dir --name $NAME --remote-control-session-name-prefix $NAME \
   ${MODUS:+--permission-mode} ${MODUS}

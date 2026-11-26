@@ -782,8 +782,8 @@ pruefe_rc_modelle() {
     ps=$(plutil -extract EnvironmentVariables.HALO_RC_EFFORT raw $plist 2>/dev/null)
     [[ $pm == $m && $ps == $s ]] ||
       { offen "Modell $n" "Dienst-Datei: ${pm:-ohne Modell}/${ps:-ohne Stärke}, Soll $m/$s"; tun "$plist, EnvironmentVariables"; continue }
-    p=$(pgrep -f "remote-control .*--name ${n//./\\.} --remote" | head -1)
-    kind=$(pgrep -P ${p:-0} -f -- '--session-id' | head -1)
+    p=$(pgrep -a -f "remote-control .*--name ${n//./\\.} --remote" | head -1)
+    kind=$(pgrep -a -P ${p:-0} -f -- '--session-id' | head -1)
     if [[ -z $kind ]]; then hinweis "Modell $n" "keine Kindsitzung offen, am Prozess nicht prüfbar"; continue; fi
     args=$(ps -o args= -p $kind)
     [[ $args == *"--model claude-$m"* && $args == *"--effort $s"* ]] &&

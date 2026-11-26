@@ -256,16 +256,27 @@ A=$(HALO_BUDGET_CONF=$T/budget-halb.conf lauf $MO $T/bu3.md)
 pruefe "Budget: fehlende Schlüssel melden statt raten" 'grep -qF -- "- Budget: verbraucht/Budget nicht lesbar (Schlüssel fehlen in budget.conf)" $T/bu3.md'
 rm -f $T/berichte/2026-11-11-nachtlauf.md $T/berichte/2026-11-12-tagesroutine.md
 pruefe "budget.conf: Werte der Entscheidungen (Umbau 25/50/10/15, Alltag 50/35/15)" '[[ $(grep -E "^(UMBAU|ALLTAG)_" $HIER/budget.conf | tr "\n" " ") == "UMBAU_NACHT=25 UMBAU_TAG=50 UMBAU_FABLE=10 UMBAU_RESERVE=15 ALLTAG_NACHT=50 ALLTAG_TAG=35 ALLTAG_FABLE=0 ALLTAG_RESERVE=15 " ]]'
-# Zweige: Probe-Repo mit origin/main; gezählt nur pruef/a (eigene Änderung), nicht pruef/b (Änderung schon in main,
-# per cherry-pick), pruef/diag-x (Diagnose), pruef/leer (ohne eigenen Commit)
+# Zweige: Probe-Repo mit origin/main; gezählt nur pruef/a (eigene Änderung) und pruef/rot-k2 (Verursacher plus
+# Fix-Commit), nicht pruef/b (Änderung schon in main, per cherry-pick), pruef/diag-x (Diagnose), pruef/leer (ohne
+# eigenen Commit), pruef/alt (letzter Commit 10 Tage alt), pruef/rot-k1 (Verursacher, Reverts und Diagnose,
+# kein Fix)
 Z=$T/zrepo; git init -q -b main $Z
 g() { git -C $Z -c user.name=t -c user.email=t@t "$@" }
-print a > $Z/a; g add a; g commit -qm a
-g branch pruef/leer; g checkout -q -b pruef/a; print b > $Z/b; g add b; g commit -qm b
+ALT=$(( $(date +%s) - 10 * 86400 ))
+print a > $Z/a; GIT_AUTHOR_DATE="@$ALT" GIT_COMMITTER_DATE="@$ALT" g add a; GIT_AUTHOR_DATE="@$ALT" GIT_COMMITTER_DATE="@$ALT" g commit -qm a
+g checkout -q -b pruef/alt; print o > $Z/o; g add o; GIT_AUTHOR_DATE="@$ALT" GIT_COMMITTER_DATE="@$ALT" g commit -qm alt
+g branch pruef/leer main; g checkout -q -b pruef/a main; print b > $Z/b; g add b; g commit -qm b
 g checkout -q -b pruef/b main; print c > $Z/c; g add c; g commit -qm c
 g checkout -q -b pruef/diag-x main; print d > $Z/d; g add d; g commit -qm d
-g checkout -q main; g cherry-pick pruef/b >/dev/null; g update-ref refs/remotes/origin/main main
+g checkout -q -b verursacher main; print e > $Z/e; g add e; g commit -qm verursacher
+g checkout -q -b pruef/rot-k1 main; g cherry-pick -x verursacher >/dev/null; g revert --no-edit HEAD >/dev/null
+g revert --no-edit HEAD >/dev/null; print g > $Z/g; g add g; g commit -qm "Tests: Diagnose k1 (nur Prüfzweig)"
+g checkout -q -b pruef/rot-k2 main; g cherry-pick -x verursacher >/dev/null; print f > $Z/e; g commit -qam fix
+g checkout -q main; g branch -q -D verursacher; g cherry-pick pruef/b >/dev/null; g update-ref refs/remotes/origin/main main
 A=$(HALO_MB_ZWEIGE_REPO=$Z lauf $MO $T/zw.md)
-pruefe "fertig, nicht in main: nur Zweige mit eigener Änderung (Patch-Vergleich), ohne Diagnose" 'grep -qF -- "- fertig, nicht in main: 1 Zweige (davon 1 mit Commit in den letzten 7 Tagen: pruef/a)" $T/zw.md'
+ZW=$(grep -- "^- fertig, nicht in main:" $T/zw.md)
+pruefe "fertig, nicht in main: nur junge Zweige mit eigener Änderung (Patch-Vergleich), ohne Diagnose" '[[ $ZW == "- fertig, nicht in main: 2 Zweige mit Commit in den letzten 7 Tagen: "* && $ZW == *pruef/a* ]] && ! print -r -- $ZW | grep -qE "pruef/(b|leer|diag-x)"'
+pruefe "fertig, nicht in main: älter als 7 Tage nicht gezählt" '[[ $ZW != *pruef/alt* ]]'
+pruefe "fertig, nicht in main: pruef/rot-* nur mit Fix-Commit (Cherry-pick, Revert, Diagnose zählen nicht)" '[[ $ZW == *pruef/rot-k2* && $ZW != *pruef/rot-k1* ]]'
 pruefe "ohne origin/main: nicht gezählt" 'grep -qF -- "- fertig, nicht in main: nicht gezählt (kein origin/main)" $T/b.md'
 exit $FEHLER

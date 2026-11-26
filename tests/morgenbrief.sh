@@ -26,7 +26,8 @@ export HALO_LAUF=morgenbrief
 #   Reset (wochen_soll, lauf-hilfen.zsh, Maintainer 23.11.2026)
 #   tests/board.sh export (Vorschau), ~/halo-nacht/volldampf.txt, ~/.config/halo-spaces/tagesroutine.conf (Schwellen)
 #   tests/budget.conf und die Kontingent-Zeilen der Nachtlauf-/Tagesroutine-Berichte seit Di (Zeile „verbraucht/Budget“),
-#   Zweige im Repo gegen origin/main (git cherry, nur lesend, kein fetch; Zeile „fertig, nicht in main“; Umbau P2 K4)
+#   Zweige im Repo gegen origin/main (git cherry, nur lesend, kein fetch; Zeile „fertig, nicht in main“, nur Zweige
+#   jünger als 7 Tage, pruef/rot-* nur mit Fix-Commit; Umbau P2 K4)
 # Geschrieben (nur echter Lauf): ~/halo-berichte/<heute>-bericht.md, ~/halo-nacht/<heute>-morgenbrief.log,
 #   ~/halo-nacht/kontingent-tage.tsv (eine Zeile je Tag, Grundlage für vergleich-6-12.sh)
 # Meldung: erste Zeile „Du musst heute: …“ oder „Nichts nötig“, danach höchstens 2 Zeilen und der Hinweis auf /bericht.
@@ -390,18 +391,32 @@ print("Budget %s: verbraucht/Budget: %s, %s, %s" % ("Umbau-Woche" if satz == "UM
 INFO+=("${BUDGET_ZEILE:-Budget: verbraucht/Budget nicht berechnet}")
 # fertig, nicht in main: Zweige (lokal und origin, ohne main und ohne diag/flackern/probe) mit mindestens einem Commit,
 # dessen Änderung nicht in origin/main steht (Patch-Vergleich git cherry); nur lesend, kein fetch. Probe: HALO_MB_ZWEIGE_REPO
+# Gezählt nur Zweige, deren letzter Commit jünger als 7 Tage ist (eigene Deutung nach der Empfehlung in neon vom
+# 26.11.2026, kein Wortlaut des Maintainers), und pruef/rot-* nur mit Fix-Commit: ein eigener Commit, der weder der
+# zurückgenommene Verursacher (Cherry-pick „(cherry picked from commit …)“, tests/rot-nebenzweig.sh) noch ein Revert
+# („This reverts commit …“) noch eine Diagnose („<Bereich>: Diagnose …“) ist. Die Refs kommen
+# nach Datum sortiert; ab dem ersten älteren endet die Schleife, git cherry läuft also nur für junge Zweige.
 ZR=${HALO_MB_ZWEIGE_REPO:-$REPO}
 if git -C $ZR rev-parse -q --verify origin/main >/dev/null 2>&1; then
-  typeset -A gesehen; typeset -a zw_alle zw_neu; typeset zb zn
-  for zb in ${(f)"$(git -C $ZR for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads refs/remotes/origin 2>/dev/null)"}; do
+  typeset -A gesehen; typeset -a zw_neu zw_eigen; typeset zb zn zt zc zfix zgrenze=$(( $(date +%s) - 7 * 86400 ))
+  for zt zb in $(git -C $ZR for-each-ref --sort=-committerdate --format='%(committerdate:unix) %(refname:short)' refs/heads refs/remotes/origin 2>/dev/null); do
+    (( zt > zgrenze )) || break
     zn=${zb#origin/}
     [[ $zn == (main|HEAD|origin) || $zn == *(diag|flackern|probe)* || -n ${gesehen[$zn]} ]] && continue
     gesehen[$zn]=1
-    git -C $ZR cherry origin/main $zb 2>/dev/null | grep -q '^+' || continue
-    zw_alle+=($zn)
-    (( $(git -C $ZR log -1 --format=%ct $zb) > $(date +%s) - 7 * 86400 )) && zw_neu+=($zn)
+    zw_eigen=(${(f)"$(git -C $ZR cherry origin/main $zb 2>/dev/null | sed -n 's/^+ //p')"})
+    (( $#zw_eigen )) || continue
+    if [[ $zn == pruef/rot-* ]]; then
+      zfix=
+      for zc in $zw_eigen; do
+        git -C $ZR log -1 --format=%B $zc 2>/dev/null | grep -qE '^\(cherry picked from commit|^This reverts commit|^[^ ]+: Diagnose' \
+          || { zfix=1; break }
+      done
+      [[ -n $zfix ]] || continue
+    fi
+    zw_neu+=($zn)
   done
-  INFO+=("fertig, nicht in main: $#zw_alle Zweige (davon $#zw_neu mit Commit in den letzten 7 Tagen${zw_neu:+: ${(j:, :)zw_neu[1,5]}${${zw_neu[6]:+ …}:-}})")
+  INFO+=("fertig, nicht in main: $#zw_neu Zweige mit Commit in den letzten 7 Tagen${zw_neu:+: ${(j:, :)zw_neu[1,5]}${${zw_neu[6]:+ …}:-}}")
 else
   INFO+=("fertig, nicht in main: nicht gezählt (kein origin/main)")
 fi

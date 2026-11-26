@@ -23315,6 +23315,73 @@ Neu
         return res["tabs"] == 5 and res["alive"] <= 1 and res["offen"] == 1, f"{res}"
     check("Speicher: geschlossene Ordner-Tabs werden freigegeben (von fünf bleibt höchstens der zuletzt benutzte)", folder_tab_freed, results)
 
+    def diag_folder_tabs():
+        # DIAGNOSE (nur auf pruef/rot-2c59539, nie nach main): warum bleiben unter ESR 153 geschlossene Ordner-Tabs leben?
+        diag_dir = os.path.abspath("shots")
+        os.makedirs(diag_dir, exist_ok=True)
+        pro_tab = r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const ext = ExtensionParent.GlobalManager.getExtension("@ID@");
+          let enh = null; try { enh = ext ? Cu.evalInSandbox("enhancer", ext.experimentAPIManager.global) : null; } catch {}
+          const zahl = () => enh ? { restorers: enh.restorers.length, windows: enh.windows.size, offset: enh.offsetUpdaters?.size ?? null } : null;
+          await toMail();
+          const folder = tm.currentAbout3Pane.gFolder || MailServices.accounts.localFoldersServer.rootFolder.subFolders[0];
+          const vorher = new Set(tm.tabInfo);
+          const z0 = zahl();
+          tm.openTab("mail3PaneTab", { folderURI: folder.URI, background: false });
+          const tab = await bis(() => tm.tabInfo.find(t => !vorher.has(t) && t.mode.name == "mail3PaneTab"), "Ordner-Tab offen", 8000);
+          const doc = await bis(() => (cd => cd?.readyState == "complete" && (!enh || (cd.__mcPatched && cd.defaultView.__mcRelayout)) ? cd : null)(tab.chromeBrowser?.contentDocument), "Mailansicht im Tab", 10000);
+          await ruhig(800);
+          const win = doc.defaultView;
+          const els = Cc["@mozilla.org/eventlistenerservice;1"].getService(Ci.nsIEventListenerService);
+          const unloads = els.getListenerInfoFor(win).filter(l => l.type == "unload").map(l => { try { return String(l.toSource() || "").slice(0, 90); } catch { return "?"; } });
+          const z1 = zahl();
+          let unloadKam = 0;
+          win.addEventListener("unload", () => { unloadKam++; }, { once: true });
+          (w.__diagTabs = w.__diagTabs || []).push(Cu.getWeakReference(doc));
+          tm.closeTab(tab); await bis(() => !tm.tabInfo.includes(tab), "Ordner-Tab zu", 5000); tm.switchToTab(0); await ruhig(400);
+          const z2 = zahl();
+          const inWindows = enh ? enh.windows.has(win) : null;
+          const inWinRest = enh ? enh.winRestorers.has(win) : null;
+          return { z0, z1, z2, unloadKam, inWindows, inWinRest, unloads: unloads.length, unloadSrc: unloads };""".replace("@ID@", ADDON_ID)
+        zaehlen = r"""
+          await toMail();
+          const refs = w.__diagTabs || [];
+          let alive = refs.length, runden = 0;
+          for (; runden < 12 && alive > 1; runden++) { Cu.forceGC(); Cu.forceCC(); await wait(250); alive = refs.filter(r => r.get()).length; }
+          return { tabs: refs.length, alive, wer: refs.map(r => r.get() ? 1 : 0) };"""
+        out = {"mit": [m.js(pro_tab) for _ in range(3)]}
+        out["mit_alive"] = m.js(zaehlen)
+        # Speicherbild (GC- und CC-Protokoll mit allen Kanten) für find_roots, nur wenn etwas hängen blieb
+        if out["mit_alive"]["alive"] > 1:
+            out["dump"] = m.js(r"""
+              const dumper = Cc["@mozilla.org/memory-info-dumper;1"].getService(Ci.nsIMemoryInfoDumper);
+              const dateien = [];
+              await new Promise(res => dumper.dumpGCAndCCLogsToFile("halo-diag", true, false, {
+                QueryInterface: ChromeUtils.generateQI(["nsIDumpGCAndCCLogsCallback"]),
+                onDump(gc, cc, parent) { dateien.push(gc.path, cc.path); }, onFinish() { res(); } }));
+              const ziel = [];
+              for (const p of dateien) { const t = PathUtils.join("@DIR@", PathUtils.filename(p)); await IOUtils.copy(p, t); ziel.push(t); }
+              return ziel;""".replace("@DIR@", diag_dir))
+        # Erweiterung abschalten: werden die hängengebliebenen Tabs dann frei (Halter in der Erweiterung)?
+        out["aus"] = m.js(r"""
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const a = await AddonManager.getAddonByID("@ID@"); await a.disable(); await ruhig(1500);
+          return 1;""".replace("@ID@", ADDON_ID))
+        out["nach_aus"] = m.js(zaehlen)
+        # ohne halo.spaces: drei neue Tabs (Grundlinie dieser Thunderbird-Version)
+        m.js("delete w.__diagTabs; return 1;")
+        out["ohne"] = [m.js(pro_tab) for _ in range(3)]
+        out["ohne_alive"] = m.js(zaehlen)
+        m.js(r"""
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const a = await AddonManager.getAddonByID("@ID@"); await a.enable(); await ruhig(3000); delete w.__diagTabs;
+          return 1;""".replace("@ID@", ADDON_ID))
+        print("DIAGNOSE " + json.dumps(out, ensure_ascii=False), flush=True)
+        return True, "siehe Zeile DIAGNOSE"
+    check("Diagnose Speicher Ordner-Tabs (nur Zweig)", diag_folder_tabs, results)
+
     def search_scroll():
         # laufende Suche über viele Postfächer: beim Scrollen hält halo.spaces sie an (sonst kam jedes zweite Bild
         # 50–70 ms zu spät), danach läuft sie weiter und findet alle Treffer

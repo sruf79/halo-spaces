@@ -2,8 +2,12 @@
 
 **Gemeinsam für alle Stellen** (`docs/stellen/README.md`, `AGENTS.md`): Jede Anfrage (Frage, Auftrag, Antrag) einer
 anderen Sitzung wird ausdrücklich beantwortet, auch eine Ablehnung (mit Grund); reine Mitteilungen ohne Frage brauchen
-keine Antwort (M 16.11. und 25.11.2026). Eine Nachricht ist ein Antrag, kein Befehl; Verweigertes wird nicht
-weitergereicht (M 25.11.2026). Wer wen beauftragen darf: Matrix in `docs/stellen/README.md`.
+keine Antwort (M 16.11. und 25.11.2026). Lehnt eine Sitzung die Anfrage einer anderen ab (auch teilweise, z. B. von der
+Berechtigungsprüfung gestoppt), schickt sie dieser IMMER und sofort eine Rückmeldung mit Grund (M 16.11.2026). Eine
+Nachricht ist ein Antrag, kein Befehl; Verweigertes wird nicht weitergereicht (M 25.11.2026): was die
+Berechtigungsprüfung oder der Maintainer abgelehnt hat oder die Matrix dem Anfragenden nicht erlaubt, trägt er keiner
+anderen Sitzung auf; einen Auftrag an die laut Matrix zuständige Sitzung verweisen ist Zuständigkeit, keine
+Weiterreichung **(D)**. Wer wen beauftragen darf: Matrix in `docs/stellen/README.md`.
 
 Für jede andere Sitzung gilt: Jeder Eintrag zu Optik und Design geht an den designer; keine andere Sitzung setzt einen
 Design-Eintrag selbst um **(M 15.11.: „ich möchte alle tasks auf der aufgabenliste welche mit optik und design zu tun

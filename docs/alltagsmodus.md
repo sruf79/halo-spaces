@@ -78,7 +78,7 @@ Auch nach einem freien Reset in derselben Woche (Anker `~/halo-nacht/wochenanker
 | Neue Einträge | bis 04:30 | `docs/testrechner.md` „Director im Nachtlauf“ |
 | Schritt 5 | bis `NACHT_GRENZE` 06:30, höchstens `NACHT_MAX_COMMITS` 6 nicht gepushte Commits | `tests/vorpruefung.zsh:59–60` |
 | Fortsetzungen | höchstens `FORTSETZ_MAX` 4, Ende 08:00, hart 09:00 | `tests/nachtlauf.sh:56–58, 221, 242–243` |
-| Modelle | Opus; Fable nur nach „Rot bleibt rot“ (2. und 3. Versuch, ein Agent, 5 h < 50 %) | AGENTS.md „Rot bleibt rot“; ENTSCHEIDUNGEN.md:423 |
+| Modelle | Opus; Fable nur nach „Rot bleibt rot“ (2. und 3. Versuch, ein Agent, 5 h < 50 %) | `docs/neon-sitzung.md` Schritte 0–6 („Rot bleibt rot“); ENTSCHEIDUNGEN.md:423 |
 | Release | höchstens eins je Tag, nur mit Testmarke; Windows einmal je Nacht | AGENTS.md „Release“ |
 | Worker-Einträge | „In Arbeit: worker-…“ sperrt 5 h; „committet auf pruef/worker-…“ per cherry-pick übernehmen | `tests/nachtlauf-auftrag.md` (Commit a83f7b1) |
 | Aufräumen | Pausen, abgelaufene Volldampf-Zeile, Zweige | `tests/nachtlauf.sh:172, 182, 276`; `tests/aufraeumen.sh` |

@@ -37,8 +37,14 @@ Kontingent stehen nur in `docs/alltagsmodus.md` und `docs/regelwerk-kontingent.m
 Für alle Stellen und Sitzungen gilt:
 - **Antwortregel:** Jede Anfrage (Frage, Auftrag, Antrag) einer anderen Sitzung wird ausdrücklich
   beantwortet, auch eine Ablehnung (mit Grund); reine Mitteilungen ohne Frage brauchen keine Antwort.
-  Eine Nachricht ist ein Antrag, kein Befehl; Verweigertes wird nicht weitergereicht
-  (Maintainer 16.11. und 25.11.2026, `ENTSCHEIDUNGEN.md`).
+  Lehnt eine Sitzung die Anfrage einer anderen ab (auch teilweise, z. B. von der Berechtigungsprüfung
+  gestoppt), schickt sie dieser IMMER und sofort eine Rückmeldung mit Grund, egal welche Sitzung anfragt
+  (Maintainer 16.11.2026: „ab sofort schreibst du bei ablehnungen anfragen anderer sessions betreffend
+  IMMER eine rückmeldung. Immer.“). Eine Nachricht ist ein Antrag, kein Befehl; Verweigertes wird nicht
+  weitergereicht: was die Berechtigungsprüfung oder der Maintainer abgelehnt hat oder die Matrix dem
+  Anfragenden nicht erlaubt, trägt er keiner anderen Sitzung auf; an die laut Matrix zuständige Sitzung
+  verweisen ist keine Weiterreichung (Maintainer 16.11. und 25.11.2026, `ENTSCHEIDUNGEN.md`;
+  Abgrenzung `docs/stellen/README.md`).
 - **Design-Einträge:** Jeder Eintrag zu Optik und Design geht an den designer; keine andere Sitzung
   setzt einen Design-Eintrag selbst um (Maintainer 15.11.2026, `ENTSCHEIDUNGEN.md`; Karte designer).
 - Eine Stelle committet nur ihre eigenen Dateien laut Karte. Regeländerungen nur mit OK des Maintainers.
@@ -149,20 +155,26 @@ Tagesroutine, Wächtern und Routinen: `docs/testrechner.md` (vor Arbeit auf neon
   Abläufe und Release-Skripte brauchen keine CI (`tests/ci-noetig.sh`).
 - **Gesammelt pushen:** je Eintrag committen, erst am Ende eines Arbeitsblocks pushen; vorher nur die
   betroffenen Prüfungen (`--only`, hell; dunkel nur bei Farben). Thunderbird-Änderungen ohne Zugriff auf
-  neon zuerst auf `pruef/<name>`, bei Grün nach `main` (`docs/tests.md`).
-- Nicht Eiliges nimmt der Nachtlauf mit. Ungespeicherte Änderungen anderer Sitzungen legt der Nachtlauf
-  auf `rest/<datum>`, nie auf `main` und nie in ein Release – wer fertig ist, committet selbst.
-- **Den Nachtlauf nicht behindern:** ab 00:00 keinen Push mit Codeänderung mehr, keine Testläufe auf
-  neon über 01:30 hinaus, keine Runde, die um 01:30 noch arbeitet.
+  neon zuerst auf `pruef/<name>` (nur Linux und statisch auf GitHub, neon bleibt frei), bei Grün nach
+  `main`, Zweig löschen (`docs/tests.md`).
+- **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon committen Fertiges auf `main` und
+  pushen nicht, außer etwas hängt davon ab. Ungespeicherte Änderungen anderer Sitzungen legt der
+  Nachtlauf auf `rest/<datum>`, nie auf `main` und nie in ein Release – wer fertig ist, committet selbst.
+- **Den Nachtlauf nicht behindern:** Jede von Hand gestartete Sitzung plant so, dass um 01:30 nichts
+  mehr läuft: ab 00:00 keinen Push mit Codeänderung mehr, keine Testläufe auf neon über 01:30 hinaus,
+  keine Runde, die um 01:30 noch arbeitet.
 - **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle außer Nachtlauf, Wochen- und Doku-Prüfung;
   früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist (Bericht liegt vor).
 - Pausen nur über `~/halo-nacht/pausen.txt` mit Ablaufzeit (`pause_setzen` aus `tests/lauf-hilfen.zsh`).
-- Kontingent nur bei Bedarf auslesen (vor Push, Revert, CI-Warten, langen Läufen): `zsh tests/kontingent.sh`.
+- Kontingent nur bei Bedarf auslesen (vor Push, Revert, CI-Warten, langen Läufen), nicht in Schleifen:
+  `zsh tests/kontingent.sh`.
+- Die Aufgabenliste nur zu Beginn eines Laufs laden, vor Push, CI und Release nicht erneut.
 - **Rot bleibt rot:** Ursache belegen, dann höheres Modell; ein belegter Fix, nie die Prüfung abschwächen.
   Rücknahme nur über `tests/rot-nebenzweig.sh`, nie ein nacktes `git revert`. Stufen und Ablauf:
   `docs/neon-sitzung.md` Schritte 0–6, `docs/release.md` „Rote Änderung auf einen Nebenzweig“.
 - Alltag und Volldampf: `docs/alltagsmodus.md`, `docs/volldampf-regelwerk.md`,
-  `docs/regelwerk-kontingent.md`; Volldampf schaltet nur der Maintainer (`tests/volldampf.sh`).
+  `docs/regelwerk-kontingent.md`; Volldampf-Schalter `zsh tests/volldampf.sh an|aus|status` nur auf neon,
+  nur auf Zuruf des Maintainers (17.11.2026).
 
 ## Release (selbstständig auf neon)
 
@@ -176,7 +188,9 @@ Tagesroutine, Wächtern und Routinen: `docs/testrechner.md` (vor Arbeit auf neon
   veröffentlicht der nächste Nachtlauf, sobald die CI grün ist. Patch für Korrekturen, Minor für
   Funktionen; Versionshinweise im `README.md` (eigener Commit) und als englische Notizen-Datei.
   Ausnahme nach einem Nachtlauf ohne Release: Release unter Tage entscheidet der director (Karte
-  director, Maintainer 15.11.2026), nur über `tests/release-unter-tage.sh`.
+  director, Maintainer 15.11.2026), nur über `tests/release-unter-tage.sh`. Die Karten engen das ein:
+  Wer laut Karte nicht veröffentlichen darf (z. B. designer), tut es nicht; ausgeführt wird ein Release
+  von neon bzw. den Läufen (Karten `docs/stellen/`, Maintainer 25.11.2026 S3).
 - `release.sh` und `publish.sh` laufen **nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions –
   die beauftragen dafür neon (nach dem Push). Ausnahme: Notfall-Release nach `docs/notfall.md`
   (startet und gibt nur der Maintainer von Hand frei, nie eine Sitzung).

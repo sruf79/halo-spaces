@@ -91,7 +91,7 @@ pruefe "designer daneben: neon unverändert" '[[ -n $neu && $neu == $alt && $neu
 
 # 3b. Stellenkarte und Antwortregel in jedem Rollenblock (Umbau-Woche P1, 26.11.2026)
 rm -f $T/sitz/*; sitzung $T/sitz/40001.json $SID_GH github.comm.routine; sitzung $T/sitz/40003.json $SID_DES designer
-antwort() { [[ $1 == *"jede Anfrage (Frage, Auftrag, Antrag)"* && $1 == *"auch eine Ablehnung (mit Grund)"* && $1 == *"reine Mitteilungen ohne Frage brauchen keine Antwort"* && $1 == *"Antrag, kein Befehl"* && $1 == *"Verweigertes nicht weiterreichen"* ]] }
+antwort() { [[ $1 == *"jede Anfrage (Frage, Auftrag, Antrag)"* && $1 == *"auch eine Ablehnung (mit Grund)"* && $1 == *"reine Mitteilungen ohne Frage brauchen keine Antwort"* && $1 == *"Antrag, kein Befehl"* && $1 == *"Verweigertes nicht weiterreichen"* && $1 == *"IMMER und sofort"* && $1 == *Berechtigungsprüfung* ]] }
 aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH clear)
 pruefe "github: Karte comms und Antwortregel" '[[ $aus == *docs/stellen/comms.md* ]] && antwort $aus'
 aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_DES clear)

@@ -61,11 +61,13 @@ EOF
 print '[{"tagName":"v3.27.0","publishedAt":"2026-11-14T07:32:00Z","isDraft":false}]' > $T/rel.json
 print '[{"databaseId":1,"headSha":"671880a0000","status":"completed","conclusion":"success","event":"push","createdAt":"2026-11-16T04:00:00Z"}]' > $T/ci.json
 : > $T/leer.conf
-VOR=$(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum)
+# Eigenes HOME für das Skript: jeder Schreibversuch nach ~/halo-berichte oder ~/halo-nacht landet unter $T/home und
+# wird dort gesehen; fremde Schreiber im echten ~/halo-nacht (Leitstand alle 5 Min.) stören die Prüfung nicht mehr.
+mkdir -p $T/home
 
 # lauf <Jetzt> [<Ausgabe>]  (weitere Umgebung wie HALO_PAUSEN_DATEI/HALO_VOLLDAMPF_DATEI vom Aufrufer)
 lauf() {
-  HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
+  HOME=$T/home HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
   HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_ABN_FRAGEN=${HALO_ABN_FRAGEN:-$T/keine-fragen.md} HALO_AUF_FRAGEN=${HALO_AUF_FRAGEN:-$T/keine-auf-fragen.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
@@ -173,7 +175,7 @@ pruefe "Vorschau: älterer Chat-Bug vor jüngerem (Zuschlag 1,5 gegen 1, trotz T
 pruefe "ohne Überfälliges kein Abschnitt" '! grep -q "Überfällig" $T/b.md'
 mv $T/board-normal.json $T/board.json
 pruefe "Trockenlauf ohne HALO_MB_AUSGABE schreibt keinen Bericht" '[[ -z $(ls $T/berichte | grep -- "-bericht") ]]'
-pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben" '[[ $(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum) == $VOR ]]'
+pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben (eigenes HOME des Skripts bleibt leer)" '[[ -z $(ls -A $T/home) ]]'
 
 # bericht-html.py
 cat > $T/h.md <<'EOF'

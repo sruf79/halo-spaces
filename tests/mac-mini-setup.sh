@@ -597,6 +597,8 @@ pruefe_neon_board() {
   fi
   grep -q '<string>neon-board</string>' $NB_PLIST ||
     { offen "neon-board" "$NB_PLIST setzt HALO_RC_NAME=neon-board nicht"; tun "plist wie in Abschnitt 12"; return }
+  cmp -s $ROOT/tests/$NB_LABEL.plist $NB_PLIST ||
+    hinweis "neon-board" "$NB_PLIST weicht von der Vorlage $ROOT/tests/$NB_LABEL.plist ab (oder Vorlage fehlt)"
   # Skriptkopien prüft bzw. legt skripte_kopieren() ab
   if ! python3 - "$NB_DIR" <<'EOF' >/dev/null 2>&1
 import json, os, sys
@@ -763,6 +765,33 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Routine fü
     ok $name "$text ($log)"
   fi
 }
+# Modell und Stärke der Dauer-Sitzungen (P3a, E6): Soll aus docs/alltagsmodus.md;
+# gemessen am Kindprozess (der Server gibt dort --model/--effort mit), dazu die
+# Werte in der Dienst-Datei. Ohne Kindsitzung nur Hinweis.
+RC_SOLL=(neon:at.halo-spaces.remote-control:sonnet:medium
+         neon-board:at.halo-spaces.neon-board:sonnet:low
+         designer:at.halo-spaces.designer:opus:high
+         github.comm.routine:at.halo-spaces.github-comm:sonnet:low)
+pruefe_rc_modelle() {
+  local e n l m s p kind args pm ps plist
+  for e in $RC_SOLL; do
+    n=${e%%:*}; l=${${e#*:}%%:*}; m=${${e#*:*:}%%:*}; s=${e##*:}
+    plist=$HOME/Library/LaunchAgents/$l.plist
+    [[ -f $plist ]] || continue
+    pm=$(plutil -extract EnvironmentVariables.HALO_RC_MODELL raw $plist 2>/dev/null)
+    ps=$(plutil -extract EnvironmentVariables.HALO_RC_EFFORT raw $plist 2>/dev/null)
+    [[ $pm == $m && $ps == $s ]] ||
+      { offen "Modell $n" "Dienst-Datei: ${pm:-ohne Modell}/${ps:-ohne Stärke}, Soll $m/$s"; tun "$plist, EnvironmentVariables"; continue }
+    p=$(pgrep -f "remote-control .*--name ${n//./\\.} --remote" | head -1)
+    kind=$(pgrep -P ${p:-0} -f -- '--session-id' | head -1)
+    if [[ -z $kind ]]; then hinweis "Modell $n" "keine Kindsitzung offen, am Prozess nicht prüfbar"; continue; fi
+    args=$(ps -o args= -p $kind)
+    [[ $args == *"--model claude-$m"* && $args == *"--effort $s"* ]] &&
+      ok "Modell $n" "$m/$s (Dienst-Datei und Sitzung)" ||
+      { offen "Modell $n" "Sitzung läuft mit ${${args#*--model }%% *}/${${args#*--effort }%% *}, Soll $m/$s"; tun "Modellwähler der Sitzung $n (Maintainer, docs/neon-sitzung.md)"; }
+  done
+}
+
 pruefe_laeufe() {
   pruefe_halozsh
   pruefe_agent "Nachtlauf" at.halo-spaces.nachtlauf nachtlauf.sh $HOME/Library/Logs/halo-nachtlauf.log \
@@ -1040,6 +1069,7 @@ pruefe_remote_control
 pruefe_neon_board
 pruefe_github_comm
 pruefe_designer
+pruefe_rc_modelle
 pruefe_laeufe
 pruefe_vm
 pruefe_speicher

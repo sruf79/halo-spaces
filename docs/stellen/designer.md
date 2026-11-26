@@ -28,7 +28,7 @@ haben immer dem designer übergeben. der designer ist verantwortlich für die ge
 | Eigene Skripte, Aufträge, Doku | `tests/designer-auftrag.md`, `tests/abnahme-auftrag.md`, `tests/rundgang-auftrag.md`, `tests/auslastung-rundgang.md`, `tests/abnahme-nach-release.zsh`, `tests/rundgang-woche.sh`, `tests/ui_tour.py`, `tests/rundgang_vergleich.py`, `tests/fenster_verzeichnis.py`, `tests/store_shots.py`, `tests/tour-messung.js`, `docs/design-vorgaben.md` |
 | Aufrufer (echt) | `abnahme-nach-release.zsh`: `publish.sh`. `rundgang-woche.sh`: Dienst rundgang. Der designer selbst: als Unteragent aus Nachtlauf und Tagesroutine. |
 | Arbeitsdateien | `<D>-designer-<id>.md/.erg` und Bildordner, `abnahme-v<ver>.ergebnis/.out`, `~/halo-aufgaben/vorschau/`, `~/halo-aufgaben/abnahme/`, `~/halo-aufgaben/fenster-verzeichnis.md` |
-| Dienste | `at.halo-spaces.designer` (Sitzung), `at.halo-spaces.rundgang` (Sa 22:15) |
+| Dienste | `at.halo-spaces.designer` (Sitzung), `at.halo-spaces.rundgang`; Zeiten: `docs/alltagsmodus.md` „Zeitplan eines Tages“ |
 | Sitzungsdateien | `~/halo-designer/CLAUDE.md` und `.claude/settings.json` (beide schreibt `tests/mac-remote-control.sh` bei jedem Start, Halter des Skripts ist orga), Rollenblock „designer“ in `tests/neon-hook.sh` |
-| Modell | Opus, nie darunter **(M 14.11.)**, Stärke high (Sitzung und Unteragent; `2026-11-25-modelle.md` 2a, **M 25.11.**). Liegt die Modellstufe des Tages unter Opus, wird der Eintrag nicht beauftragt, statt kleiner zu gestalten. Verweis: `docs/alltagsmodus.md`. |
+| Modell | `docs/alltagsmodus.md` „Modelle je Stelle und Sitzung“ (eine Quelle) (Sitzung und Unteragent; **M 14.11.**, **M 25.11.**). |
 | Lücken (Stand 26.11.) | Stufe C „Design“ in `docs/dauerfreigaben.md` steht noch im alten Wortlaut. `rundgang-auftrag.md` ohne Dazulernen und mit iPhone-Meldung. |

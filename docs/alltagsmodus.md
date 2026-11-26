@@ -15,19 +15,77 @@ Zeiten in Wiener Zeit.
 
 ## Zeitplan eines Tages
 
+Eine Quelle für die Zeiten der Stellen und Dienste; die Stellenkarten (`docs/stellen/`) verweisen hierher. Übernommen aus
+der Plan-Tabelle der Umbau-Woche (`~/halo-berichte/2026-11-25-plan-tabelle.md` Abschnitt 1, Satz P2 des Maintainers
+25.11.2026, Schritt K7); keine Startzeit wurde dabei geändert.
+
 | Zeit | Wer | Was | Fundstelle |
 |---|---|---|---|
-| 01:30 | Nachtlauf | Start (LaunchAgent), Liste laden, Director plant | AGENTS.md „Nachtlauf“; `tests/nachtlauf.sh` |
+| 00:00 | alle von Hand | kein Push mit Codeänderung mehr | AGENTS.md „Den Nachtlauf nicht behindern“ |
+| 00:45–01:14 | Sekretariat neon (CI-Wächter, 15-Min.-Takt → `vm-frisch.sh --taeglich`) | Windows-VM kalt starten, Kurztest, herunterfahren (bis zum ersten Erfolg je Tag); vorher verwaiste Test-Thunderbird beenden (unten) | Maintainer 18.11.2026, 19.11.2026 („6. ja“); `tests/ci-waechter.sh`, `tests/vm-frisch.sh` |
+| 01:30 | Nachtlauf (engineer, Plan-Schritt director) | Start (LaunchAgent), zuerst verwaiste Test-Thunderbird beenden, dann `nachtlauf_warten` (CI bis 03:30, Testlauf 60 Min.), Liste laden, Director plant | AGENTS.md „Nachtlauf“; `tests/nachtlauf.sh`, `tests/vorpruefung.zsh` |
 | bis 04:30 | Nachtlauf | neue Einträge beginnen | `docs/testrechner.md` „Director im Nachtlauf“ |
 | danach | Nachtlauf | Push, CI warten, bei Grün Release | `tests/nachtlauf-auftrag.md`, `tests/ci-runde.zsh` |
+| ab 06:00 | Nachtlauf | kein neuer Designer-Unteragent mehr; vor der Fertig-Datei auf alle laufenden Unteragenten warten | `tests/nachtlauf-auftrag.md` Schritte 2a und 7 (Umbau P2 K5) |
 | bis 06:30 | Nachtlauf | Schritt 5: weitere Einträge ohne Push (Fortsetzungen) | `tests/vorpruefung.zsh:59`; ENTSCHEIDUNGEN.md:36 (8.11.2026) |
 | 08:00 | Nachtlauf | keine Fortsetzung mehr | `tests/nachtlauf.sh:56` |
+| 08:30 | orga (Morgenbrief) | ein Bericht, eine Meldung aufs iPhone; Zeilen „verbraucht/Budget“ (Nacht, Tag, Rest) und „fertig, nicht in main: n Zweige“ | `tests/morgenbrief.sh`, Budgets in `tests/budget.conf` (Umbau P2 K4) |
 | 09:00 | Nachtlauf | claude hart beendet; Push-Sperre endet | `tests/nachtlauf.sh:58`; AGENTS.md „Push-Sperre“ |
-| 08:45 / 09:00 | Tagesroutine | LaunchAgent 08:45, wartet ohne Claude bis `START` 09:00 (Mo–So) | `tagesroutine.conf` `START`, `START_WOCHENENDE`; ENTSCHEIDUNGEN.md:505 (13.11.2026 „Start am Wochenende um 09:00“) |
+| 08:45 / 09:00 | Tagesroutine (engineer, Plan-Runde director) | LaunchAgent 08:45, wartet ohne Claude bis `START` 09:00 (Mo–So) | `tagesroutine.conf` `START`, `START_WOCHENENDE`; ENTSCHEIDUNGEN.md:505 (13.11.2026 „Start am Wochenende um 09:00“) |
+| 09:00–20:30 | Tagesroutine | je Runde verwaiste Test-Thunderbird beenden, dann `belegt_tag` (bis 60 Min.; in jeder 5-Min.-Warterunde mit Thunderbird mit Marionette bzw. belegtem Port als Grund erneut aufräumen); Ungespeichertes in `~/halo-spaces` hält nicht auf | `tests/tagesroutine.sh` (Umbau P2 K2, K3) |
+| 09:00, 14:00, 19:00 | comms (geplante Aufgabe `halo-github-kommunikation`) | GitHub-Antworten | `docs/testrechner.md`, `docs/github-komm.md` |
+| 09:15, 14:15, 19:15 | comms (`github-komm-waechter`) | Wächter, Zustellung | `tests/github-komm-waechter.sh` |
 | 20:30 | Tagesroutine | letzter Beginn eines neuen Eintrags | `tagesroutine.conf` `LETZTER_BEGINN`; `tests/tagesroutine.sh:78` |
 | 22:00 | Tagesroutine | Ende, Wache beendet claude | `tagesroutine.conf` `ENDE`; `tests/tagesroutine.sh:110–119` |
-| 00:00 | alle von Hand | kein Push mit Codeänderung mehr | AGENTS.md „Den Nachtlauf nicht behindern“ |
 | 01:30–09:00 | alle außer Nachtlauf, Wochen-, Doku-Prüfung | Push-Sperre | AGENTS.md „Push-Sperre“ |
+| alle 5 Min. | orga (`leitstand`) | `status.json`, Kontingent höchstens alle 15 Min. | `tests/leitstand-status.zsh` |
+| alle 10 Min. | orga (`volldampf-waechter`) | im Alltag ohne Wirkung | `docs/volldampf-regelwerk.md` |
+| alle 15 Min. | Sekretariat neon (`ci-waechter`), neon-board (`bilder-eingang`) | rote CI eintragen, VM 00:45; Bilder einsortieren | `tests/ci-waechter.sh`, `tests/bilder-eingang.zsh` |
+
+### Abweichungen je Wochentag
+
+| Tag | Zeit | Wer | Was | Fundstelle |
+|---|---|---|---|---|
+| Di | 01:00 | – | automatischer Wochenreset, Sollkurve beginnt neu | Maintainer 19.11.2026, 23.11.2026 (ENTSCHEIDUNGEN.md) |
+| Sa | 08:00 | inspector (`dokupruefung`, `wochenpruefung.sh --doku`) | Doku-Prüfung; vorher verwaiste Test-Thunderbird beenden, wartet auf den Nachtlauf bis 09:15, CI bis 10:00 | `tests/wochenpruefung.sh` |
+| Sa | 22:15 | designer (`rundgang`) | Design-Rundgang; Start spätestens 23:30, Ende im Skript spätestens So 01:15; vorher und in jeder Warterunde mit Thunderbird als Grund verwaiste Test-Thunderbird beenden. Sammelfrage S3 Punkt 6 (25.11.2026): Rundgang endet spätestens 00:30, der Kaltstart 00:45 bleibt; im Skript noch nicht umgesetzt (Plan Z6) | `tests/rundgang-woche.sh` |
+| So | 08:00 | inspector (`wochenpruefung`) | Wochenprüfung; vorher verwaiste Test-Thunderbird beenden, wartet wie die Doku-Prüfung | `tests/wochenpruefung.sh` |
+| Sa, So | 09:00 | Tagesroutine | wartet, solange Doku- bzw. Wochenprüfung läuft (`belegt_tag`) | Maintainer 19.11.2026 („7. lieber am morgen machen. ja die tagesroutine läuft wochenende gleich wie werktags“) |
+
+### Verwaiste Test-Thunderbird
+
+`verwaiste_tb_beenden` (`tests/lauf-hilfen.zsh`; Maintainer 25.11.2026, ENTSCHEIDUNGEN.md) beendet ohne Rückfrage nur
+Thunderbird mit Profil `…/halo-test-…` und `-marionette`, mit Elternprozess 1 und älter als 3 Stunden, und löscht
+unbenutzte `halo-test-*`-Profile über 24 Stunden. Es tut nichts, solange ein Testlauf (`halo_test.py`, `ui_tour.py` des
+Rundgangs, `update_test.py`, `store_shots.py`) oder die CI läuft; Nutzerprofile und andere Programme fasst es nie an.
+Aufrufer: Nachtlauf, Tagesroutine, Doku- und Wochenprüfung, Rundgang, VM-Kaltstart 00:45, Release unter Tage
+(Zeilen oben). Protokoll `~/halo-nacht/aufraeumen-testprozesse.log`; Logik-Test `tests/verwaiste_tb_test.zsh`.
+
+## Modelle je Stelle und Sitzung
+
+Eine Quelle für Modell und Stärke (Bericht `~/halo-berichte/2026-11-25-modelle.md` Abschnitte 2a und 2b, Schritt E5);
+die Stellenkarten, `docs/neon-sitzung.md` und `docs/testrechner.md` verweisen hierher. Angenommen vom Maintainer
+(25.11.2026: „ja alle empfehlungen von fable folgen ausser punkt 3, wir lassen einfach das modell sonnet low für
+neon-board.“). Wann ein höheres Modell: AGENTS.md „Rot bleibt rot“, `docs/regelwerk-kontingent.md`; Modellwahl der
+Tagesroutine nach der Sollkurve: Abschnitt „Modellwahl nach Sollkurve“ unten.
+
+| Stelle bzw. Sitzung | Modell | Stärke | Hinweis |
+|---|---|---|---|
+| director (Plan-Schritt, Urteile; Sitzung ab Fr 27.11.) | Opus | medium | Fable nur als Schiedsrichter nach der Einspruchsregel |
+| designer (Unteragent und Sitzung) | Opus, nie darunter (Maintainer 14.11.2026) | high | liegt die Modellstufe des Tages unter Opus, wird der Eintrag nicht beauftragt |
+| engineer (kein Dauerdienst) | Opus für Code, Fehlersuche, Tests; Sonnet für Kleines mit benannter Ursache; Haiku nur im Sparmodus | Standard | Aufstieg nach „Rot bleibt rot“ |
+| orga (Sitzung ab Sa 28.11.) | Sonnet | medium | Umbauvorschläge und Regeländerungen an einen Opus-Unteragenten |
+| inspector (Sitzung ab So 29.11.) | Opus | Sitzung medium | Revision nie schwächer als die Geprüften |
+| comms (heute `github.comm.routine`) | Sonnet | low | Umstrittenes (Ablehnung, Design, Pull Request) an einen Opus-Unteragenten bzw. den Maintainer |
+| neon (Sekretariat) | Sonnet | medium | Komplexes an Opus-Unteragenten, im Zweifel Opus (`docs/neon-sitzung.md`) |
+| neon-board (Sekretariat) | Sonnet | low | Maintainer 25.11.2026 (Zitat oben) |
+| Nachtlauf | Opus; Fable nur nach „Rot bleibt rot“ | Standard | |
+| Tagesroutine | nach Sollkurve | Standard | Abschnitt „Modellwahl nach Sollkurve“ |
+| Wochenprüfung | Opus | Standard | `tests/wochenpruefung.sh` (Entscheidung vom 9.11.2026) |
+| Doku-Prüfung | Teil Sonnet, Vollprüfung Opus | Teil low, Vollprüfung medium | `tests/wochenpruefung.sh` |
+| Abnahme und Aufräumen nach dem Release | Opus, nie darunter | Standard | |
+| Rundgang, Bilder-Eingang | Sonnet | low | gestaltet nicht; Umsetzung durch den designer |
+| Morgenbrief, Leitstand, CI-Wächter, GitHub-Wächter | kein Modell | – | Zustellung (`push()`) und Kontingent lesen mit Haiku |
 
 ## Tagesroutine (`tests/tagesroutine.sh`, Kopie in `~/.config/halo-spaces/`)
 
@@ -39,7 +97,7 @@ Zeiten in Wiener Zeit.
 | Commits je Tag | `MAX_COMMITS_TAG`: 40 (Maintainer 17.11.2026: „40 commits“; Skript-Standard angeglichen) | `tests/tagesroutine.sh:84`; **ohne Wortlaut in ENTSCHEIDUNGEN.md, Frage an den Maintainer** |
 | Push | nie nach `main`; nur `pruef/tagesroutine-<datum>` (Linux, statisch); Ausnahme Release unter Tage | `docs/testrechner.md` „Tagesroutine“; ENTSCHEIDUNGEN.md ab :612 (15.11.2026) |
 | Commits | nur in der Arbeitskopie `~/halo-tagesroutine` auf `pruef/tagesroutine-<datum>` (von `origin/main`), nie auf `main`; nach `main` über Zwischen-Release (Volldampf) oder Nachtlauf Schritt 0 b (`git merge`) | `tests/tagesroutine.sh` (`arbeitskopie_bereit`); ENTSCHEIDUNGEN.md „18.11.2026 – Tagesroutine committet auf ihren Prüfzweig“ |
-| belegt | wartet bis `BELEGT_WARTEN` 60 Min. (CI, Testlauf, Release) | `tests/tagesroutine.sh:84`; `tests/lauf-hilfen.zsh:478` |
+| belegt | wartet bis `BELEGT_WARTEN` 60 Min. (CI, Testlauf, Release, andere Sitzung); Ungespeichertes in `~/halo-spaces` zählt nicht (`BELEGT_OHNE_REPO`, Umbau P2 K3) | `tests/tagesroutine.sh:84`; `tests/lauf-hilfen.zsh:478` |
 | Pausen | nur `~/halo-nacht/pausen.txt` mit Ablaufzeit | `tests/lauf-hilfen.zsh:95, 138` |
 
 ### Modellwahl nach Sollkurve (Soll = Stunden seit Di 00:00 UTC / 168 · 100 %)

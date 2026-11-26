@@ -20,18 +20,20 @@ Maintainer
 Sekretariat (keine Stelle): neon (Tests, CI, Release), neon-board (Board, Bilder, Vorlagen)
 ```
 
-| Stelle | Karte | Sitzung | Modell (Sitzung bzw. Lauf) |
-|---|---|---|---|
-| director | `director.md` | ab Fr 27.11. | Opus, Stärke medium |
-| designer | `designer.md` | `designer` (besteht) | Opus, nie darunter (M 14.11.), Stärke high |
-| engineer | `engineer.md` | keine (M) | Opus für Code, Fehlersuche, Tests; Sonnet für Kleines mit benannter Ursache; Haiku nur im Sparmodus; Aufstieg nach „Rot bleibt rot“ |
-| orga | `orga.md` | ab Sa 28.11. | Sonnet, Stärke medium; Regeländerungen an einen Opus-Unteragenten |
-| inspector | `inspector.md` | ab So 29.11. | Opus; Sitzung medium, Wochenprüfung Standard; Doku-Prüfung Teil Sonnet low, Vollprüfung Opus medium |
-| comms | `comms.md` | `github.comm.routine`, ab Fr 27.11. `comms` | Sonnet, Stärke low; Umstrittenes an einen Opus-Unteragenten bzw. den Maintainer |
-| Sekretariat | `sekretariat.md` | `neon`, `neon-board` | neon Sonnet medium (Komplexes an Opus-Unteragenten); neon-board Sonnet low |
+| Stelle | Karte | Sitzung |
+|---|---|---|
+| director | `director.md` | ab Fr 27.11. |
+| designer | `designer.md` | `designer` (besteht) |
+| engineer | `engineer.md` | keine (M) |
+| orga | `orga.md` | ab Sa 28.11. |
+| inspector | `inspector.md` | ab So 29.11. |
+| comms | `comms.md` | `github.comm.routine`, ab Fr 27.11. `comms` |
+| Sekretariat | `sekretariat.md` | `neon`, `neon-board` |
 
-Modelle: vom Maintainer angenommen (25.11.2026: „ja alle empfehlungen von fable folgen ausser punkt 3, wir lassen
-einfach das modell sonnet low für neon-board.“). Zahlen und Schwellen zum Kontingent stehen nur an ihrer Quelle:
+Modelle und Stärken je Stelle und Sitzung stehen nur in `docs/alltagsmodus.md` „Modelle je Stelle und Sitzung“ (eine
+Quelle, `2026-11-25-modelle.md` E5; vom Maintainer angenommen 25.11.2026: „ja alle empfehlungen von fable folgen ausser
+punkt 3, wir lassen einfach das modell sonnet low für neon-board.“), Zeiten der Dienste nur in `docs/alltagsmodus.md`
+„Zeitplan eines Tages“. Zahlen und Schwellen zum Kontingent stehen nur an ihrer Quelle:
 `docs/alltagsmodus.md` („Modellwahl nach Sollkurve“), `docs/regelwerk-kontingent.md`,
 `~/.config/halo-spaces/tagesroutine.conf`, `~/.config/halo-spaces/auslastung.conf`. Eine Sitzung steigt nie von selbst
 auf; Höheres läuft als Unteragent oder eigener Lauf (F).

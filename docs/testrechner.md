@@ -166,12 +166,11 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   übersprungener Lauf schreibt `ÜBERSPRUNGEN <Routine> <Grund>` ins Protokoll und in
   `~/halo-nacht/uebersprungen.log`, ohne Push aufs iPhone; die Wochenprüfung zählt
   diese Zeilen. Modelle: Sonnet mit niedriger Reasoning-Stufe (`--model sonnet
-  --effort low`, Vollprüfung der Doku `medium`) für die Auswertung des Rundgangs, die Doku-Prüfung, neon-board
+  --effort low`; die Vollprüfung der Doku läuft mit Opus `--effort medium`, `tests/wochenpruefung.sh`) für die Auswertung des Rundgangs, die Doku-Prüfung, neon-board
   und die Unteragenten von neon sowie für die GitHub-Kommunikation (Einstellung in
   der Desktop-App, Schritte `tests/MAC-MINI.md` Abschnitt 17a); Opus bleibt für
   Nachtlauf und Wochenprüfung, Haiku für `push()`. Gesamtübersicht (je Thema eine Wahrheit, 9.11.2026):
-  `neon` Sonnet medium, `neon-board` Sonnet low, `github.comm.routine` Sonnet low, Nachtlauf und
-  Wochenprüfung Opus; die GitHub-Aufgabe läuft täglich 9:00, 14:00 und 19:00 Wiener Zeit
+  `docs/alltagsmodus.md` „Modelle je Stelle und Sitzung“ (eine Quelle seit 26.11.2026); die GitHub-Aufgabe läuft täglich 9:00, 14:00 und 19:00 Wiener Zeit
   (Cron `0 9,14,19 * * *`).
 - **Bilder-Eingang:** alle 15 Minuten sortiert `tests/bilder-eingang.zsh` (ohne Claude, nur
   `cp`/`mv`, `shasum`, `sips`) Bilder aus `~/halo-aufgaben/eingang/` nach `bilder/` bzw.

@@ -84,7 +84,8 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   `~/halo-aufgaben/sitzungen.json`).
 - **Modelle: Routine mit Sonnet, Komplexes mit Opus, im Zweifel Opus**
   (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`;
-  ersetzt die frühere Regel „Unteragenten immer Sonnet“):
+  ersetzt die frühere Regel „Unteragenten immer Sonnet“; Übersicht aller Stellen und Sitzungen:
+  `docs/alltagsmodus.md` „Modelle je Stelle und Sitzung“):
   - `neon` selbst läuft mit Sonnet (Reasoning-Stufe medium; `neon-board` und
     `github.comm.routine` Sonnet low): Aufträge annehmen und in
     `neon-stand.md` führen, Testläufe starten und OK/FEHLER melden, Bilder

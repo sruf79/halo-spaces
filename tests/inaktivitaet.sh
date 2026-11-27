@@ -74,6 +74,15 @@ ina_ausnahmen_lesen() {   # <Datei>
 # Export der Aufgabenliste ({"items": [{status, title, body}]}) → JSON {"<n>": true} der Issues, auf die ein
 # offener Eintrag verweist („GitHub #n“, „[GitHub #n]“, „GitHub-Issue #n“, auch Aufzählungen wie „GitHub #45 und #67“,
 # „GitHub-Issues #65, #66“; nicht „GitHub: PR #n“). Notizen stehen im Text und zählen mit.
+# Fehlertext von „board.sh export“ mit Zeitstempel ins Protokoll: höchstens 300 Zeichen; „Authorization“ samt Rest der
+# Zeile und GH_TOKEN/ghp_/github_pat_ samt Rest des Wortes werden durch *** ersetzt
+ina_board_fehler_log() {   # <stderr-Datei>
+  local t; t=$(tr '\n\r' '  ' < $1 2>/dev/null | sed -E 's/Authorization.*/***/I; s/(GH_TOKEN|ghp_|github_pat_)[^[:space:]]*/***/g')
+  t=${t[1,300]}
+  [[ -n ${t//[[:space:]]/} ]] || return 0
+  mkdir -p ${INA_LOG:h} && print -r -- "$(date '+%F %T') FEHLER Aufgabenliste nicht lesbar: $t" >> $INA_LOG
+}
+
 ina_board_nummern() {   # <export.json>
   jq -c 'if (.items | type) != "array" then error("kein Board-Export") else . end
     | [.items[] | select(.status != "Done") | ((.title // "") + "\n" + (.body // ""))
@@ -162,7 +171,8 @@ ina_lauf() {   # [--trocken | --anfragen]
     fi
     ina_ausnahmen_lesen $INA_AUSNAHMEN > $tmp/a.json
     # Aufgabenliste einmal je Lauf; nicht lesbar: vorsichtshalber nie schließen
-    if ! { ${=INA_BOARD} export > $tmp/board.json 2>/dev/null && ina_board_nummern $tmp/board.json > $tmp/b.json 2>/dev/null }; then
+    if ! { ${=INA_BOARD} export > $tmp/board.json 2> $tmp/board.err && ina_board_nummern $tmp/board.json > $tmp/b.json 2>/dev/null }; then
+      ina_board_fehler_log $tmp/board.err
       [[ -z $modus ]] && { print "FEHLER Aufgabenliste nicht lesbar (tests/board.sh export), nichts geschlossen"; return 1 }
       print "Hinweis: Aufgabenliste nicht lesbar, Ausnahme „offener Board-Eintrag“ nicht geprüft"
       print '{}' > $tmp/b.json

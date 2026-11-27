@@ -182,6 +182,18 @@ aus=$(ina_lauf); rc=$?
 pruefe "Board-Export ohne items: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
 mv $T/board.json.weg $T/board.json
 
+# --- Fehlertext des Exports landet maskiert im Protokoll (höchstens 300 Zeichen) ---
+cp $T/board.sh $T/board.sh.ok
+cat > $T/board.sh <<'ENDE'
+print -u2 "FEHLER: Zugriff verweigert GH_TOKEN=ghp_abc123SECRET Authorization: Bearer github_pat_XYZ"
+print -u2 "${(l:400::x:)}"
+exit 1
+ENDE
+: > $HALO_INA_LOG
+aus=$(ina_lauf); rc=$?
+pruefe "Board-Fehlertext im Protokoll, Token maskiert, höchstens 300 Zeichen" '(( rc == 1 )) && grep -qE "^[0-9-]+ [0-9:]+ FEHLER Aufgabenliste nicht lesbar: FEHLER: Zugriff verweigert \*\*\*" $HALO_INA_LOG && ! grep -qE "ghp_|github_pat_|GH_TOKEN|Authorization|SECRET" $HALO_INA_LOG && (( $(head -1 $HALO_INA_LOG | sed "s/^[^:]*:[^:]*:[^:]*: //" | wc -c) <= 302 ))'
+mv $T/board.sh.ok $T/board.sh
+
 # --- ohne Ausnahmedatei: nie schließen ---
 issue 14 nutzer '[]' < <(k sruf79 8 $MARKE)
 rm -f $HALO_INA_AUSNAHMEN

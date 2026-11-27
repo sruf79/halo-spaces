@@ -26,8 +26,8 @@ if [[ -z $TROCKEN ]] && HALO_PAUSE_EINMAL=1 pause_start github-komm; then exit 0
 zsh ${0:A:h}/board-uebergabe.zsh ${TROCKEN:+--trocken}
 
 # Ausgang der Aufgabe: ~/halo-aufgaben/github-push-ausgang.txt, je Zeile „<Zeit>\t<offen|zugestellt>\t<Text>“.
-# Die Aufgabe schreibt „zugestellt“, wenn SendMessage an github.comm.routine klappte, sonst „offen“. Offene Zeilen
-# stellt der Wächter selbst zu (push() sucht die Sitzung jedes Mal neu über ihren Namen, auch nach einer neu
+# Die Aufgabe schreibt seit 27.11.2026 immer „offen“ (ihre Sitzung sieht keine anderen Sitzungen, Logikprüfung). Offene Zeilen
+# stellt allein der Wächter zu (push() sucht die Sitzung jedes Mal neu über ihren Namen, auch nach einer neu
 # erstellten Sitzung) und markiert sie bei Erfolg als zugestellt; bei Misserfolg bleibt die Zeile für den nächsten Lauf.
 AUSGANG=${HALO_PUSH_AUSGANG:-$HOME/halo-aufgaben/github-push-ausgang.txt}
 FEHLERLOG=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}

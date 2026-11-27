@@ -187,6 +187,11 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.38.1
+
+- **Memory**: closed folder tabs are released again instead of staying in memory (about 11 MB per closed tab)
+- **Dialogs**: if a question dialog such as "Save Message" gets wider after it opens, its box now grows along instead of cutting off the text and the "Save" button on the right (GitHub #45, partly)
+
 ## What's new in 3.38.0
 
 - **Message list**: the divider between the message list and the message can be dragged again in narrow windows with the Today pane open; the message gives way down to 300 px and buttons that no longer fit move into the "»" menu (GitHub #75)

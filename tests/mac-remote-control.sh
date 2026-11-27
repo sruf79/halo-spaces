@@ -512,7 +512,7 @@ rotieren
 # Auftragsliste ~/halo-aufgaben/board-stand.md (tests/neon-stand.sh)
 if [[ $NAME == neon-board ]]; then
   export HALO_NEON=board HALO_STAND_NAME=board
-elif [[ $NAME == github.comm.routine ]]; then
+elif [[ $NAME == comms || $NAME == github.comm.routine ]]; then
   unset HALO_NEON   # GitHub-Kommunikation: keine Aufträge aus neon-stand.md
 elif [[ $NAME == designer ]]; then
   unset HALO_NEON; export HALO_ROLLE=designer   # Rollenblock designer im Hook

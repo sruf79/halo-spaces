@@ -632,16 +632,16 @@ pruefe_github_comm() {
     hinweis "github.comm.routine" "nicht eingerichtet (Sitzung für die GitHub-Kommunikation, Abschnitt 12)"
     return
   fi
-  grep -q '<string>github.comm.routine</string>' $GC_PLIST ||
-    { offen "github.comm.routine" "$GC_PLIST setzt HALO_RC_NAME=github.comm.routine nicht"; tun "plist wie in Abschnitt 12"; return }
+  grep -Eq '<string>(comms|github.comm.routine)</string>' $GC_PLIST ||
+    { offen "comms" "$GC_PLIST setzt HALO_RC_NAME=comms nicht"; tun "plist wie in Abschnitt 12"; return }
   if ! launchctl print $dom/$GC_LABEL 2>/dev/null | grep -q 'state = running'; then
-    offen "github.comm.routine" "LaunchAgent nicht geladen oder läuft nicht"
+    offen "comms" "LaunchAgent nicht geladen oder läuft nicht"
     tun "launchctl bootstrap $dom $GC_PLIST bzw. launchctl kickstart -k $dom/$GC_LABEL; Protokoll $GC_LOG"
-  elif ! pgrep -f 'remote-control.*--name github\.comm\.routine' >/dev/null; then
-    offen "github.comm.routine" "LaunchAgent läuft, aber kein claude remote-control --name github.comm.routine"
+  elif ! pgrep -af 'remote-control.*--name (comms|github\.comm\.routine)' >/dev/null; then
+    offen "comms" "LaunchAgent läuft, aber kein claude remote-control --name comms"
     tun "Protokoll $GC_LOG"
   else
-    ok "github.comm.routine" "läuft als LaunchAgent in $GC_DIR ($GC_LOG)"
+    ok "comms" "läuft als LaunchAgent in $GC_DIR ($GC_LOG)"
   fi
 }
 
@@ -811,7 +811,7 @@ RC_SOLL=(neon:at.halo-spaces.remote-control:sonnet:medium
          neon-board:at.halo-spaces.neon-board:sonnet:low
          designer:at.halo-spaces.designer:opus:high
          director:at.halo-spaces.director:opus:medium
-         github.comm.routine:at.halo-spaces.github-comm:sonnet:low)
+         comms:at.halo-spaces.github-comm:sonnet:low)
 pruefe_rc_modelle() {
   local e n l m s p kind args pm ps plist
   for e in $RC_SOLL; do

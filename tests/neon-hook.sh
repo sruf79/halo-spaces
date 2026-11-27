@@ -42,7 +42,7 @@ while [ -z "$rolle" ] && [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/
   r=$(rolle_von "$sitz/$pid.json") && { rolle=$r; break; }
   if [ -z "$rc" ]; then
     case $(ps -o args= -p "$pid" 2>/dev/null) in
-      *claude*remote-control*--name\ github.comm.routine*) rolle=github; break ;;
+      *claude*remote-control*--name\ comms*|*claude*remote-control*--name\ github.comm.routine*) rolle=github; break ;;
       *claude*remote-control*--name\ designer*) rolle=designer; break ;;
       *claude*remote-control*--name\ neon-board*) rc=board ;;
       *claude*remote-control*) rc=1 ;;

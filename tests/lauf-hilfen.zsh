@@ -665,10 +665,11 @@ push() {
   fi
   if [[ -n $HALO_PUSH_TROCKEN ]]; then print -r -- "TROCKEN: push $text"; return 0; fi
   local fehlerlog=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
-  local sollname=${HALO_PUSH_SITZUNG:-github.comm.routine}
+  local sollname=${HALO_PUSH_SITZUNG:-comms}
   # Name der Empfangssitzung ohne Claude auflösen (auch bei abweichendem Namen);
+  # bis 4.12.2026 zusätzlich der alte Name github.comm.routine (Umbenennung 27.11.2026);
   # ohne Treffer kein Claude-Aufruf, nur die Fehlerzeile
-  ziel=$(sitzung_finden $sollname) || {
+  ziel=$(sitzung_finden $sollname || { [[ $sollname == comms ]] && sitzung_finden github.comm.routine; }) || {
     print -r -- "$(zeit) PUSH-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden (ListAgents/~/.claude/sessions)" >> $fehlerlog
     log "PUSH-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden"
     return 1 }

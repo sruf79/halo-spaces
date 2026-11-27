@@ -684,6 +684,45 @@ EOF
   fi
 }
 
+# Fünfte Remote-Control-Sitzung director (Stellenkarte docs/stellen/director.md, Arbeitsordner
+# ~/halo-director, Vorlage der plist tests/at.halo-spaces.director.plist): wie
+# neon-board nur geprüft, nie eingerichtet oder geladen – das tut der Maintainer
+# (Fernsteuerungs-Agent, docs/dauerfreigaben.md B/C).
+DR_LABEL=at.halo-spaces.director
+DR_PLIST=$HOME/Library/LaunchAgents/$DR_LABEL.plist
+DR_DIR=$HOME/halo-director
+DR_LOG=$HOME/Library/Logs/halo-director.log
+pruefe_director() {
+  local dom=gui/$(id -u) vorlage=$ROOT/tests/$DR_LABEL.plist
+  if [[ ! -f $DR_PLIST ]]; then
+    hinweis "director" "nicht eingerichtet (Sitzung des Directors, Abschnitt 12)"
+    tun "cp $vorlage $DR_PLIST && launchctl bootstrap $dom $DR_PLIST"
+    return
+  fi
+  grep -q '<string>director</string>' $DR_PLIST ||
+    { offen "director" "$DR_PLIST setzt HALO_RC_NAME=director nicht"; tun "Vorlage $vorlage"; return }
+  [[ $HOME != /Users/neosky.cat ]] || cmp -s $vorlage $DR_PLIST ||
+    hinweis "director" "$DR_PLIST weicht von der Vorlage $vorlage ab"
+  if ! python3 - "$DR_DIR" <<'EOF' >/dev/null 2>&1
+import json, os, sys
+d = json.load(open(os.path.expanduser("~/.claude.json")))
+sys.exit(0 if d.get("projects", {}).get(sys.argv[1], {}).get("hasTrustDialogAccepted") else 1)
+EOF
+  then
+    hinweis "director" "$DR_DIR ist in Claude Code vermutlich noch nicht freigegeben"
+    tun "cd $DR_DIR && claude   („Trust this folder“ bestätigen, /exit)"
+  fi
+  if ! launchctl print $dom/$DR_LABEL 2>/dev/null | grep -q 'state = running'; then
+    offen "director" "LaunchAgent nicht geladen oder läuft nicht"
+    tun "launchctl bootstrap $dom $DR_PLIST bzw. launchctl kickstart -k $dom/$DR_LABEL; Protokoll $DR_LOG"
+  elif ! pgrep -f 'remote-control.*--name director' >/dev/null; then
+    offen "director" "LaunchAgent läuft, aber kein claude remote-control --name director"
+    tun "Protokoll $DR_LOG"
+  else
+    ok "director" "läuft als LaunchAgent in $DR_DIR ($DR_LOG)"
+  fi
+}
+
 # Tagesroutine täglich 08:45 (Maintainer 16.11.2026: „nur solange volldampf läuft“): ohne Volldampf wartet tagesroutine.sh bis 09:00.
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–18): Nachtlauf jede
 # Nacht 01:30, CI-Wächter und Bilder-Eingang alle 15 Minuten, Wochenprüfung sonntags 08:00,
@@ -771,6 +810,7 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Routine fü
 RC_SOLL=(neon:at.halo-spaces.remote-control:sonnet:medium
          neon-board:at.halo-spaces.neon-board:sonnet:low
          designer:at.halo-spaces.designer:opus:high
+         director:at.halo-spaces.director:opus:medium
          github.comm.routine:at.halo-spaces.github-comm:sonnet:low)
 pruefe_rc_modelle() {
   local e n l m s p kind args pm ps plist
@@ -1069,6 +1109,7 @@ pruefe_remote_control
 pruefe_neon_board
 pruefe_github_comm
 pruefe_designer
+pruefe_director
 pruefe_rc_modelle
 pruefe_laeufe
 pruefe_vm

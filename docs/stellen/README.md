@@ -22,12 +22,12 @@ Sekretariat (keine Stelle): neon (Tests, CI, Release), neon-board (Board, Bilder
 
 | Stelle | Karte | Sitzung |
 |---|---|---|
-| director | `director.md` | ab Fr 27.11. |
+| director | `director.md` | `director` (seit 27.11.2026, Opus, Stärke medium) |
 | designer | `designer.md` | `designer` (besteht) |
 | engineer | `engineer.md` | keine (M) |
 | orga | `orga.md` | ab Sa 28.11. |
 | inspector | `inspector.md` | ab So 29.11. |
-| comms | `comms.md` | `github.comm.routine`, ab Fr 27.11. `comms` |
+| comms | `comms.md` | `comms` (seit 27.11.2026; alter Name `github.comm.routine` wird bis 4.12.2026 mitgesucht) |
 | Sekretariat | `sekretariat.md` | `neon`, `neon-board` |
 
 Modelle und Stärken je Stelle und Sitzung stehen nur in `docs/alltagsmodus.md` „Modelle je Stelle und Sitzung“ (eine

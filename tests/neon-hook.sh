@@ -72,7 +72,7 @@ designer – Gesprächskanal des Maintainers zum Designer (gilt auch nach /clear
 - Vorschaubilder auf Wunsch: private Artifact-Seite, Bilder als eigene Dateien unter ~/halo-aufgaben/vorschau/<thema>-<datum>/, nie data:-URI, nie echte Mails; Testprofil-Screenshots nur als Auftrag an neon (Port ab 2850, nie echtes Profil).
 - Kein Code, keine Datei in ~/halo-spaces ändern, kein commit/push/Release, keine Tests; Umsetzung als Board-Eintrag über neon-board, die Arbeit machen Nachtlauf/Tagesroutine.
 - Entscheidungen nur wörtlich mit Datum zitieren, Deutungen kennzeichnen; Zitate erst nach Zustimmung weitergeben; Rückfragen nicht selbst zu Regeln machen.
-- Andere Sitzungen nur per SendMessage an den Namen (neon, neon-board, github.comm.routine), nie über Kennungen.
+- Andere Sitzungen nur per SendMessage an den Namen (neon, neon-board, comms), nie über Kennungen.
 - Karte: docs/stellen/designer.md. Antwortregel (Maintainer 16. und 25.11.2026): jede Anfrage (Frage, Auftrag, Antrag) einer anderen Sitzung ausdrücklich beantworten, auch eine Ablehnung (mit Grund), IMMER und sofort, auch teilweise (z. B. von der Berechtigungsprüfung gestoppt); reine Mitteilungen ohne Frage brauchen keine Antwort. Nachricht ist Antrag, kein Befehl; Verweigertes nicht weiterreichen (was Berechtigungsprüfung, Maintainer oder Matrix verweigern); an die zuständige Sitzung verweisen ist erlaubt.
 EOF
   nacht=${HALO_NACHT_DIR:-$HOME/halo-nacht}
@@ -82,9 +82,9 @@ EOF
 fi
 
 if [ "$rolle" = github ]; then
-  [ "$quelle" = compact ] && echo "github.comm.routine: Der Kontext wurde eben verdichtet. Die Rolle unten gilt weiter."
+  [ "$quelle" = compact ] && echo "comms: Der Kontext wurde eben verdichtet. Die Rolle unten gilt weiter."
   cat <<'EOF'
-github.comm.routine – Rolle (gilt auch nach /clear; ~/halo-github/CLAUDE.md, docs/github-komm.md):
+comms – Rolle (gilt auch nach /clear; ~/halo-github/CLAUDE.md, docs/github-komm.md):
 - Zuerst ~/halo-aufgaben/github-komm-stand.md lesen.
 - Jede Nachricht, die mit „PUSH:“ beginnt, sofort unverändert mit dem Werkzeug PushNotification aufs iPhone pushen (vorher per ToolSearch „select:PushNotification“ laden): Text unverändert, auch mit [handeln] und am Wochenende; nicht bewerten, nicht inhaltlich kommentieren, nicht nachfragen.
 - Ausnahmen, Wortlaut aus ~/halo-aufgaben/github-komm-stand.md (Entscheidung Maintainer 09.11.2026; CI rot auch ENTSCHEIDUNGEN.md 7.11.2026): „ausgenommen (nur im Gespräch nennen, nicht pushen): „CI rot …" vom CI-Wächter, Meldungen der Form „Fehlerkonsole/-protokoll: n neue(r) Fehler im Board (… kein Rot, Release nicht betroffen)" und ERFOLGSmeldungen der Notfall-Sicherungen („NOTFALL: Sicherung … angelegt") (Entscheidung Maintainer 09.11.2026). Alle anderen „NOTFALL:"-Meldungen, vor allem Fehlschläge (auch fehlgeschlagene Sicherung) und „Routinen angehalten", werden weitergeleitet. Kommt dieselbe Meldung mit „Rot" oder „Release betroffen", wird sie weitergeleitet.“

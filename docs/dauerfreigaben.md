@@ -1,12 +1,16 @@
 # Dauerfreigaben
 
 Was neon, die Routinen (Nachtlauf, Tagesroutine, Morgenbrief, Wochen- und Doku-Prüfung) und die
-GitHub-Aufgabe ohne Rückfrage tun dürfen. Der Maintainer kümmert sich um Design und die einmalige
-Festlegung der Abläufe; alles andere läuft ohne ihn. Freigegeben vom Maintainer am 11.11.2026
+GitHub-Aufgabe ohne Rückfrage tun dürfen. Der Maintainer kümmert sich um die einmalige Festlegung der
+Abläufe; Design entscheidet der designer selbstständig (Karte `docs/stellen/designer.md`, Maintainer
+24.11.2026); alles andere läuft ohne ihn. Freigegeben vom Maintainer am 11.11.2026
 (Auftrag an neon nach dem Entwurf vom 10.11.; der Wortlaut steht, sobald übermittelt, in
 `ENTSCHEIDUNGEN.md`). Die Stufen ersetzen keine Regel aus `AGENTS.md`: Push-Sperre, Release-Sperre,
 Zeitfenster und Datenschutz gelten weiter. Neons Berechtigungsprüfung bleibt eine eigene
 Schutzschicht; lehnt sie etwas ab, wird es nicht umgangen, sondern gemeldet.
+
+Die Stufen A bis D sind Begriffe; welche davon für eine Stelle gilt und wer was tut, nennt ihre Karte
+unter `docs/stellen/` (Organigramm und Matrix „Wer darf wen beauftragen“ in `docs/stellen/README.md`).
 
 ## A. Immer ohne Rückfrage
 
@@ -35,8 +39,8 @@ Zeitplan-Agenten (Tagesroutine, Nachtlauf, Morgenbrief, Wochenprüfung, Doku-Pr�
 CI-Wächter, Bilder-Eingang, GitHub-Wächter) mit `launchctl bootout`/`bootstrap` laden und neu starten,
 damit eine freigegebene Änderung wirkt. Bedingungen: kein Lauf aktiv (`pgrep` und Sperrdateien), neue
 plist vorher mit `plutil -lint` geprüft und gelesen, der Nachtlauf nicht zwischen 00:00 und 09:00, jede
-Änderung steht im Bericht oder im Morgenbrief. Ausgenommen bleiben die drei Fernsteuerungs-Agenten
-(`remote-control`, `neon-board`, `github-comm`): ein Neustart beendet die Sitzung selbst, dort nennt neon
+Änderung steht im Bericht oder im Morgenbrief. Ausgenommen bleiben die fünf Dienste der dauerhaften
+Sitzungen (`remote-control`, `neon-board`, `github-comm`, `designer`, `director`): ein Neustart beendet die Sitzung selbst, dort nennt neon
 dem Maintainer Befehl und Zeitpunkt. Neons Berechtigungsprüfung bleibt eigene Schutzschicht (lehnt sie ab,
 wird es gemeldet, nicht umgangen).
 
@@ -61,11 +65,11 @@ Release je Tag, nicht 01:30–09:00); Entscheidung und Begründung im Bericht de
 
 ## C. Immer der Maintainer (nur mit seinem Satz direkt in neon)
 
-Regeln in `AGENTS.md`; neue oder inhaltlich geänderte LaunchAgents (Zeitpläne, Programmaufruf; nur auf ausdrücklichen Wunsch des Maintainers im Gespräch, das Laden danach siehe B), Neustart der drei Fernsteuerungs-Agenten; `settings.json` und Hooks (Zeitfenster-Hook,
+Regeln in `AGENTS.md`; neue oder inhaltlich geänderte LaunchAgents (Zeitpläne, Programmaufruf; nur auf ausdrücklichen Wunsch des Maintainers im Gespräch, das Laden danach siehe B), Neustart der fünf Dienste der dauerhaften Sitzungen (siehe B); `settings.json` und Hooks (Zeitfenster-Hook,
 Hook gegen erzeugte Dateien); Auslöser in `test.yml`; Release-Regeln und Hotfix; Notfall und
 Notfall-Release (nur von Hand durch ihn, `docs/notfall.md`); Push-Sperre; Datenschutz; Zitate von ihm an
-neon oder neon-board; Design (nach Vergleich mit der Vorlage); strittige Entscheidungen zu
-Nutzer-Anfragen; Löschen oder Archivieren von Sitzungen und Dauerprozessen.
+neon oder neon-board; Design-Rückfragen, die der designer an ihn richtet, und große Umbauten, die er
+ihm laut Karte vorlegt (`docs/stellen/designer.md`); strittige Entscheidungen zu Nutzer-Anfragen; Löschen oder Archivieren von Sitzungen und Dauerprozessen.
 
 ## D. Ausdrücklich nie automatisch
 

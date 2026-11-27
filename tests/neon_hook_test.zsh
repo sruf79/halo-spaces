@@ -37,7 +37,7 @@ sitzung() { # <Datei> <sessionId> <name>
 sitzung $T/sitz/40001.json $SID_GH github.comm.routine
 sitzung $T/sitz/40002.json $SID_NEON neon
 aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH clear); rc=$?
-pruefe "github per sessionId: Rollenblock mit PushNotification" '[[ $aus == *PushNotification* && $aus == *"github.comm.routine – Rolle"* ]]'
+pruefe "github per sessionId: Rollenblock mit PushNotification" '[[ $aus == *PushNotification* && $aus == *"comms – Rolle"* ]]'
 pruefe "github per sessionId: ohne neon-Auftragsliste und Bilder" '[[ $aus != *"Offene Aufträge"* && $aus != *Probeauftrag* && $aus != *Vorlagen:* && $aus != *"neon – Arbeitsweise"* ]]'
 pruefe "github per sessionId: Stand-Datei, Ausnahmen, Rechte-Modus" '[[ $aus == *github-komm-stand.md* && $aus == *"CI rot"* && $aus == *"NOTFALL: Sicherung"* && $aus == *Rechte-Modus* ]]'
 pruefe "github per sessionId: Inaktivitätsregel mit Markierung, Skript und Ausnahmen" '[[ $aus == *"we will close this issue due to inactivity"* && $aus == *inaktivitaet.sh* && $aus == *inaktivitaet-ausnahmen.txt* ]]'

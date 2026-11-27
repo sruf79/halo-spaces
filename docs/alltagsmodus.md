@@ -48,7 +48,7 @@ der Plan-Tabelle der Umbau-Woche (`~/halo-berichte/2026-11-25-plan-tabelle.md` A
 |---|---|---|---|---|
 | Di | 01:00 | – | automatischer Wochenreset, Sollkurve beginnt neu | Maintainer 19.11.2026, 23.11.2026 (ENTSCHEIDUNGEN.md) |
 | Sa | 08:00 | inspector (`dokupruefung`, `wochenpruefung.sh --doku`) | Doku-Prüfung; vorher verwaiste Test-Thunderbird beenden, wartet auf den Nachtlauf bis 09:15, CI bis 10:00 | `tests/wochenpruefung.sh` |
-| Sa | 22:15 | designer (`rundgang`) | Design-Rundgang; Start spätestens 23:30, Ende im Skript spätestens So 01:15; vorher und in jeder Warterunde mit Thunderbird als Grund verwaiste Test-Thunderbird beenden. Sammelfrage S3 Punkt 6 (25.11.2026): Rundgang endet spätestens 00:30, der Kaltstart 00:45 bleibt; im Skript noch nicht umgesetzt (Plan Z6) | `tests/rundgang-woche.sh` |
+| Sa | 22:15 | designer (`rundgang`) | Design-Rundgang; Start spätestens 23:30, Ende im Skript spätestens So 01:15; vorher und in jeder Warterunde mit Thunderbird als Grund verwaiste Test-Thunderbird beenden. Sammelfrage S3 Punkt 6 (25.11.2026): Rundgang endet spätestens 00:30, der Kaltstart 00:45 bleibt; im Skript umgesetzt am 27.11.2026 (`HART`, Plan Z6) | `tests/rundgang-woche.sh` |
 | So | 08:00 | inspector (`wochenpruefung`) | Wochenprüfung; vorher verwaiste Test-Thunderbird beenden, wartet wie die Doku-Prüfung | `tests/wochenpruefung.sh` |
 | Sa, So | 09:00 | Tagesroutine | wartet, solange Doku- bzw. Wochenprüfung läuft (`belegt_tag`) | Maintainer 19.11.2026 („7. lieber am morgen machen. ja die tagesroutine läuft wochenende gleich wie werktags“) |
 

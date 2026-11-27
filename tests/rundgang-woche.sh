@@ -50,7 +50,7 @@ START=$(date +%s)
 SPAETESTENS=$(date -j -v23H -v30M -v0S +%s)  # nach 23:30 nicht mehr anfangen (Nachtlauf 01:30)
 HART=$(( START + 9 * 3600 ))                  # claude spätestens nach 9 Stunden beenden (Probelauf)
 # abends gestartet: spätestens 01:15 beenden, damit um 01:30 nichts mehr läuft (Maintainer 15.11.2026, AGENTS.md)
-[[ -n $ONLY ]] || (( $(date +%H) < 12 )) || HART=$(date -j -v+1d -v1H -v15M -v0S +%s)
+[[ -n $ONLY ]] || (( $(date +%H) < 12 )) || HART=$(date -j -v+1d -v0H -v30M -v0S +%s)   # Ende spätestens 00:30 (Maintainer 26.11.2026 „1. ja“, Plan Z6; vorher 01:15)
 PORT_HELL=2853 PORT_DUNKEL=2854
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh

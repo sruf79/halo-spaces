@@ -828,7 +828,7 @@ pruefe_rc_modelle() {
     args=$(ps -o args= -p $kind)
     [[ $args == *"--model claude-$m"* && $args == *"--effort $s"* ]] &&
       ok "Modell $n" "$m/$s (Dienst-Datei und Sitzung)" ||
-      { offen "Modell $n" "Sitzung läuft mit ${${args#*--model }%% *}/${${args#*--effort }%% *}, Soll $m/$s"; tun "Modellwähler der Sitzung $n (Maintainer, docs/neon-sitzung.md)"; }
+      { hinweis "Modell $n" "Prozess zeigt ${${args#*--model }%% *}/${${args#*--effort }%% *}, Soll $m/$s; der Prozess zeigt nur den Startwert, der Server speichert das Modell: mit get_session der Sitzung $n prüfen (last_served_model, effort_level), nur bei Abweichung im Modellwähler ändern (Maintainer, docs/neon-sitzung.md)"; }
   done
 }
 

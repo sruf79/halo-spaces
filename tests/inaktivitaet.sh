@@ -77,7 +77,7 @@ ina_ausnahmen_lesen() {   # <Datei>
 # Fehlertext von „board.sh export“ mit Zeitstempel ins Protokoll: höchstens 300 Zeichen; „Authorization“ samt Rest der
 # Zeile und GH_TOKEN/ghp_/github_pat_ samt Rest des Wortes werden durch *** ersetzt
 ina_board_fehler_log() {   # <stderr-Datei>
-  local t; t=$(tr '\n\r' '  ' < $1 2>/dev/null | sed -E 's/Authorization.*/***/I; s/(GH_TOKEN|ghp_|github_pat_)[^[:space:]]*/***/g')
+  local t; t=$(tr '\n\r\t' '   ' < $1 2>/dev/null | tr -d '\000-\010\013-\037\177' | sed -E 's/Authorization.*/***/I; s/(gh[opsur]_|github_pat_)[^[:space:]]*/***/g; s/((GH_|GITHUB_)?TOKEN|Bearer|token)[=: ]+[^[:space:]]*/***/gI')
   t=${t[1,300]}
   [[ -n ${t//[[:space:]]/} ]] || return 0
   mkdir -p ${INA_LOG:h} && print -r -- "$(date '+%F %T') FEHLER Aufgabenliste nicht lesbar: $t" >> $INA_LOG

@@ -1172,3 +1172,9 @@ Deutung von neon (kein Wortlaut): Für ein Problem, das nur ein einzelner Nutzer
 Herkunft: Maintainer in der Sitzung neon, 27.11.2026 ca. 14:40, nach dem Bericht der Logikprüfung (`~/halo-berichte/2026-11-27-logikpruefung.md`). Wortlaut: „alle von fable vorgeschlagenen änderungen nach der logikprüfungen sollten wir umsetzen. fable soll sich darum kümmern wann und wie selbst entscheiden.“
 
 Folge (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): Die im Bericht vorgeschlagenen Änderungen gelten als freigegeben, einschließlich des Status „Wartet auf Datum“ (Board-Eintrag …MZnjI). Reihenfolge, Zeitpunkt, Klasse (B oder C) und Ausführung legt ein Fable-Agent fest; die ausführende Sitzung (neon bzw. die Läufe) setzt um. Die Regeln „Klasse C: Sicherung, Probelauf, Freigabe“ und „Push-Sperre 01:30–09:00“ bleiben unberührt. Die frühere Begrenzung auf höchstens fünf „Ablauf: …“-Einträge nach der Schlussprüfung (Sammelfrage S8) ersetzt diese Entscheidung nur, soweit Fable es so festlegt.
+
+## 27.11.2026 – Sammelfrage S5: Release aus eigenem Worktree (P5) und Sitzung orga (P6)
+
+Herkunft: Maintainer in der Sitzung neon, 27.11.2026 ca. 18:50, auf die Sammelfrage S5 (zwei Sätze: P5 Release aus eigenem Worktree, P6 Sitzung orga anlegen, Probewoche; Empfehlung von neon jeweils „Ja“). Wortlaut: „ja ja“.
+
+Deutung von neon (kein Wortlaut): „ja ja“ gilt als Ja zu beiden Sätzen. P5: `release.sh` und `publish.sh` in eigenem Worktree (Stufe C: Sicherung, Probelauf, Freigabe; der alte Weg bleibt daneben, bis ein Release aus dem Worktree gelang). P6: Sitzung orga am Sa 28.11. 16:30, Sonnet medium, wie von Fable am 27.11.2026 festgelegt.

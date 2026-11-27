@@ -83,7 +83,7 @@ Rückfrage. Die Tabelle gilt für **Aufträge**, also alles, was etwas ändert.
 | Von ↓ an → | director | designer | engineer (Läufe) | orga | inspector | comms | neon | neon-board |
 |---|---|---|---|---|---|---|---|---|
 | director | – | ja | ja | ja | nein | ja | ja | ja |
-| designer | Einspruch, Rückfrage | – | nein | nein | nein | nein | ja (Bilder, Tests) | ja (Notiz, Vorlagen) |
+| designer | Einspruch, Rückfrage | – | nein | nein | nein | nein | ja (Bilder, Tests, „Designvorgaben: …“ vormerken) | ja (Notiz, Vorlagen) |
 | engineer | Rückfrage | Rückfrage | – | nein | nein | nein | ja | ja (Status eigener Einträge) |
 | orga | Vorschlag | nein | nein | – | nein | nein | ja | ja |
 | inspector | nur Bericht | nur Bericht | nur Bericht | nur Bericht | – | nur Bericht | nur Auskunft | nur „Ablauf: …“ als Eintrag |

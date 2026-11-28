@@ -15049,6 +15049,63 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Mailliste: beantwortet/weitergeleitet als grauer Pfeil links vom Absenderbild wie Apple Mail, ungelesen weiter mit Punkt", reply_forward_marks, results)
 
+    def reply_marks_collapsed_unread():
+        # zugeklappte Konversation, deren oberste Mail beantwortet (bzw. weitergeleitet) und gelesen ist und die eine neue
+        # ungelesene Antwort enthält: blauer Punkt wie bei jeder ungelesenen Mail, nicht der Pfeil (vorher blauer Pfeil,
+        # Maske der Pfeil-Regel mit der Farbe des Punkts); aufgeklappt zeigt die oberste Mail wieder den grauen Pfeil
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvBeantwortet")) root.createSubfolder("KonvBeantwortet", null);
+          const f = root.getChildNamed("KonvBeantwortet");
+          const raw = (id, subject, ref, min) => ["From - Mon Oct 19 10:00:00 2026", "From: Anna Beispiel <anna@example.invalid>", "To: Halo <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - min * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(ref ? [`In-Reply-To: <${ref}@example.invalid>`, `References: <${ref}@example.invalid>`] : []), "", "Text", ""].join("\r\n");
+          if (!f.getTotalMessages(false)) {
+            const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lf.addMessage(raw("kb-rp-1", "Halo Angebot", null, 300)); lf.addMessage(raw("kb-rp-2", "Re: Halo Angebot", "kb-rp-1", 5));
+            lf.addMessage(raw("kb-fw-1", "Halo Rechnung", null, 400)); lf.addMessage(raw("kb-fw-2", "Re: Halo Rechnung", "kb-fw-1", 6));
+            await bis(() => f.getTotalMessages(false) >= 4, "Testmails in KonvBeantwortet", 4000);
+          }
+          const hdr = id => [...f.messages].find(h => h.messageId == id + "@example.invalid");
+          const D = Ci.nsIMsgFolder;
+          f.addMessageDispositionState(hdr("kb-rp-1"), D.nsMsgDispositionState_Replied);
+          f.addMessageDispositionState(hdr("kb-fw-1"), D.nsMsgDispositionState_Forwarded);
+          for (const id of ["kb-rp-1", "kb-fw-1"]) hdr(id).markRead(true);
+          for (const id of ["kb-rp-2", "kb-fw-2"]) hdr(id).markRead(false);
+          const a3 = await toMail(); a3.displayFolder(f.URI);
+          await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 2, "Ordner KonvBeantwortet", 5000); await ruhig(800);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.threadTree.selectedIndex = -1; a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(800);
+          const accent = a3.getComputedStyle(a3.document.documentElement).getPropertyValue("--mt-accent").trim();
+          const probe = a3.document.createElement("div"); probe.style.color = accent; a3.document.body.append(probe);
+          const accentRgb = a3.getComputedStyle(probe).color; probe.remove();
+          const look = () => {
+            const o = {};
+            for (const row of a3.document.querySelectorAll('#threadTree tr[is="thread-card"]')) {
+              const id = a3.gDBView.getMsgHdrAt(row.index)?.messageId?.split("@")[0]; if (!id?.startsWith("kb-")) continue;
+              const rs = row.querySelector(".read-status"), cs = a3.getComputedStyle(rs), r = rs.getBoundingClientRect();
+              o[id] = { cls: [...row.classList].filter(c => ["children", "collapsed"].includes(c)).join(" "), props: row.dataset.properties,
+                        vis: cs.display != "none" && cs.visibility != "hidden" && r.width > 0, w: Math.round(r.width),
+                        mask: /M10 6/.test(cs.maskImage) ? "reply" : /M14 6/.test(cs.maskImage) ? "forward" : cs.maskImage == "none" ? "none" : "?",
+                        accent: cs.backgroundColor == accentRgb, radius: cs.borderTopLeftRadius };
+            }
+            return o;
+          };
+          const out = { zu: look(), accentRgb };
+          a3.goDoCommand?.("cmd_expandAllThreads"); await ruhig(800);
+          out.auf = look();
+          a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(300);
+          return out;""")
+        zu, auf = res.get("zu") or {}, res.get("auf") or {}
+        dot = lambda x: x.get("vis") and x.get("mask") == "none" and x.get("accent") and x.get("w") == 10 and x.get("radius") == "50%"
+        ok = (all("collapsed" in (zu.get(k) or {}).get("cls", "") and "hasUnread" in (zu.get(k) or {}).get("props", "") and dot(zu.get(k) or {})
+                  for k in ("kb-rp-1", "kb-fw-1"))
+              and (auf.get("kb-rp-1") or {}).get("mask") == "reply" and (auf.get("kb-fw-1") or {}).get("mask") == "forward"
+              and not (auf.get("kb-rp-1") or {}).get("accent") and dot(auf.get("kb-rp-2") or {}) and dot(auf.get("kb-fw-2") or {}))
+        return ok, f"{res}"
+    check("Mailliste: zugeklappte Konversation mit beantworteter oder weitergeleiteter oberster Mail und neuer ungelesener Antwort zeigt den blauen Punkt statt eines blauen Pfeils", reply_marks_collapsed_unread, results)
+
     def list_date_future():
         # Datum in der Mailliste: heute nur die Uhrzeit, in der Zukunft (falsche Uhr,
         # Spam „oben halten“) das ganze Datum statt nur der Uhrzeit; „jetzt“ = Di 20.10.2026 15:00

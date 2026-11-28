@@ -1442,6 +1442,11 @@ function isFieldLabel(el) {
   if (ctrl && ctrl.matches(FIELD_SEL)) {
     return true;
   }
+  // Zusammenfassung der Konto-Assistenten: Beschriftung vor ihrem Wert
+  // („account.name.label“ vor „account.name.text“)
+  if (el.id?.endsWith(".label") && doc.getElementById(el.id.slice(0, -6) + ".text")) {
+    return true;
+  }
   // Feld in einer eigenen Spalte, das sich auf diese Beschriftung bezieht
   // (Bild-Dialog: Option „Alternate text“ links, Feld rechts)
   const labelled = el.id && doc.querySelector(`[aria-labelledby~="${doc.defaultView.CSS.escape(el.id)}"]`);
@@ -1522,6 +1527,71 @@ function restoreFieldColons() {
     } catch {}
   }
   colonDocs.clear();
+}
+
+// Neuer Kalender wie die übrigen kleinen Assistenten (Variante A, Maintainer
+// 16.11.2026): Überschrift aus dem Fenstertitel (mc-title, Gestaltung in
+// spaces.css), Cancel links, Back und Hauptknopf rechts, das Fenster so hoch
+// wie die höchste der drei Hauptseiten (Art wählen, lokal, im Netz) statt
+// Thunderbirds fester Mindesthöhe von 380 px mit großer Leerfläche. Die Seiten
+// werden dafür im selben Schritt nacheinander eingeblendet und gemessen (kein
+// Bild dazwischen); die Seiten nach der Suche im Netz behalten ihre Listen
+// (die Seite wächst dort mit, Thunderbird hält sie über ihre Liste flexibel).
+function calendarCreationLayout(win) {
+  const doc = win.document, dlg = doc.getElementById("calendar-creation-dialog");
+  if (!dlg || dlg.hasAttribute("mc-title")) {
+    return;
+  }
+  if (doc.title) {
+    dlg.setAttribute("mc-title", doc.title);
+  }
+  for (const [type, order] of [["cancel", -1], ["extra2", 1], ["accept", 2]]) {
+    const b = dlg.getButton?.(type);
+    if (b) {
+      b.style.order = order;
+    }
+  }
+  // unterste Kante des Inhalts je Seite (Texte, Felder, Knöpfe; die Seiten
+  // selbst sind gestreckt) gegen die Oberkante der Knopfzeile
+  const root = doc.documentElement, box = dlg.shadowRoot?.querySelector(".dialog-button-box");
+  const panels = ["panel-select-calendar-type", "panel-local-calendar-settings", "panel-network-calendar-settings"]
+    .map(id => doc.getElementById(id)).filter(Boolean);
+  if (!box || !panels.length) {
+    return;
+  }
+  const hidden = new Map([...dlg.children].map(e => [e, e.hidden]));
+  let bottom = 0;
+  try {
+    for (const panel of panels) {
+      for (const e of hidden.keys()) {
+        e.hidden = e != panel;
+      }
+      for (const e of panel.querySelectorAll("description, label, input, menulist, radio, checkbox, button, img")) {
+        const r = e.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          bottom = Math.max(bottom, r.bottom);
+        }
+      }
+    }
+  } finally {
+    for (const [e, h] of hidden) {
+      e.hidden = h;
+    }
+  }
+  // 20 px Luft über den Knöpfen; Mindesthöhe statt Thunderbirds 380 px. Für
+  // das Bemessen (sizeToContent hier, AppWindow::OnChromeLoaded direkt nach
+  // dem load-Ereignis) ist der Dialog nur so hoch wie sein Inhalt (sonst
+  // 100vh = die alte Höhe), danach wieder 100vh für die Seiten mit Listen
+  const target = Math.ceil(bottom + 20 + (win.innerHeight - box.getBoundingClientRect().top));
+  if (bottom > 0 && target < win.innerHeight) {
+    const height = dlg.style.height;
+    root.style.minHeight = `${target}px`;
+    dlg.style.height = "auto";
+    win.sizeToContent();
+    Services.tm.dispatchDirectTaskToCurrentThread(() => {
+      dlg.style.height = height;
+    });
+  }
 }
 
 // Add-ons-Verwaltung: Im Menü „…“ einer Karte steht „Remove“ wie im Vorbild
@@ -8485,6 +8555,18 @@ class CardEnhancer {
             const cw = doc.defaultView;
             cw.addEventListener("DOMContentLoaded", () => cardWindow(cw), { once: true });
           }
+          // Neuer Kalender: Überschrift, Knöpfe und Höhe wie die übrigen Assistenten
+          // (im selben Schritt direkt nach Thunderbirds eigenem load-Handler)
+          if (url.startsWith("chrome://calendar/content/calendar-creation.xhtml") && doc.defaultView) {
+            const cw = doc.defaultView;
+            cw.addEventListener("DOMContentLoaded", () => cw.addEventListener("load", () => {
+              try {
+                calendarCreationLayout(cw);
+              } catch (e) {
+                log("calendar creation layout error", String(e).slice(0, 120));
+              }
+            }, { once: true }), { once: true });
+          }
           // Erinnerungen: Fenster so hoch wie die Einträge (Thunderbird merkt
           // sich sonst eine feste Größe – bei einem Eintrag viel Leerraum)
           if (url.startsWith("chrome://calendar/content/calendar-alarm-dialog.xhtml") && doc.defaultView) {
@@ -8495,7 +8577,7 @@ class CardEnhancer {
           if (url.startsWith("chrome://calendar/content/calendar-error-prompt.xhtml") && doc.defaultView && AlarmAlerts.quietWriteError(doc.defaultView)) {
             return;
           }
-          if (!/^(chrome:\/\/(messenger|calendar|messenger-newsblog)\/|about:(addressbook|preferences|addons|accountsettings|accountsetup|message|3pane))/.test(url)) {
+          if (!/^(chrome:\/\/(messenger|calendar|messenger-newsblog|openpgp)\/|about:(addressbook|preferences|addons|accountsettings|accountsetup|message|3pane))/.test(url)) {
             return;
           }
           const win = doc.defaultView;
@@ -8504,7 +8586,7 @@ class CardEnhancer {
           }
           // Beschriftungen ohne Doppelpunkt in Fenstern, Dialogen und Einstellungen
           // (nicht Hauptfenster, Mailansicht, Adressbuch und Verfassen-Fenster)
-          if (win && /^(chrome:\/\/(messenger|calendar|messenger-newsblog)\/|about:(preferences|accountsettings))/.test(url) &&
+          if (win && /^(chrome:\/\/(messenger|calendar|messenger-newsblog|openpgp)\/|about:(preferences|accountsettings))/.test(url) &&
               !/^chrome:\/\/messenger\/content\/(messenger|messageWindow|messengercompose\/messengercompose)\.xhtml/.test(url)) {
             win.addEventListener("DOMContentLoaded", () => hookFieldColons(win), { once: true });
           }

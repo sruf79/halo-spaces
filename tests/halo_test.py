@@ -26417,6 +26417,146 @@ Neu
         return ok, f"{res}"
     check("Konto-Assistenten: Knöpfe flach, lesbar und 30 px, Felder 7 px, Chat-Netzliste mit Haarlinie und 8 px", account_wizards, results)
 
+    def small_wizards():
+        # Kleine Assistenten im halo-Stil (Feed, Newsgruppen, neuer Kalender, OpenPGP-Schlüssel; Variante A,
+        # Maintainer 16.11.2026): Überschrift links 22 px fett, Hilfetext grau, Beschriftung grau rechtsbündig ohne
+        # Doppelpunkt, Felder 30 px mit 7 px; Cancel links, Go Back und Continue rechts; das Fenster nur so hoch wie
+        # der höchsten Seite (keine große Leerfläche über den Knöpfen); OpenPGP behält Aufbau und Höhe, nur ohne Doppelpunkt,
+        # Felder 30 px und Texte 13 px. Mit HALO_SHOTS Bilder je Assistent und Seite (Testprofil).
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(r"""
+          const shots = %s;
+          const dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+          const csOf = (el, p) => el.ownerDocument.defaultView.getComputedStyle(el, p);
+          const vis = el => !!el && el.getClientRects().length > 0 && el.getBoundingClientRect().width > 0;
+          const colorOf = (doc, value) => { const e = doc.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.color = value;
+            doc.documentElement.append(e); const c = csOf(e).color; e.remove(); return c; };
+          const R = e => e.getBoundingClientRect();
+          // Grund des Bilds in Fensterfarbe (der OpenPGP-Dialog malt keinen eigenen Hintergrund, macOS füllt ihn)
+          const shoot = async (ww, name) => { if (!shots) return;
+            const bmp = await ww.browsingContext.currentWindowGlobal.drawSnapshot(new ww.DOMRect(0, 0, ww.innerWidth, ww.innerHeight), 2, colorOf(ww.document, "var(--mt-window)"));
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bmp.width; cv.height = bmp.height; cv.getContext("2d").drawImage(bmp, 0, 0);
+            const blob = await new Promise(r => cv.toBlob(r)); await IOUtils.makeDirectory(shots, { ignoreExisting: true });
+            await IOUtils.write(PathUtils.join(shots, `assistent-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+          const FIELD = 'input:not([type="checkbox"], [type="radio"], [type="hidden"]), menulist';
+          // Maße einer Seite: Titel, Hilfetext, Beschriftungen, Felder, Knöpfe, Leerfläche über den Knöpfen
+          const measure = (ww, page, title, buttons) => {
+            const doc = ww.document, o = { sec: colorOf(doc, "var(--mt-text-secondary)"), text: colorOf(doc, "var(--mt-text)") };
+            o.title = title && vis(title) ? { size: csOf(title).fontSize, weight: csOf(title).fontWeight, text: (title.value || title.textContent || "").trim(),
+              left: Math.round(R(title).left - R(page).left) } : null;
+            const desc = [...page.querySelectorAll("description")].find(e => vis(e) && e.textContent.trim());
+            o.desc = desc ? { color: csOf(desc).color, size: csOf(desc).fontSize } : null;
+            o.labels = [...page.querySelectorAll("label, th, legend")].filter(l => vis(l) && !l.closest("radio, checkbox, menulist, richlistitem") && l != title
+                && !l.classList.contains("text-link")).map(l => ({ id: l.id || l.localName, text: (l.value || l.textContent || "").trim(), color: csOf(l).color,
+                align: csOf(l).textAlign, size: csOf(l).fontSize })).filter(l => l.text);
+            o.fields = [...page.querySelectorAll(FIELD)].filter(vis).map(f => ({ id: f.id, h: Math.round(R(f).height), r: csOf(f).borderTopLeftRadius }));
+            // unterstes sichtbares Inhaltselement der Seite gegen die Oberkante der Knöpfe
+            let bottom = 0; for (const e of page.querySelectorAll("description, label, input, menulist, radio, checkbox, legend, img, button, richlistbox, textarea")) { if (vis(e)) bottom = Math.max(bottom, R(e).bottom); }
+            const bs = buttons.filter(vis);
+            const btop = Math.min(...bs.map(b => R(b).top));
+            o.gap = Math.round(btop - bottom);
+            o.buttons = bs.map(b => ({ t: (b.label || b.textContent).trim(), l: Math.round(R(b).left), h: Math.round(R(b).height), def: b.hasAttribute("default") }));
+            o.win = [ww.innerWidth, ww.innerHeight, doc.documentElement.scrollHeight, Math.round(R(doc.documentElement).height)];
+            return o; };
+          const settle = async ww => { let last = "", calm = 0; for (let i = 0; i < 40 && calm < 3; i++) { await wait(100); const s = [ww.innerWidth, ww.innerHeight].join(); calm = s == last ? calm + 1 : 0; last = s; } await ruhig(300); };
+          const out = { os: Services.appinfo.OS };
+          // Feed- und Newsgruppen-Assistent (<wizard>): nicht modal öffnen, damit das Skript weiterläuft
+          for (const [name, url] of [["feed", "chrome://messenger-newsblog/content/feedAccountWizard.xhtml"], ["news", "chrome://messenger/content/AccountWizard.xhtml"]]) {
+            const ww = w.openDialog(url, "_blank", "chrome,titlebar,centerscreen,dialog=no");
+            await until(() => ww.document?.readyState == "complete" && ww.document.querySelector("wizard"), 10000);
+            const wz = ww.document.querySelector("wizard");
+            if (!wz) { out[name] = "nicht offen"; ww.close(); continue; }
+            await settle(ww);
+            const buttons = ["cancel", "back", "next", "finish"].map(t => wz.getButton(t)).filter(Boolean);
+            const head = wz.shadowRoot.querySelector(".wizard-header-label");
+            out[name] = [];
+            for (let i = 0; i < 4; i++) {
+              const page = wz.currentPage;
+              // Testdaten statt des Benutzernamens des Rechners (Thunderbird füllt „Your Name“ vor)
+              if (name == "news" && page.pageid == "identitypage") { ww.document.getElementById("fullName").value = "Halo Test"; ww.document.getElementById("email").value = "halo@example.invalid"; ww.identityPageValidate?.(); }
+              out[name].push({ page: page.pageid, ...measure(ww, page, head, buttons) });
+              await shoot(ww, `${name}-${page.pageid}`);
+              if (name == "news" && page.pageid == "newsserver") { ww.document.getElementById("newsServer").value = "news.example.invalid"; ww.incomingPageValidate?.(); }
+              if (wz.onLastPage || !wz.canAdvance) break;
+              wz.advance(); await ruhig(400); await settle(ww);
+              if (wz.currentPage == page) break;
+            }
+            ww.close(); await ruhig(400);
+          }
+          // Neuer Kalender (Dialog): Auswahl Lokal/Netz, dann die Seite für einen lokalen Kalender
+          {
+            const ww = w.openDialog("chrome://calendar/content/calendar-creation.xhtml", "_blank", "chrome,titlebar,resizable,centerscreen", null);
+            await until(() => ww.document?.readyState == "complete" && ww.document.querySelector("dialog"), 10000);
+            await settle(ww);
+            const dlg = ww.document.querySelector("dialog");
+            const buttons = ["cancel", "extra2", "accept"].map(t => dlg.getButton(t)).filter(Boolean);
+            out.cal = [];
+            for (const id of ["panel-select-calendar-type", "panel-local-calendar-settings", "panel-network-calendar-settings"]) {
+              if (id != "panel-select-calendar-type") { ww.selectPanel(id); await ruhig(300); await settle(ww); }
+              const page = ww.document.getElementById(id);
+              const o = measure(ww, page, null, buttons), bf = csOf(dlg, "::before");
+              o.title = dlg.hasAttribute("mc-title") && bf.content != "none" ? { size: bf.fontSize, weight: bf.fontWeight, text: dlg.getAttribute("mc-title"),
+                left: Math.round(R(page).left - R(dlg).left) - parseFloat(csOf(dlg).paddingInlineStart || 0) } : null;
+              o.order = buttons.filter(vis).sort((a, b) => R(a).left - R(b).left).map(b => b.getAttribute("dlgtype"));
+              out.cal.push({ page: id, ...o });
+              await shoot(ww, `kalender-${id.replace(/^panel-|-calendar.*$/g, "")}`);
+            }
+            ww.close(); await ruhig(400);
+          }
+          // OpenPGP-Schlüssel erzeugen: so, wie ihn die Schlüsselverwaltung öffnet (eigenes Fenster, gleich die Seite „erzeugen“);
+          // aus den Kontoeinstellungen ist es derselbe Inhalt als Unterdialog
+          {
+            const args = { identity: null, gSubDialog: null, isCreate: true, isImport: false, cancelCallback() {}, okCallback() {}, okImportCallback() {}, okExternalCallback() {}, keyDetailsDialog() {} };
+            const ww = w.openDialog("chrome://openpgp/content/ui/keyWizard.xhtml", "_blank", "chrome,titlebar,resizable,centerscreen", args);
+            await until(() => ww.document?.readyState == "complete" && ww.document.querySelector("dialog"), 10000);
+            await until(() => !ww.document.getElementById("wizardCreateKey")?.hidden, 4000);
+            await settle(ww);
+            const dlg = ww.document.querySelector("dialog");
+            const buttons = ["cancel", "extra1", "accept"].map(t => dlg.getButton(t)).filter(Boolean);
+            const create = ww.document.getElementById("wizardCreateKey");
+            out.pgp = [{ page: "create", ...measure(ww, create, create.querySelector(".dialogheader-title"), buttons) }];
+            await shoot(ww, "openpgp-erzeugen");
+            ww.close(); await ruhig(400);
+          }
+          return out;""" % ("\"" + shots + "\"" if shots else "\"\""))
+        def page_ok(p, title=True, gap=200, align=True):
+            # Überschrift 22 px fett links; Hilfetext grau 13 px; Beschriftungen ohne Doppelpunkt (grau, rechtsbündig, 13 px);
+            # Felder 30 px mit 7 px; Hauptknopf rechts; höchstens `gap` px frei über den Knöpfen (niedrigere Seiten haben mehr Luft,
+            # das Fenster ist so hoch wie die höchste Seite; dort höchstens 32 px, unten je Assistent)
+            if not isinstance(p, dict):
+                return False
+            t = p.get("title")
+            if title and not (t and t["size"] == "22px" and int(t["weight"]) >= 700 and t["left"] <= 4):
+                return False
+            if p.get("desc") and not (p["desc"]["color"] == p["sec"] and p["desc"]["size"] == "13px"):
+                return False
+            for lab in p.get("labels", []):
+                if lab["text"].endswith(":"):
+                    return False
+                if align and not lab["id"].endswith(".text") and not (lab["color"] == p["sec"] and lab["align"] == "end" and lab["size"] == "13px"):
+                    return False
+            if any(f["h"] < 30 or f["h"] > 32 or f["r"] != "7px" for f in p.get("fields", [])):
+                return False
+            bs = p.get("buttons") or []
+            main = [b for b in bs if b["def"]]
+            return bool(main) and main[0]["l"] == max(b["l"] for b in bs) and (gap is None or 0 <= p["gap"] <= gap)
+        ok = True
+        for name in ("feed", "news"):
+            pages = res.get(name)
+            ok = ok and isinstance(pages, list) and len(pages) >= 2 and all(page_ok(p) for p in pages)
+            # Cancel links, Go Back neben dem Hauptknopf rechts (macOS; unter Linux und Windows bleibt Thunderbirds Reihenfolge der Assistenten)
+            ok = ok and min(p["gap"] for p in pages) <= 32 and (res.get("os") != "Darwin" or all(p["buttons"][0]["t"] == "Cancel" and p["buttons"][0]["l"] < 60 for p in pages))
+        cal = res.get("cal")
+        ok = ok and isinstance(cal, list) and len(cal) == 3 and all(page_ok(p) for p in cal)
+        ok = ok and all(p["order"][0] == "cancel" and p["order"][-1] == "accept" for p in cal) and min(p["gap"] for p in cal) <= 32 \
+            and all(p["win"][1] < 380 for p in cal)
+        pgp = (res.get("pgp") or [None])[0]
+        # OpenPGP: Aufbau und Fensterhöhe bleiben Thunderbirds (Beschriftungen links vor dem Feld, Abschnittstitel fett),
+        # ohne Doppelpunkt, Felder 30 px, Hilfetext grau, Beschriftungen 13 px
+        ok = ok and page_ok(pgp, gap=None, align=False) and all(lab["size"] == "13px" for lab in pgp["labels"] if lab["id"] == "label")
+        return ok, f"{res}"
+    check("Kleine Assistenten: Feed, Newsgruppen und neuer Kalender wie der Konto-Hub (Überschrift 22 px fett, Hilfetext und Beschriftungen grau 13 px ohne Doppelpunkt, Cancel links, Fenster so hoch wie die höchste Seite), OpenPGP-Schlüssel ohne Doppelpunkte mit Feldern 30 px", small_wizards, results)
+
     def no_placeholder_in_ui():
         # Platzhalter für blockierte Bilder nur in Mails – nicht in der Oberfläche (Lupe im Suchfeld)
         res = m.js('''

@@ -7978,6 +7978,83 @@ button.wizard-button[disabled] {
   font-weight: 400 !important;
 }
 
+/* Kleine Assistenten (Feed-Konto, Newsgruppen-Konto, neuer Kalender) in der
+   Bauart des Konto-Hubs (Variante A, Maintainer 16.11.2026): Überschrift
+   links 22 px fett, Hilfetext grau 13 px, Beschriftung grau rechtsbündig in
+   einer Spalte vor dem Feld (Doppelpunkt entfernt hookFieldColons), in der
+   Zusammenfassung der Wert in Textfarbe. Die Überschrift der <wizard> liegt
+   im Schatten-DOM, daher ohne Vorfahren-Selektor (wie die Knöpfe oben) */
+.wizard-header-box-text {
+  padding: 0 0 6px !important;
+}
+
+.wizard-header-label {
+  margin-inline-start: 0 !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
+  font-weight: 700 !important;
+  color: var(--mt-text) !important;
+}
+
+:is(wizardpage, #calendar-creation-dialog) description {
+  color: var(--mt-text-secondary) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+wizardpage :is(.awIdentityLabel, #newsServerLabel, #prettyNameLabel, label[id$=".label"]),
+#calendar-creation-dialog th label {
+  color: var(--mt-text-secondary) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  text-align: end !important;
+}
+
+wizardpage :is(.awIdentityLabel, #newsServerLabel, #prettyNameLabel) {
+  inline-size: 9em !important;
+  margin-inline-end: 8px !important;
+}
+
+wizardpage label[id$=".text"] {
+  color: var(--mt-text) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+/* Feed- und Newsgruppen-Assistent: so hoch wie die höchste Seite (die Seiten
+   liegen im Assistenten übereinander) statt großer Leerfläche über den
+   Knöpfen; Thunderbird setzt den Newsgruppen-Assistenten fest auf 38em */
+#AccountWizard {
+  height: auto !important;
+}
+
+/* dazu die Mindesthöhe aller Assistenten (30em, Thunderbird); der Chat-
+   Assistent mit seiner Netzliste behält sie */
+:is(#FeedAccountWizard, #AccountWizard) wizard {
+  min-height: 0 !important;
+}
+
+/* OpenPGP-Schlüssel erzeugen: Aufbau bleibt; Hilfetexte grau, Hilfetexte
+   und Beschriftungen 13 px wie die Felder daneben (Thunderbird 11 px), die
+   Doppelpunkte entfernt hookFieldColons */
+#openPgpKeyWizardDialog description {
+  color: var(--mt-text-secondary) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+#openPgpKeyWizardDialog label:not(.dialogheader-title, .text-link) {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+/* Neuer Kalender: Überschrift aus dem Fenstertitel (mc-title setzt
+   calendarCreationLayout), 22 px fett links über jeder Seite; die
+   Mindesthöhe von 380 px entfällt, die Höhe richtet sich nach der höchsten
+   Seite (ebenda) */
+#calendar-creation-dialog[mc-title]::before {
+  content: attr(mc-title);
+  display: block;
+  margin-block-end: 10px;
+  color: var(--mt-text) !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
+  font-weight: 700;
+}
+
 /* Eingabefelder und Auswahllisten in Dialogen und Assistenten. Der Account
    Hub (dialog.account-hub-dialog) bleibt außen vor: seine Felder tragen die
    Beschriftung schwebend in der Rahmenkerbe und brauchen ihre eigene Höhe */
@@ -7993,6 +8070,14 @@ button.wizard-button[disabled] {
   border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   box-shadow: none !important;
+}
+
+/* Zahlenfelder in Dialogen (OpenPGP: „Key expires in“) 30 px wie die übrigen
+   Felder; die Feldregel der Dialoge davor zählt content-box und machte sie
+   mit border-box nur 24 px hoch */
+:is(dialog, wizard) input[type="number"]:is(.size2, .size3, .size4, .size5) {
+  min-height: var(--mt-field-h, 30px) !important;
+  padding-block: 0 !important;
 }
 
 /* Suchfelder in Dialogen (Gespeicherte Passwörter, Cookies und weitere

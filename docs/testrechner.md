@@ -234,6 +234,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   Vorwoche und lässt Claude neue Ausreißer als Bug eintragen (außer
   Entscheidungen des Maintainers und „Wartet auf OK“). Bericht
   `~/halo-berichte/<datum>-rundgang.md`, Pause über `~/halo-nacht/pausen.txt` (Routine `rundgang`).
+  Samstag ab 20:30 kein Push mit Thunderbird-Änderung nach `main`, bis der Rundgang begonnen hat.
   `tests/MAC-MINI.md` Abschnitt 17.
 - Neue Routinen auf neon laufen als LaunchAgent ohne eigene Sitzung der
   Desktop-App; die Routine „GitHub-Kommunikation“ ist nur für GitHub-Nutzer da

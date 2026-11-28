@@ -187,6 +187,10 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.38.2
+
+- **Keyboard shortcuts**: on macOS the folder pane item in the View menu now shows the sidebar shortcut, like the Today pane item below it
+
 ## What's new in 3.38.1
 
 - **Memory**: closed folder tabs are released again instead of staying in memory (about 11 MB per closed tab)

@@ -1182,7 +1182,11 @@ class EnhancerKalender {
     // und die ganze Mail rückte erst im Bild nach dem Ende um bis zu 20 px nach (bzw. sprang beim Ausblenden am
     // Anfang). Abstand der Mail vom Anfang des Fensters vorher und nachher messen und pro Bild nur verschieben, was
     // das Raster nicht selbst nachführt
-    const msgEl = listEl?.ownerDocument.getElementById("messagePane") || null;
+    // (Mailbereich auch ohne gleitende Liste und in den übrigen Ansichten: seine Endkante folgt unten der Pane)
+    const msgEl = (() => {
+      const doc = d.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentDocument;
+      return doc?.documentURI?.startsWith("about:3pane") ? doc.getElementById("messagePane") : null;
+    })();
     const msgWin = msgEl?.ownerDocument.defaultView || null;
     const msgRtl = msgWin ? msgWin.getComputedStyle(msgEl).direction == "rtl" : false;
     const msgStart = () => {
@@ -1191,8 +1195,23 @@ class EnhancerKalender {
       }
       return msgRtl ? msgWin.innerWidth - msgEl.offsetLeft - msgEl.offsetWidth : msgEl.offsetLeft;
     };
-    const msgFrom = msgStart();
+    const msgFrom = listEl ? msgStart() : null;
     let msgTo = null;
+    // Geöffnete Mail: Die Pane liegt während der Bewegung über dem Mailbereich, der seine Breite erst am Ende
+    // (Einblenden) bzw. schon am Anfang (Ausblenden) ändert – die Mail wurde nur zugedeckt bzw. aufgedeckt, ihre
+    // rechte Seite (Datum, Knöpfe, Zeilenumbruch) sprang dann um die ganze Breite der Pane. Endkante des Mailbereichs
+    // ohne Pane und mit Pane im Fluss messen und pro Bild über einen Innenabstand am Ende genau an die Kante der Pane
+    // führen (ordnet nur die Mail neu an, nicht Liste und Toolbar)
+    const msgEnd = () => {
+      if (!msgWin || !msgEl.isConnected || !msgEl.offsetWidth) {
+        return null;
+      }
+      const r = msgEl.getBoundingClientRect();
+      return msgRtl ? msgWin.innerWidth - r.left : r.right;
+    };
+    const msgPadSaved = msgEl ? [msgEl.style.getPropertyValue("padding-inline-end"), msgEl.style.getPropertyPriority("padding-inline-end")] : null;
+    const msgPadBase = msgWin && msgEl.isConnected ? parseFloat(msgWin.getComputedStyle(msgEl).paddingInlineEnd) || 0 : 0;
+    let msgEndNarrow = showing ? null : msgEnd();
     const lineVars = ["--mc-list-right", "--mc-lh-right"];
     const lineOf = () => lineVars.map(v => parseFloat(barTarget(d).style.getPropertyValue(v)));
     const lineFrom = lineOf();
@@ -1275,6 +1294,7 @@ class EnhancerKalender {
       }
       // Endmaß der Mailliste (die Pane liegt noch im Fluss)
       listToNow();
+      msgEndNarrow = msgEnd();
     }
     panel.__mcAnimating = true;
     panel.setAttribute("data-mc-anim", "true"); // Mindestbreite (CSS) solange aussetzen
@@ -1312,6 +1332,8 @@ class EnhancerKalender {
     const codeFollow = codeNarrow && codeWide && Math.abs(codeWide - codeNarrow) >= 1 ? bannerEl("mcCodeBanner") : null;
     const stackWide = stackNarrow ? stackEl()?.getBoundingClientRect().width || null : null;
     const stackFollow = stackNarrow && stackWide && Math.abs(stackWide - stackNarrow) >= 1 ? stackEl() : null;
+    const msgEndWide = msgEndNarrow != null ? msgEnd() : null;
+    const msgEdgeRide = msgEndWide != null && msgEndWide - msgEndNarrow >= 1;
     const moveBanner = value => {
       const share = Math.min(1, Math.max(0, value / full));
       for (const [el, wide, narrow] of [[bannerFollow, bannerWide, bannerNarrow], [codeFollow, codeWide, codeNarrow], [stackFollow, stackWide, stackNarrow]]) {
@@ -1438,6 +1460,13 @@ class EnhancerKalender {
           msgEl.style.transform = Math.abs(shift) >= 1 ? `translateX(${((msgRtl ? -1 : 1) * shift).toFixed(2)}px)` : "";
         }
       }
+      if (msgEdgeRide && msgEl.isConnected) {
+        // Ziel: Endkante mit Pane (ganz eingeblendet) bis ohne Pane, im Anteil ihrer Breite; gemessen samt Verschiebung
+        // der Mail oben, der Innenabstand ändert die Außenkante nicht
+        const share = Math.min(1, Math.max(0, value / full));
+        const extra = Math.max(0, (msgEnd() ?? msgEndWide) - (msgEndWide - (msgEndWide - msgEndNarrow) * share));
+        msgEl.style.setProperty("padding-inline-end", `${(msgPadBase + extra).toFixed(2)}px`, "important");
+      }
     };
     if (showing) {
       setW(0);
@@ -1515,6 +1544,13 @@ class EnhancerKalender {
       listEl?.style.removeProperty("--mt-list-hold");
       if (msgRide) {
         msgEl.style.removeProperty("transform");
+      }
+      if (msgEdgeRide) {
+        if (msgPadSaved[0]) {
+          msgEl.style.setProperty("padding-inline-end", ...msgPadSaved);
+        } else {
+          msgEl.style.removeProperty("padding-inline-end");
+        }
       }
       delete panel.__mcListRide;
       // Toolbar einmal neu anordnen (während der Animation ausgesetzt)

@@ -11600,6 +11600,46 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Mail: mit gewählter Mail und Today-Pane (1500 px und kleiner Bildschirm) läuft der Mailbereich nicht unter die Pane, Hinweiskarte rechts mit gleichem Abstand wie links; Mailliste gibt nach und hat ohne Pane wieder ihre Breite, beim Ein-/Ausblenden gleiten Liste, Knöpfe und Trennlinie ohne Sprung", mail_not_under_today, results)
 
+    def mail_follows_today():
+        # Geöffnete Mail beim Ein-/Ausblenden der Today-Pane: Die Pane lag nur über der Mail, deren rechte Seite (Datum,
+        # Knöpfe, Zeilenumbruch) sprang am Ende des Einblendens bzw. am Anfang des Ausblendens um die ganze Breite der
+        # Pane. Jetzt folgt die Endkante der Mail der Pane Bild für Bild: Abstand Datum → Kante der Pane bleibt in jedem
+        # Bild gleich, auch wenn die Mailliste nachgibt (1500 px) und wenn sie ihre Breite behält (1900 px)
+        res = m.js(MESSAGE_JS + r"""
+          const tpWas = !!w.TodayPane?.isVisible, out = {}, off = () => a3.browsingContext.embedderElement.getBoundingClientRect().left;
+          const gap = () => {
+            const mb = a3.messageBrowser, dl = mb.contentDocument.getElementById("dateLabel"), r = dl?.getBoundingClientRect();
+            if (!r?.width) return null;
+            const right = off() + mb.getBoundingClientRect().left + r.right;
+            const edge = w.TodayPane?.isVisible || d.getElementById("today-pane-panel").__mcAnimating ? d.getElementById("today-pane-panel").getBoundingClientRect().left : w.innerWidth;
+            return Math.round((edge - right) * 10) / 10;
+          };
+          const toggle = async on => {
+            if (!!w.TodayPane?.isVisible == on) return null;
+            const frames = [];
+            let run = true; const loop = () => { if (!run) return; frames.push(gap()); w.requestAnimationFrame(loop); };
+            d.getElementById("mcTodayToggle").click(); w.requestAnimationFrame(loop);
+            await bis(() => !!w.TodayPane?.isVisible == on && !d.getElementById("today-pane-panel").__mcAnimating, "Today-Pane " + on, 4000);
+            await ruhig(400); run = false;
+            const end = gap(), seen = frames.filter(x => x != null);
+            return { n: seen.length, end, abw: Math.round(Math.max(...seen.map(x => Math.abs(x - end))) * 10) / 10 };
+          };
+          try {
+            for (const width of [1500, 1900]) {
+              w.resizeTo(width, 900); await until(() => w.outerWidth == width, 3000); await ruhig(400);
+              await toggle(false); await stabil(gap, 3000);
+              out["ein" + width] = await toggle(true);
+              out["aus" + width] = await toggle(false);
+            }
+          } finally {
+            w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000); if (!!w.TodayPane?.isVisible != tpWas) await toggle(tpWas);
+          }
+          return out;""")
+        ok = all(res.get(k) and res[k]["n"] >= 5 and res[k]["end"] is not None and res[k]["abw"] <= 3
+                 for k in ("ein1500", "aus1500", "ein1900", "aus1900"))
+        return ok, f"{res}"
+    check("Today-Pane: beim Ein-/Ausblenden folgt die geöffnete Mail der Kante der Pane Bild für Bild (Datum rechts mit gleichem Abstand, kein Sprung am Ende), mit nachgebender und mit fester Mailliste", mail_follows_today, results)
+
     def ab_sidebar_frames():
         # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
         # einblenden – keine verlorenen Bilder (Abstand über dem 1,6-Fachen des üblichen) und kein Sprung der Bücherliste

@@ -68,17 +68,31 @@ test("Suchvorschläge: Personen zuerst (jede Adresse einmal, höchstens drei), d
   const personen = [{ name: "Anna Beispiel", address: "anna@example.invalid" }, { name: "Beispiel, Anna", address: "ANNA@example.invalid" },
     { name: "", address: "bert@example.invalid" }, { name: "Liste", address: "Liste" }, { name: "Cleo", address: "cleo@example.invalid" },
     { name: "Dora", address: "dora@example.invalid" }];
-  const zeilen = Array.from(searchSuggestRows(" an ", personen, ["Anna Rechnung", "an", "Plan", "anderes", "Kanne", "wand", "x"]), z => ({ ...z }));
+  const zeilen = Array.from(searchSuggestRows(" an ", personen, ["Anna Rechnung", "an", "Plan", "anderes", "Kanne", "wand", "x"]), z => ({ ...z, ...(z.addresses && { addresses: [...z.addresses] }) }));
   assert.deepEqual(zeilen.slice(0, 5), [
-    { kind: "person", value: "anna@example.invalid", name: "Anna Beispiel" },
-    { kind: "person", value: "bert@example.invalid", name: "bert@example.invalid" },
-    { kind: "person", value: "cleo@example.invalid", name: "Cleo" },
+    { kind: "person", value: "anna@example.invalid", name: "Anna Beispiel", addresses: ["anna@example.invalid"] },
+    { kind: "person", value: "bert@example.invalid", name: "bert@example.invalid", addresses: ["bert@example.invalid"] },
+    { kind: "person", value: "cleo@example.invalid", name: "Cleo", addresses: ["cleo@example.invalid"] },
     { kind: "subject", value: "an" },
     { kind: "body", value: "an" },
   ]);
   // frühere Suchen: nur was den Text enthält, nicht der Text selbst, insgesamt höchstens acht Zeilen
   assert.deepEqual(zeilen.slice(5).map(z => [z.kind, z.value]), [["recent", "Anna Rechnung"], ["recent", "Plan"], ["recent", "anderes"]]);
   assert.equal(zeilen.length, 8);
+});
+
+test("Suchvorschläge: dieselbe Person mit mehreren Adressen nur einmal, mit allen Adressen; die Kapsel sucht dann nach dem Namen", () => {
+  const { searchSuggestRows, searchFilterSpecs } = lade();
+  const personen = [{ name: "Marta Muster", address: "marta@eins.example.invalid" }, { name: "marta muster ", address: "marta@zwei.example.invalid" },
+    { name: "Mark", address: "mark@example.invalid" }, { name: "", address: "m@example.invalid" }, { name: "Mia", address: "mia@example.invalid" },
+    { name: "Marta Muster", address: "marta@drei.example.invalid" }, { name: "", address: "m2@example.invalid" }];
+  const zeilen = Array.from(searchSuggestRows("mar", personen), z => ({ ...z, addresses: [...z.addresses || []] }));
+  assert.deepEqual(zeilen.filter(z => z.kind == "person").map(z => [z.name, z.addresses.join()]), [
+    ["Marta Muster", "marta@eins.example.invalid,marta@zwei.example.invalid,marta@drei.example.invalid"],
+    ["Mark", "mark@example.invalid"], ["m@example.invalid", "m@example.invalid"]]);
+  const marta = { kind: "person", field: "from", value: zeilen[0].value, name: zeilen[0].name, addresses: zeilen[0].addresses };
+  assert.deepEqual(Array.from(searchFilterSpecs([marta, { ...marta, field: "to" }, { kind: "person", field: "any", value: "mark@example.invalid", name: "Mark", addresses: ["mark@example.invalid"] }]),
+    s => [s.attrib, s.value]), [["Sender", "Marta Muster"], ["ToOrCC", "Marta Muster"], ["AllAddresses", "mark@example.invalid"]]);
 });
 
 test("Suchvorschläge: leerer Text ohne Zeilen, ohne Personen nur Betreff und Text", () => {

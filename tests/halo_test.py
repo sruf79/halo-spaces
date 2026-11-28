@@ -23587,7 +23587,7 @@ Neu
 
     def search_suggest():
         # Mail-Suche: beim Tippen ein Vorschlagsmenü unter dem Suchfeld zum Eingrenzen (Personen aus dem Adressbuch,
-        # „Subject contains“, „Message contains“, frühere Suchen); ↓ ↑ wählen, ↩ übernimmt die Wahl als graue Kapsel
+        # „Subject contains“, „Message contains“, frühere Suchen; dieselbe Person mit mehreren Adressen nur einmal); ↓ ↑ wählen, ↩ übernimmt die Wahl als graue Kapsel
         # ins Feld, ⎋ schließt nur das Menü, ⌫ am Feldanfang und das × entfernen Kapseln; Klick auf die Kapsel wechselt
         # den Bereich (Subject/Message bzw. From/To/Any). Kapseln und freier Text müssen gemeinsam zutreffen
         res = m.js(r"""
@@ -23605,7 +23605,9 @@ Neu
             lv.addMessage(mail("Halo anderes", "sv-2", { body: "Der Kolibri fliegt." }));
             lv.addMessage(mail("Halo Kolibri Angebot", "sv-3", { from: bert, to: anna }));
             lv.addMessage(mail("Halo Gruss", "sv-4", { to: bert }));
-            await bis(() => V.getTotalMessages(false) >= 4, "Testmails gespeichert", 4000); await ruhig(1000);
+            // dieselbe Person mit zweiter Adresse (zweite Adresse im Kontakt): eine Zeile im Menü, die Kapsel trifft beide
+            lv.addMessage(mail("Halo Zweitadresse", "sv-5", { from: "Vera Suchfeld <vera2@zweit.example.invalid>" }));
+            await bis(() => V.getTotalMessages(false) >= 5, "Testmails gespeichert", 4000); await ruhig(1000);
           }
           const a3 = await toMail(); const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
           const input = bar.shadowRoot.querySelector("input"), html = a3.document.documentElement;
@@ -23626,10 +23628,11 @@ Neu
           const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
           let card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
           card.setProperty("FirstName", "Vera"); card.setProperty("LastName", "Suchfeld"); card.displayName = "Vera Suchfeld"; card.primaryEmail = "vera@suche.example.invalid";
+          card.setProperty("SecondEmail", "vera2@zweit.example.invalid");
           card = book.addCard(card);
           Services.prefs.clearUserPref("extensions.mailcards.searchRecent");
           try {
-            a3.displayFolder(V.URI); await bis(() => a3.gFolder?.URI == V.URI && a3.gDBView?.rowCount >= 4, "SucheV offen"); await ruhig(600);
+            a3.displayFolder(V.URI); await bis(() => a3.gFolder?.URI == V.URI && a3.gDBView?.rowCount >= 5, "SucheV offen"); await ruhig(600);
             // 0. Fokus schon im Feld, das Feld aber nur die Lupe (unter Linux in der CI: kein focusin, das es öffnet) – Tippen
             // öffnet es trotzdem, sonst tippt man in 40 px, und die Kapsel steht außerhalb des Felds
             const li = bar.closest("li"), content = d.getElementById("unifiedToolbarContent");
@@ -23676,7 +23679,7 @@ Neu
             await bis(() => a3.gFolder?.URI == V.URI, "zurück im Ordner nach ⌫", 6000); await ruhig(600); out.capsAfterBs = caps().length; out.attrAfterBs = bar.hasAttribute("mc-caps");
             // 7. Person aus dem Adressbuch: nur der Name, als Kapsel „From“; To und Any über das Menü der Kapsel
             type("vera"); await bis(() => panel.state == "open" && rows().some(r => r.startsWith("person:")), "Personenzeile", 6000); await ruhig(400);
-            out.rowsAnna = rows(); key("ArrowDown"); key("Enter");
+            await ruhig(500); out.rowsAnna = rows(); key("ArrowDown"); key("Enter");
             await bis(() => caps().length == 1, "Personen-Kapsel"); await fertig("From"); out.capFrom = caps(); out.from = hits();
             out.menu2 = await choose("To"); await fertig("To"); out.capTo = caps(); out.to = hits();
             await choose("Any"); await fertig("Any"); out.any = hits();
@@ -23709,8 +23712,9 @@ Neu
               and res.get("both") == "sv-1" and res.get("capOnly") == "sv-1,sv-3"
               and res.get("menu1") == "Subject*,Message" and res.get("cap2") == ["Message|kolibri"] and res.get("body") == "sv-2"
               and res.get("bsStop") and res.get("capsAfterBs") == 0 and res.get("attrAfterBs") is False
-              and (res.get("rowsAnna") or [""])[0] == "person:Vera Suchfeld" and res.get("capFrom") == ["From|Vera Suchfeld"] and res.get("from") == "sv-1,sv-2,sv-4"
-              and res.get("menu2") == "From*,To,Any" and res.get("capTo") == ["To|Vera Suchfeld"] and res.get("to") == "sv-3" and res.get("any") == "sv-1,sv-2,sv-3,sv-4"
+              and [r for r in (res.get("rowsAnna") or []) if r.startswith("person:")] == ["person:Vera Suchfeld"]
+              and res.get("capFrom") == ["From|Vera Suchfeld"] and res.get("from") == "sv-1,sv-2,sv-4,sv-5"
+              and res.get("menu2") == "From*,To,Any" and res.get("capTo") == ["To|Vera Suchfeld"] and res.get("to") == "sv-3" and res.get("any") == "sv-1,sv-2,sv-3,sv-4,sv-5"
               and res.get("fromText") == "sv-1,sv-2" and "recent:rechnung" in (res.get("rowsRecent") or [])
               and res.get("xShown") == "block" and res.get("end") == {"caps": 0, "text": "", "panel": "closed", "attr": False})
         return ok, f"{res}"

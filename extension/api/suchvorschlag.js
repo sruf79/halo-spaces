@@ -31,7 +31,9 @@ const SEARCH_PERSON_FIELDS = {
 };
 
 // Zeilen des Vorschlagsmenüs zum getippten Text: zuerst Personen (jede
-// Adresse nur einmal, höchstens drei, nur der Name), dann „Subject contains“
+// Adresse nur einmal, eine Zeile je Name – dieselbe Person mit mehreren
+// Adressen, aus mehreren Adressbüchern oder gesammelten Adressen erscheint
+// nur einmal –, höchstens drei, nur der Name), dann „Subject contains“
 // und „Message contains“, zuletzt frühere Suchen, die den Text enthalten
 function searchSuggestRows(text, persons = [], recent = [], max = SEARCH_SUGGEST_MAX) {
   const term = (text || "").trim();
@@ -40,6 +42,7 @@ function searchSuggestRows(text, persons = [], recent = [], max = SEARCH_SUGGEST
   }
   const rows = [];
   const seen = new Set();
+  const byName = new Map();
   for (const p of persons || []) {
     const address = (p?.address || "").trim();
     const key = address.toLowerCase();
@@ -47,9 +50,19 @@ function searchSuggestRows(text, persons = [], recent = [], max = SEARCH_SUGGEST
       continue;
     }
     seen.add(key);
-    rows.push({ kind: "person", value: address, name: (p.name || "").trim() || address });
-    if (seen.size >= SEARCH_SUGGEST_PERSONS) {
-      break;
+    const name = (p.name || "").trim();
+    const same = name && byName.get(name.toLowerCase());
+    if (same) {
+      same.addresses.push(address);
+      continue;
+    }
+    if (rows.length >= SEARCH_SUGGEST_PERSONS) {
+      continue; // (weitere Adressen schon gezeigter Personen zählen noch)
+    }
+    const row = { kind: "person", value: address, name: name || address, addresses: [address] };
+    rows.push(row);
+    if (name) {
+      byName.set(name.toLowerCase(), row);
     }
   }
   rows.push({ kind: "subject", value: term });
@@ -82,7 +95,11 @@ function searchRecentAdd(list, text, max = SEARCH_RECENT_MAX) {
 function searchFilterSpecs(filters) {
   const specs = [];
   for (const f of filters || []) {
-    const value = (f?.value || "").trim();
+    // eine Person mit mehreren Adressen: nach dem Namen suchen (Thunderbird
+    // vergleicht bei From/To/Any Name und Adresse); eine ODER-Gruppe der
+    // Adressen ginge nicht, Suchordner speichern die Bedingungen ohne Klammern
+    const several = f?.kind == "person" && Array.isArray(f.addresses) && f.addresses.length > 1 && (f.name || "").trim();
+    const value = (several || f?.value || "").trim();
     const attrib = f?.kind == "person" ? (SEARCH_PERSON_FIELDS[f.field] || SEARCH_PERSON_FIELDS.from).attrib
       : SEARCH_FILTER_KINDS[f?.kind]?.attrib;
     if (value && attrib) {
@@ -448,7 +465,7 @@ class EnhancerSuchvorschlag {
         this.setSearchFilters(w, this.mailSearchFilters || [], row.value);
         return;
       }
-      const filter = row.kind == "person" ? { kind: "person", field: "from", value: row.value, name: row.name } : { kind: row.kind, value: row.value };
+      const filter = row.kind == "person" ? { kind: "person", field: "from", value: row.value, name: row.name, addresses: row.addresses } : { kind: row.kind, value: row.value };
       field.value = "";
       this.setSearchFilters(w, [...(this.mailSearchFilters || []), filter], "");
     };

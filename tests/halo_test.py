@@ -8660,8 +8660,12 @@ def calendar_checks(m, results):
         # Today-Pane: Tagesspalte (ca. 38 px) eines Tags mit nur einem Eintrag ragte bis auf 2–6 px an den nächsten Tag
         res = m.js(CAL_CHECK_JS + r"""
           const c = testCalendar(); const added = [];
+          // die Liste reicht nur bis zum Monatsende (hookAgendaMonthRange): in den letzten Tagen
+          // des Monats die drei Termine vor heute legen, sonst fielen sie in den nächsten Monat
+          const t0 = today(); const last = new Date(t0.year, t0.month + 1, 0).getDate();
+          const base = t0.day + 4 <= last ? 2 : -4;
           try {
-            for (const [dd, title] of [[2, "Halo Agenda Einzeltag"], [3, "Halo Agenda Folgetag"], [4, "Halo Agenda Drittag"]]) {
+            for (const [dd, title] of [[base, "Halo Agenda Einzeltag"], [base + 1, "Halo Agenda Folgetag"], [base + 2, "Halo Agenda Drittag"]]) {
               const e = new CalEvent(); e.title = title; e.calendar = c; const s = today(); s.day += dd; const en = s.clone(); en.day += 1;
               e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); }
             await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();

@@ -74,8 +74,13 @@ LETZT=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)
 [[ -z $VOLLDAMPF && $(git log -1 --format=%cd --date=format-local:%F $LETZT) == $HEUTE ]] && abbruch "heute schon ein Release ($LETZT)"
 # Stand: main, sauber, origin/main enthalten, darüber nur Commits ohne Thunderbird-Änderung
 # im Volldampf auch der Worktree-Zweig des Wächters (Upstream origin/main, tests/zwischen-schleife.zsh)
-[[ $(git rev-parse --abbrev-ref HEAD) == main || ( -n $VOLLDAMPF && $(git rev-parse --abbrev-ref @{upstream} 2>/dev/null) == origin/main ) ]] \
-  || abbruch "nicht auf Zweig main"
+# mit HALO_RELEASE_WORKTREE=1 (tests/release-worktree.zsh, Umbau P5) ein eigener Worktree auf origin/main statt main
+if [[ $HALO_RELEASE_WORKTREE == 1 ]]; then
+  RW=$(zsh tests/release-worktree.zsh pruefen) || abbruch "${RW#ABBRUCH: }"
+else
+  [[ $(git rev-parse --abbrev-ref HEAD) == main || ( -n $VOLLDAMPF && $(git rev-parse --abbrev-ref @{upstream} 2>/dev/null) == origin/main ) ]] \
+    || abbruch "nicht auf Zweig main"
+fi
 [[ -z $(git status --porcelain --untracked-files=no) ]] || abbruch "ungespeicherte Änderungen im Repo"
 git merge-base --is-ancestor origin/main HEAD || abbruch "origin/main ist nicht in main enthalten (erst abgleichen)"
 zsh tests/ci-noetig.sh origin/main HEAD && abbruch "lokale Commits über origin/main ändern Thunderbird (ungeprüft, der Nachtlauf nimmt sie mit)"

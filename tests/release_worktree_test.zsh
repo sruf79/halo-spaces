@@ -176,4 +176,62 @@ pruefe "keine Sperre entfernt (Testmarke, NUR_CI, Zeitfenster, ein Release pro T
   "$(grep -c 'ABBRUCH: keine Testmarke' $HIER/../publish.sh; grep -c 'NUR_CI\" && -z \"\$CI_OK\" ]] && fehlschlag' $HIER/../release.sh; grep -c 'nur zwischen 09:00 und 22:00' $HIER/release-unter-tage.sh; grep -c 'heute schon ein Release' $HIER/release-unter-tage.sh)" \
   '^1$' '^1$' '^1$' '^2$'
 
+# --- publish.sh komplett durchlaufen lassen, OHNE und MIT Schalter (Attrappen): gh release create muss kommen ---
+# (91e4ca12 brach ohne Schalter unter set -e nach dem Push ab, vor gh release create; die Fälle oben liefen nur mit Schalter)
+mkdir -p $T/bin2
+cat > $T/bin2/gh <<'G'
+#!/bin/zsh
+print -r -- "gh $*" >> $PROBE_GHLOG
+G
+cat > $T/bin2/curl <<'C'
+#!/bin/zsh
+for a; do U=$a; done
+case $U in
+  *releases/download/*) cat $PROBE_XPI ;;
+  *updates.json*) git -C $PROBE_ORIGIN show main:updates.json ;;
+  *) exit 22 ;;
+esac
+C
+chmod +x $T/bin2/gh $T/bin2/curl
+VOLL() {   # <name> <Schalter 1|leer> <version> → Ausgabe von publish.sh, rc=…, gh-Protokoll, letzter Commit auf origin
+  local n=$1 sch=$2 v=$3 O=$T/o-$1.git C=$T/c-$1 D h
+  git clone -q --bare $T/origin.git $O
+  git clone -q $O $C
+  cp $H/repo.conf $C/repo.conf
+  D=$C
+  if [[ $sch == 1 ]]; then
+    D=$T/w-$n
+    HALO_REPO=$C HALO_RW_ZIEL=$D zsh $C/tests/release-worktree.zsh anlegen $v >/dev/null 2>&1 || print anlegen-gescheitert
+  fi
+  mkdir -p $D/dist
+  print -r -- "paket $v" > $D/dist/halo-spaces-$v.xpi
+  h=$(shasum -a 256 $D/dist/halo-spaces-$v.xpi | cut -d' ' -f1)
+  python3 - $D $h $v <<'PY'
+import json, sys
+w, h, v = sys.argv[1:4]
+p = w + "/extension/manifest.json"; m = json.load(open(p)); m["version"] = v; json.dump(m, open(p, "w"))
+json.dump({"addons": {"probe@example.invalid": {"updates": [{"version": v,
+  "update_link": "https://github.com/probe/attrappe/releases/download/v%s/halo-spaces-%s.xpi" % (v, v),
+  "update_hash": "sha256:" + h}]}}}, open(w + "/updates.json", "w"))
+PY
+  print -l version=$v sha256=$h zeit=probe 'test=Probe' > $D/dist/release-$v.ok
+  mkdir -p $T/home-$n
+  (cd $D && HALO_RELEASE_WORKTREE=$sch HOME=$T/home-$n PATH=$T/bin2:$PATH PROBE_GHLOG=$T/gh-$n.log \
+     PROBE_XPI=$D/dist/halo-spaces-$v.xpi PROBE_ORIGIN=$O zsh ./publish.sh $v $T/notes.md 2>&1; print rc=$?)
+  print -r -- "--- gh:"; cat $T/gh-$n.log 2>/dev/null
+  print -r -- "--- origin:"; git -C $O log -1 --format=%s main
+}
+pruefe "publish.sh OHNE Schalter komplett: Push, gh release create, Hash und Update-Liste geprüft" "$(VOLL ohne '' 1.2.0)" \
+  '^gh release create v1\.2\.0 dist/halo-spaces-1\.2\.0\.xpi --repo probe/attrappe' '^halo\.spaces 1\.2\.0$' \
+  'Veröffentlicht – Hash geprüft' 'Update-Liste geprüft' '^rc=0$'
+pruefe "Bericht OHNE Schalter: veröffentlicht, gepusht auf main ohne Worktree-Vermerk, Release angelegt" \
+  "$(cat $T/home-ohne/halo-berichte/*-halo.spaces-1.2.0.md 2>&1)" '^# halo\.spaces 1\.2\.0 – veröffentlicht$' \
+  '^- gepusht: [0-9a-f]+ auf main$' '^- GitHub-Release v1\.2\.0 angelegt'
+pruefe "publish.sh MIT Schalter komplett: Push, gh release create, Hash und Update-Liste geprüft" "$(VOLL mit 1 1.3.0)" \
+  '^gh release create v1\.3\.0 dist/halo-spaces-1\.3\.0\.xpi --repo probe/attrappe' '^halo\.spaces 1\.3\.0$' \
+  'Veröffentlicht – Hash geprüft' 'Update-Liste geprüft' '^rc=0$'
+pruefe "Bericht MIT Schalter: veröffentlicht, gepusht auf rel/1.3.0 mit Worktree-Vermerk" \
+  "$(cat $T/home-mit/halo-berichte/*-halo.spaces-1.3.0.md 2>&1)" '^# halo\.spaces 1\.3\.0 – veröffentlicht$' \
+  '^- gepusht: [0-9a-f]+ auf rel/1\.3\.0 \(Worktree .*w-mit, Upstream origin/main\)$' '^- GitHub-Release v1\.3\.0 angelegt'
+
 exit $FEHLER

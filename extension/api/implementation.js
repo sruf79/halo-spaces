@@ -8294,6 +8294,9 @@ class CardEnhancer {
             const iw = doc.defaultView;
             iw.addEventListener("load", () => {
               try {
+                iw.browsingContext?.topChromeWindow?.__mcMarkImportTab?.();
+              } catch {}
+              try {
                 PstImport.hookWizard(iw);
               } catch (e) {
                 log("pst wizard error", e);
@@ -12031,6 +12034,17 @@ class CardEnhancer {
         tab.browser?.contentDocument?.documentElement?.toggleAttribute("mc-search", has);
       }
     };
+    // Import/Export-Tab (about:import): mc-import am Fenster, dort entfällt
+    // das Suchfeld im Kopf (spaces.css)
+    const markImportTab = () => {
+      if (w.closed) {
+        return;
+      }
+      const info = w.document.getElementById("tabmail")?.currentTabInfo;
+      const spec = info?.mode?.name == "contentTab" ? info.browser?.currentURI?.spec || "" : "";
+      w.document.documentElement.toggleAttribute("mc-import", spec.startsWith("about:import"));
+    };
+    w.__mcMarkImportTab = markImportTab;
     const markTab = () => {
       hookSearchForwarding();
       hookSuggestWidth();
@@ -12092,6 +12106,8 @@ class CardEnhancer {
         mode == "mail3PaneTab" || mode == "mailMessageTab"
       );
       w.document.documentElement.setAttribute("mc-tab", mode || "");
+      markImportTab();
+      w.setTimeout(markImportTab, 400); // Adresse des neuen Tabs steht evtl. erst später
       markSearch();
       if (mode == "calendar") {
         w.document.getElementById("month-view")?.__mcMoreRefresh?.();
@@ -15564,6 +15580,7 @@ class CardEnhancer {
     w.addEventListener("unload", () => this.mainWindows.delete(w), { once: true });
     this.restorers.push(() => w.document.documentElement.removeAttribute("mc-mail"));
     this.restorers.push(() => w.document.documentElement.removeAttribute("mc-tab"));
+    this.restorers.push(() => { w.document.documentElement.removeAttribute("mc-import"); delete w.__mcMarkImportTab; });
     this.restorers.push(() => w.clearInterval(interval));
   }
 

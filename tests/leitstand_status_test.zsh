@@ -438,6 +438,61 @@ pruefe "zuletzt: Runde nennt Einträge (zwei + n weitere), Worker seinen Eintrag
 rm -f $T/d/quellen/board48.json $T/n/*.log; lauf
 pruefe "zuletzt: fehlende Quellen → nur diese Arten fehlen" '[.zuletzt[] | .art] == ["release"]'
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
+ok_wenn() {   # <Name> <Befehl …>
+  local name=$1; shift; if "$@"; then print "OK      $name"; else print "FEHLER  $name"; FEHLER=1; fi }
+# Hilfen aus dem Skript (HALO_LS_NUR_HILFEN: nur Funktionen und Refspecs, keine Sperre, kein Sammeln)
+hilfen() { HALO_LS_NUR_HILFEN=1 HALO_LS_DIR=$T/h source $HIER/leitstand-status.zsh }
+# Punkt 8 (28.11.2026): eigener Klon behält origin/main über mehrere fetch mit --prune (vorher jeder zweite Lauf ohne Ref),
+# mit und ohne neuen Commit auf main; nur lokale Repos, kein Netz
+klon_probe() {
+  ( hilfen
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+    U=$T/klon/up G=$T/klon/g; mkdir -p $T/klon
+    git init -q -b main $U && git -C $U config uploadpack.allowfilter true && git -C $U commit -q --allow-empty -m a \
+      && git -C $U branch pruef/x && git -C $U tag v1 || exit 1
+    git init -q --bare $G && git -C $G remote add origin file://$U && git -C $G config remote.origin.promisor true \
+      && git -C $G config remote.origin.partialclonefilter blob:none || exit 1
+    for i in 1 2 3 4 5; do
+      (( i % 2 )) && git -C $U commit -q --allow-empty -m n$i
+      git -C $G fetch -q --prune --filter=blob:none origin $HOLEN_REFS 2>>$T/fehler.txt || exit 1
+      [[ $(git -C $G rev-parse -q --verify origin/main) == $(git -C $U rev-parse main) ]] || exit 1
+      git -C $G rev-list --count origin/main >/dev/null 2>>$T/fehler.txt || exit 1
+    done
+    git -C $G rev-parse -q --verify refs/remotes/origin/pruef/x >/dev/null && git -C $G rev-parse -q --verify refs/tags/v1 >/dev/null )
+}
+ok_wenn "Klon: origin/main bleibt über 5 fetch mit --prune (Prüfzweige und Tags mit)" klon_probe
+ok_wenn "Klon: fetch im Skript nutzt HOLEN_REFS, keine Kurzform +main:" \
+  eval "grep -q 'origin \$HOLEN_REFS' $HIER/leitstand-status.zsh && ! grep -q \"origin +main:\" $HIER/leitstand-status.zsh"
+# Punkt 9 (28.11.2026): Zugangsdaten im Fehlertext maskiert
+mask_probe() {
+  local aus
+  aus=$( ( hilfen; print -r -- 'Authorization: Basic QUJDREVGR0g=
+authorization=Bearer geheim1
+GH_TOKEN=geheim2 weiter
+remote: ghp_AAAA1111 gho_BBBB2222 ghs_CCCC3333 ghu_DDDD4444 ghr_EEEE5555 github_pat_FFFF_6666
+fatal: token geheim3 abgelehnt; Bearer geheim4 ebenso
+https://x-access-token:geheim5@github.com/sruf79/halo-status.git
+remote: Internal Server Error' | maskiere ) )
+  [[ $aus != *(QUJDREVGR0g|geheim|AAAA1111|BBBB2222|CCCC3333|DDDD4444|EEEE5555|FFFF_6666)* ]] || { print -r -- $aus >> $T/fehler.txt; return 1 }
+  [[ $aus == *"GH_TOKEN=*** weiter"* && $aus == *"token *** abgelehnt; Bearer *** ebenso"* && $aus == *"remote: Internal Server Error"* \
+     && $aus == *"https://***@github.com/sruf79/halo-status.git"* ]]
+}
+ok_wenn "Push-Fehler: Zugangsdaten maskiert, übriger Text bleibt" mask_probe
+# Push-Fehler: Fehlertext ins Protokoll, genau eine Wiederholung (Pause im Test 0 s statt 20 s)
+wdh_probe() {   # <Fälle bis Erfolg (1 = sofort Erfolg, 3 = nie)> <erwarteter Exitcode> <erwartete Fehlerzeilen> <erwartete Aufrufe>
+  ( hilfen; LOG=$T/wdh.log; : > $LOG; : > $T/wdh.n
+    falsch() { print x >> $T/wdh.n; (( $(wc -l < $T/wdh.n) >= $1 )) && return 0
+      print -r -- "remote: Internal Server Error ghp_GEHEIM9999" >&2; print -r -- "error: failed to push token geheimX" >&2; return 1 }
+    HALO_LS_PUSH_PAUSE=0 mit_wiederholung "Push nach test/repo" falsch $1; rc=$?
+    (( rc == $2 )) && (( $(grep -cE '^20[0-9-]+ [0-9:]+ FEHLER Push nach test/repo \(Versuch [12]/2\): remote: Internal Server Error \*\*\* \| error: failed to push token \*\*\*$' $LOG) == $3 )) \
+      && (( $(wc -l < $T/wdh.n) == $4 )) && ! grep -q GEHEIM $LOG && ! grep -q geheimX $LOG ) || { cat $T/wdh.log >> $T/fehler.txt 2>/dev/null; return 1 }
+}
+ok_wenn "Push: Erfolg beim ersten Versuch → keine Zeile, ein Aufruf" wdh_probe 1 0 0 1
+ok_wenn "Push: Fehler, dann Erfolg → eine maskierte Zeile, zwei Aufrufe" wdh_probe 2 0 1 2
+ok_wenn "Push: zweimal Fehler → zwei maskierte Zeilen, Exitcode 1, nicht öfter als zweimal" wdh_probe 3 1 2 2
+ok_wenn "Push: Pause vor der Wiederholung 20 Sekunden" grep -q 'sleep ${HALO_LS_PUSH_PAUSE:-20}' $HIER/leitstand-status.zsh
+ok_wenn "Push nach halo-status läuft über mit_wiederholung" grep -q 'mit_wiederholung "Push nach $STATUS_REPO" git' $HIER/leitstand-status.zsh
+(( FEHLER )) && { print -r -- "--- stderr (Punkte 8/9):"; tail -20 $T/fehler.txt; }
 # Soll der Kalenderwoche (Maintainer 20.11.2026): Leitstand nimmt kalender_soll mit kontingent.json, nicht mehr wochen_soll
 if grep -q 'kalender_soll \$KJ' $HIER/leitstand-status.zsh && ! grep -q 'wochen_soll 168' $HIER/leitstand-status.zsh; then print "OK      Soll aus kalender_soll (Kalenderwoche, resetsAt)"
 else print "FEHLER  Soll aus kalender_soll (Kalenderwoche, resetsAt)"; FEHLER=1; fi

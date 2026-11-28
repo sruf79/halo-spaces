@@ -56,6 +56,8 @@ export HALO_LAUF=tagesroutine
 #   Ein leerer Plan ist ebenfalls kein Ende (Berichtigung von neon 14.11.2026): warten wie oben, Bericht
 #   „Plan-Runde n: 0 Einträge, nächste Planung HH:00“. Ende nur nach LETZTER_BEGINN oder nach 3 Plan-Runden
 #   hintereinander mit Einträgen, aber ohne erledigten (leere Pläne zählen nicht; nach_plan).
+#   Nach einem leeren Plan wird die nächste Plan-Runde ohne Claude ausgelassen, solange sich nichts geändert hat
+#   (Fingerabdruck, plan_fingerabdruck; Logikprüfung 27.11.2026 Punkt 7), spätestens nach 4 Stunden wieder echt.
 # Häufung (Maintainer 14.11.2026, „der automatismus soll natürlich bei der tagesroutine und auch bei der
 #   nachtroutine automatisch eingesetzt werden“): vor jeder Plan-Runde (auch beim stündlichen Neuplanen)
 #   tests/haeufung.py; Gruppen und Zuschläge aus ~/halo-nacht/<datum>-haeufung.md sind für den Plan verbindlich.
@@ -87,6 +89,9 @@ TROCKEN= ZAEHLEN= NICHTSPASSEND= AK_PROBE=
 [[ $1 == --arbeitskopie ]] && { AK_PROBE=$2; shift 2 }
 [[ $1 == --nachziehen ]] && { NZ_PROBE=$2; shift 2 }
 [[ $1 == --nichts-passend ]] && { NICHTSPASSEND=1; shift }
+FP_PROBE= AUSLASSEN_PROBE=()
+[[ $1 == --fingerabdruck ]] && { FP_PROBE=1; shift }
+[[ $1 == --auslassen ]] && { AUSLASSEN_PROBE=("$2" "$3" "$4"); shift 4 }
 [[ $1 == --trocken ]] && { TROCKEN=1; shift }
 [[ $1 == --zaehlen ]] && { ZAEHLEN=1; shift }
 REPO=${1:-$HOME/halo-spaces}
@@ -588,6 +593,37 @@ nach_plan() {   # <geplante Einträge> <davon erledigt> <Zähler bisher> <jetzt>
   w=$(nichts_passend_weiter $4 $5)
   [[ $w == ende ]] && print "ende $o" || print "$w $o"
 }
+# Leere Plan-Runde nicht stündlich wiederholen (Logikprüfung 27.11.2026, Punkt 7; Bericht #7, Fehler 3): nach einer
+# Plan-Runde mit 0 Einträgen merkt sich die Routine einen Fingerabdruck ihrer Eingaben. Ist er zur nächsten vollen
+# Stunde gleich, kein Claude-Aufruf, nur „Plan-Runde ausgelassen: nichts geändert“, und wieder bis zur nächsten vollen
+# Stunde warten. Spätestens 4 Stunden nach Beginn der letzten echten Plan-Runde wieder eine echte Runde (5 Minuten
+# Spiel, weil das Warten erst bis zu 2 Minuten nach der vollen Stunde endet). Die Regel vom 14.11. („leerer Plan ist
+# kein Ende“) bleibt: es wird nur nicht doppelt geplant.
+# plan_fingerabdruck: Häufung (~/halo-nacht/<datum>-haeufung.md ohne die Erzeugungszeit), Stand von origin/main (vorher
+# git fetch durch den Aufrufer), Inhalt des Schalters der Umbau-Woche (HALO_UMBAU_DATEI) und der Lockerung
+# (HALO_UMBAU_LOCKERUNG, wie tests/umbau-woche.py), Liste „heute erledigt“. Ausgabe: Prüfsumme (16 Zeichen).
+AUSLASSEN_MAX_S=$(( 4*3600 - 300 ))
+plan_fingerabdruck() {
+  local umbau=${HALO_UMBAU_DATEI:-$DIR/umbau-woche.txt}
+  local lockerung=${HALO_UMBAU_LOCKERUNG:-${umbau:h}/umbau-lockerung.txt}
+  {
+    print -r -- "Häufung:"
+    if [[ -r $DIR/$TAG-haeufung.md ]]; then
+      sed -E '/^Erzeugt /s/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}//' $DIR/$TAG-haeufung.md
+    else print -r -- "(fehlt)"; fi
+    print -r -- "origin/main: $(git -C $REPO rev-parse -q --verify refs/remotes/origin/main 2>/dev/null || print '(fehlt)')"
+    print -r -- "Umbau-Woche:"; cat $umbau 2>/dev/null || print -r -- "(fehlt)"
+    print -r -- "Lockerung:"; cat $lockerung 2>/dev/null || print -r -- "(fehlt)"
+    print -r -- "erledigt:"; cat $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null || print -r -- "(fehlt)"
+  } | shasum -a 256 | cut -c1-16
+}
+# plan_auslassen <Fingerabdruck der letzten leeren Runde> <Fingerabdruck jetzt> <Beginn der letzten echten Runde> <jetzt>
+# (Unix-Sekunden) → „auslassen“, „runde geändert“ (auch: kein alter oder kein neuer Abdruck) oder „runde 4 Stunden“
+plan_auslassen() {
+  [[ -n $1 && -n $2 && $1 == $2 ]] || { print "runde geändert"; return }
+  (( $4 - $3 >= AUSLASSEN_MAX_S )) && { print "runde 4 Stunden"; return }
+  print auslassen
+}
 # Text für den Trockenlauf: was nach abgearbeitetem Plan geschähe (HALO_JETZT oder jetzt)
 nichts_passend_weiter_text() {
   local j l w
@@ -606,6 +642,17 @@ j=d.datetime.fromisoformat(sys.argv[1]); h,m=map(int,sys.argv[2].split(":"))
 print(int(j.timestamp()), int(j.replace(hour=h,minute=m,second=0).timestamp()))' $HALO_JETZT $KONF[LETZTER_BEGINN] \
     | { read j l; nichts_passend_weiter $j $l }
   exit 0
+fi
+# Proben zum Auslassen leerer Plan-Runden (tests/tagesroutine_test.zsh), ohne Claude, ohne Fetch, schreiben nichts:
+#   HALO_NACHT_DIR=<Ordner> HALO_TAG=<datum> [HALO_UMBAU_DATEI=… HALO_UMBAU_LOCKERUNG=…] tagesroutine.sh --fingerabdruck <Repo>
+#   [HALO_JETZT=<ISO>] tagesroutine.sh --auslassen <Abdruck alt> <Abdruck neu> <Beginn letzte Runde, Unix-Sek.> <Repo>
+if [[ -n $FP_PROBE ]]; then
+  DIR=${HALO_NACHT_DIR:-$DIR} TAG=${HALO_TAG:-$(date +%F)}
+  plan_fingerabdruck; exit 0
+fi
+if (( $#AUSLASSEN_PROBE )); then
+  j=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()) if sys.argv[1] else int(d.datetime.now().timestamp()))' "${HALO_JETZT:-}")
+  plan_auslassen "$AUSLASSEN_PROBE[1]" "$AUSLASSEN_PROBE[2]" "$AUSLASSEN_PROBE[3]" $j; exit 0
 fi
 if [[ -n $AK_PROBE ]]; then
   LOG=/dev/stderr
@@ -693,7 +740,8 @@ if [[ -n $TROCKEN ]]; then
     print "              Arbeitskopie ${HALO_TR_WT:-~/halo-tagesroutine} auf Zweig pruef/tagesroutine-${E[TAG]//-/} (nie main), Fertiges ohne Force"
     print "              auf den gleichnamigen Prüfzweig, nach main über Zwischen-Release oder Nachtlauf; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
     print "              Plan abgearbeitet: $(nichts_passend_weiter_text);"
-    print "              leerer Plan genauso (warten, neu planen, kein Ende);"
+    print "              leerer Plan genauso (warten, neu planen, kein Ende); danach Plan-Runde ausgelassen, solange der Fingerabdruck"
+    print "              (Häufung, origin/main, Umbau-Woche, Lockerung, heute erledigt) gleich ist, spätestens nach 4 h wieder echt;"
     print "              Ende nur nach $KONF[LETZTER_BEGINN] oder nach 3 Plan-Runden hintereinander mit Einträgen, aber ohne erledigten"
   fi
   exit 0
@@ -717,6 +765,7 @@ VERWAIST_N=0   # verwaiste Test-Thunderbird, die verwaiste_tb_beenden heute been
 ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG= DESIGNFRAGEN=
 RUT_INFO= RUT_ERG=   # Release unter Tage (Maintainer 15.11.2026)
 PLANRUNDE=0 OHNE_ERGEBNIS=0 ERLEDIGT_VOR_PLAN=0 PLAN_RUNDEN=   # Neuplanen nach abgearbeitetem Plan (13.11.2026)
+FP_LEER= FP_ZEIT= FP_NEU= FP_RUNDE= FP_START=   # Auslassen leerer Plan-Runden (plan_fingerabdruck, plan_auslassen)
 typeset -a MODELLE_GENUTZT ABSCHNITTE
 
 # Bericht: Kopf + Abschnitte der Runden + Ende; immer geschrieben
@@ -961,6 +1010,37 @@ Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, 
   fi
 
   if [[ -z $GEPLANT ]]; then
+    # Häufung vor jeder Plan-Runde (auch vor einer ausgelassenen: sie gehört zum Fingerabdruck)
+    HAEUFUNG=$(haeufung_zeile)
+    log "Häufung: $HAEUFUNG"
+    # Fingerabdruck der Eingaben (plan_fingerabdruck); scheitert Häufung oder Fetch, keiner (dann immer echte Runde)
+    FP_NEU=
+    if [[ $HAEUFUNG != FEHLER* ]]; then
+      if git -C $REPO fetch -q origin main 2>>$LOG; then FP_NEU=$(plan_fingerabdruck)
+      else log "Fingerabdruck: git fetch gescheitert – echte Plan-Runde"; fi
+    fi
+    if [[ -n $FP_LEER ]]; then
+      a=$(plan_auslassen "$FP_LEER" "$FP_NEU" $FP_ZEIT $(date +%s))
+      if [[ $a == auslassen ]]; then
+        # leere Plan-Runde nicht wiederholen: wie nach einem leeren Plan bis zur nächsten vollen Stunde warten
+        w=(${=$(nach_plan 0 0 $OHNE_ERGEBNIS $(date +%s) $LETZTER)})
+        OHNE_ERGEBNIS=$w[-1]
+        if [[ $w[1] == ende ]]; then
+          log "Plan-Runde ausgelassen: nichts geändert"
+          PLAN_RUNDEN+="
+  - Plan-Runde ausgelassen $(date +%H:%M): nichts geändert, nächste volle Stunde nach $KONF[LETZTER_BEGINN]"
+          ENDGRUND="Plan-Runde ausgelassen: nichts geändert, nächste volle Stunde nach $KONF[LETZTER_BEGINN] – kein neuer Plan"; break
+        fi
+        bis=$w[2]
+        log "Plan-Runde ausgelassen: nichts geändert"
+        PLAN_RUNDEN+="
+  - Plan-Runde ausgelassen $(date +%H:%M): nichts geändert, nächste Planung $(date -r $bis +%H:%M)"
+        while (( $(date +%s) < bis )); do sleep 120; done
+        continue    # Zeitgrenze, Pause, belegt, Tageslimit und Kontingent prüft der Schleifenanfang
+      fi
+      log "Fingerabdruck: ${a#runde } – echte Plan-Runde"
+    fi
+    FP_RUNDE=$FP_NEU FP_START=$(date +%s)
     # Plan-Runde: Commits durchsehen, Liste laden, Plan schreiben (komplexe zuerst). Ab der zweiten Runde
     # (vorheriger Plan abgearbeitet, Maintainer 13.11.2026) eigene Dateien und heute Bearbeitetes ausgeschlossen
     PLANRUNDE=$((PLANRUNDE + 1))
@@ -979,8 +1059,6 @@ Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, 
     ABSCHNITTE+=($PLANMD)
     MODELLE_GENUTZT+=("Plan-Runde $PLANRUNDE: $E[M_KOMPLEX]")
     T0=$(date +%H:%M)
-    HAEUFUNG=$(haeufung_zeile)
-    log "Häufung: $HAEUFUNG"
     runde $E[M_KOMPLEX] "$(kopf)
 
 JETZT: Plan-Runde (Schritte 1–2 des Auftrags). ${NEUPLAN}Häufung (Skript): $HAEUFUNG
@@ -997,6 +1075,8 @@ Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen E
     NEU=$(offene_planzeilen | grep -c .)
     PLAN_RUNDEN+="${PLAN_RUNDEN:+
 }- Plan-Runde $PLANRUNDE ($T0, $E[M_KOMPLEX]): $NEU Einträge geplant (${PLAN:t})"
+    # Fingerabdruck nur nach einem leeren Plan merken (plan_auslassen); nach einem Plan mit Einträgen vergessen
+    if (( NEU == 0 )); then FP_LEER=$FP_RUNDE FP_ZEIT=$FP_START; else FP_LEER= FP_ZEIT=; fi
     if (( NEU == 0 )); then
       # Leerer Plan ist kein Ende (Berichtigung von neon 14.11.2026 zur Entscheidung 13.11.2026): wie nach
       # „Plan abgearbeitet“ ohne Claude bis zur nächsten vollen Stunde warten, dann neu planen (nur vor

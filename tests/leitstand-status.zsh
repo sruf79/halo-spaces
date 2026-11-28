@@ -43,6 +43,29 @@ JETZT=${HALO_LS_JETZT:-$EPOCHSECONDS}
 mkdir -p $Q || exit 1
 zeit() { date '+%F %T' }
 log() { print -r -- "$(zeit) $*" >> $LOG }
+# Zugangsdaten in Fehlertexten unkenntlich machen (Punkt 9, 28.11.2026): Authorization-Kopf, GH_TOKEN, GitHub-Token
+# (ghp_/gho_/ghs_/ghu_/ghr_/github_pat_), „token <wert>“, „Bearer <wert>“, Zugangsdaten in URLs
+maskiere() {
+  sed -E -e 's/(authorization[[:space:]]*[:=][[:space:]]*).*/\1***/Ig' \
+    -e 's/(GH_TOKEN[[:space:]]*[:=][[:space:]]*)[^[:space:]]+/\1***/g' \
+    -e 's/(gh[pousr]|github_pat)_[A-Za-z0-9_]+/***/g' \
+    -e 's/(token|bearer)([[:space:]]+)[^[:space:]*]+/\1\2***/Ig' \
+    -e 's#(://)[^/@[:space:]]+@#\1***@#g'
+}
+mit_wiederholung() {   # <Was> <Befehl …>: bei Fehler Fehlertext maskiert ins Protokoll, einmal nach 20 s wiederholen, mehr nicht
+  local was=$1 n fehler; shift
+  for n in 1 2; do
+    fehler=$("$@" 2>&1 >/dev/null) && return 0
+    log "FEHLER $was (Versuch $n/2): ${${(j: | :)${(f)"$(print -r -- $fehler | maskiere)"}}:-kein Fehlertext}"
+    (( n == 1 )) && sleep ${HALO_LS_PUSH_PAUSE:-20}
+  done
+  return 1
+}
+# Refspecs für den eigenen Klon: main VOLL ausgeschrieben. Mit --prune und der Kurzform „+main:…“ hielt git
+# refs/remotes/origin/main für verwaist und löschte den Ref im selben fetch wieder; jeder zweite Lauf fand dann kein
+# origin/main („ambiguous argument 'origin/main'“ bzw. „cannot lock ref“), Ursache: ~/halo-berichte/2026-11-28-leitstand-ursache.md
+HOLEN_REFS=(+refs/heads/main:refs/remotes/origin/main '+refs/heads/pruef/*:refs/remotes/origin/pruef/*' '+refs/tags/v*:refs/tags/v*')
+[[ -n $HALO_LS_NUR_HILFEN ]] && return 0   # nur für tests/leitstand_status_test.zsh (source)
 # einmal zugleich (ein hängender gh-Aufruf darf keine Reihe von Läufen stapeln); Sperre älter als 10 Min. gilt als verwaist
 if ! mkdir $D/sperre 2>/dev/null; then
   (( JETZT - $(zstat +mtime $D/sperre 2>/dev/null || print 0) < 600 )) && { log "vorheriger Lauf läuft noch – ausgelassen"; exit 0 }
@@ -117,7 +140,7 @@ if netz; then
     rm -f $Q/commits.json
   fi
   if alt $Q/commits.json 900; then
-    if gitg fetch -q --prune --filter=blob:none origin +main:refs/remotes/origin/main '+refs/heads/pruef/*:refs/remotes/origin/pruef/*' '+refs/tags/v*:refs/tags/v*' 2>>$LOG; then
+    if gitg fetch -q --prune --filter=blob:none origin $HOLEN_REFS 2>>$LOG; then
       zaehle() { git -C $G rev-list --count --since=$(TZ=UTC date -r $(( JETZT - $1 )) +%FT%TZ) --until=$(TZ=UTC date -r $(( JETZT - $2 )) +%FT%TZ) origin/main }
       ( w=(); for a b in 604800 0 1209600 604800 172800 0 345600 172800; do w+=$(zaehle $a $b) || exit 1; done
         print -r -- "{\"letzte_7t\":$w[1],\"davor_7t\":$w[2],\"letzte_48h\":$w[3],\"davor_48h\":$w[4],\"stand\":$JETZT}" ) > $Q/commits.json.neu 2>>$LOG \
@@ -973,7 +996,7 @@ git -C $R add status.json verlauf.json
 BAUM=$(git -C $R write-tree) &&
   C=$(git -C $R -c user.name=neon -c user.email=neon@localhost commit-tree $BAUM -m "Leitstand: Stand $(TZ=UTC date -r $JETZT +%FT%TZ)") &&
   git -C $R update-ref refs/heads/main $C || { log "FEHLER Commit"; exit 1 }
-if git -C $R -c credential.helper= -c credential.helper='!gh auth git-credential' push -q -f origin main 2>>$LOG; then
+if mit_wiederholung "Push nach $STATUS_REPO" git -C $R -c credential.helper= -c credential.helper='!gh auth git-credential' push -q -f origin main; then
   privat || log "WARNUNG $STATUS_REPO nach dem Push nicht mehr als privat lesbar"
 else
   log "FEHLER Push nach $STATUS_REPO"; exit 1

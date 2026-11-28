@@ -26,12 +26,15 @@
 # (gilt 2 Stunden ab Dateizeit), oder in den letzten 3 Minuten jemand anderes Indizes,
 # bilder-offen.md, bilder/ oder apple/ geändert hat. Eingangsdateien, die jünger als 1 Minute sind
 # (Übertragung läuft noch), warten auf den nächsten Lauf.
+# Nebenbei frischt der Lauf die Nummern-Datei der Inaktivitätsprüfung auf (tests/board-nummern.zsh, nur wenn sie
+# älter als 6 Stunden ist; Fehler nur ins Protokoll, stören den Eingang nicht), siehe Abschnitt unten.
 # Wie der CI-Wächter wird die Datei mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert.
 #   bilder-eingang.zsh [<Repo>]      Repo für die ui_tour-ids (Standard ~/halo-spaces)
 # Zum Proben (tests/bilder_eingang_test.zsh): HALO_AUFGABEN (statt ~/halo-aufgaben),
 # HALO_BILDER_LOG, HALO_UEBERSPRUNGEN_LOG, HALO_BILDER_CLAUDE=trocken (Claude nicht starten, nur
 # protokollieren), HALO_BILDER_PUSH=aus (Push nur ins Protokoll), HALO_BILDER_WARTE=0 (Eingang
-# ohne 1-Minuten-Wartezeit).
+# ohne 1-Minuten-Wartezeit), HALO_BN_BOARD (Board-Attrappe für board-nummern.zsh; ohne sie fragt ein Lauf mit
+# HALO_AUFGABEN das Board nie), HALO_BN_MAX (Sekunden bis zum Abbruch von board-nummern.zsh, Standard 300).
 # Protokoll: ~/halo-aufgaben/bilder-eingang.log (launchd-Ausgabe ~/Library/Logs/halo-bilder-eingang.log).
 emulate -L zsh
 setopt extendedglob pipefail nullglob
@@ -81,6 +84,40 @@ if ! mkdir $SPERRE 2>/dev/null; then
 fi
 print $$ > $SPERRE/pid
 trap 'rm -rf $SPERRE' EXIT
+
+# --- Nummern-Datei für die Inaktivitätsprüfung (tests/board-nummern.zsh; Umsetzung der Logikprüfung vom 27.11.2026,
+# Punkt 5): nur wenn ~/halo-aufgaben/board-issue-nummern.json fehlt oder älter als 6 Stunden ist (vier Board-Abfragen
+# am Tag) und der letzte Versuch über eine Stunde her ist (Board nicht lesbar: höchstens stündlich neu). Läuft
+# höchstens 5 Minuten; Ergebnis und Fehler nur ins Protokoll, der Eingang läuft danach in jedem Fall weiter. In Proben
+# (HALO_AUFGABEN gesetzt) nur mit HALO_BN_BOARD (Attrappe), damit nie das echte Board gefragt wird.
+NUMMERN=$A/board-issue-nummern.json NUMMERN_VERSUCH=$A/.board-nummern.versuch NUMMERN_MAX=${HALO_BN_MAX:-300}
+NUMMERN_SKRIPT=${0:A:h}/board-nummern.zsh
+[[ -r $NUMMERN_SKRIPT ]] || NUMMERN_SKRIPT=$REPO/tests/board-nummern.zsh
+baum_beenden() {   # <pid>: Prozess samt Nachkommen (board.sh, gh) beenden
+  local k; for k in $(pgrep -P $1 2>/dev/null); do baum_beenden $k; done; kill $1 2>/dev/null
+}
+nummern_auffrischen() {
+  local frisch pid rc s=0 aus=$A/.board-nummern.aus
+  frisch=($NUMMERN(Nmh-6) $NUMMERN_VERSUCH(Nmm-60))
+  (( $#frisch )) && return 0
+  [[ -n $HALO_AUFGABEN && -z $HALO_BN_BOARD ]] && return 0
+  [[ -r $NUMMERN_SKRIPT ]] || { log "Board-Nummern: FEHLER board-nummern.zsh fehlt"; return 0 }
+  touch $NUMMERN_VERSUCH
+  HALO_AUFGABEN=$A zsh $NUMMERN_SKRIPT > $aus 2>&1 &
+  pid=$!
+  while kill -0 $pid 2>/dev/null && (( s < NUMMERN_MAX )); do sleep 1; (( s++ )); done
+  if kill -0 $pid 2>/dev/null; then
+    baum_beenden $pid; wait $pid 2>/dev/null
+    log "Board-Nummern: FEHLER nach $NUMMERN_MAX s abgebrochen, alte Datei bleibt"
+  else
+    wait $pid; rc=$?
+    if (( rc == 0 )); then log "$(head -1 $aus)"
+    else log "Board-Nummern: $(grep -m1 FEHLER $aus || print "FEHLER Exitcode $rc"), alte Datei bleibt"; fi
+  fi
+  rm -f $aus
+  return 0
+}
+nummern_auffrischen 2>/dev/null || true
 if [[ -e $SITZUNGSSPERRE ]]; then
   jung=($SITZUNGSSPERRE(Nmm-120))
   if (( $#jung )); then ueberspringen "Sitzungssperre ${SITZUNGSSPERRE:t} (jünger als 2 Stunden)"; exit 0; fi

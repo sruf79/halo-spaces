@@ -509,7 +509,7 @@ SK_PAARE=(mac-remote-control.sh remote-control.sh neon-hook.sh neon-hook.sh
           github-komm-waechter.sh github-komm-waechter.sh board-uebergabe.zsh board-uebergabe.zsh
           aufraeumen.sh aufraeumen.sh haeufung.py haeufung.py inaktivitaet.sh inaktivitaet.sh
           bericht-html.py bericht-html.py gh-wdh.zsh gh-wdh.zsh
-          ci-wiederholen.sh ci-wiederholen.sh)
+          ci-wiederholen.sh ci-wiederholen.sh board-nummern.zsh board-nummern.zsh)
 skripte_kopieren() {   # [<Quellordner> <Zielordner>] – Standard: Checkout und SK_DIR
   local von=${1:-$ROOT/tests} nach=${2:-$SK_DIR} q z veraltet=() kopiert=()
   for q z in $SK_PAARE; do

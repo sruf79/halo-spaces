@@ -43,11 +43,15 @@
 # „GitHub-Issues: Bug oder Feature, Bewertung, Schließen“, Antwort 2: „das issue schliesst und die einträge laufen weiter da
 # von einem guten feature oder einem gefixten bug alle user profitieren.“) ist der offene Eintrag allein keine Ausnahme mehr:
 # nach Rückfrage, Nachfrage mit Markierung und 7 Tagen ohne Antwort wird das Issue geschlossen, verlinkte Einträge bleiben
-# unverändert (keine Notiz, kein Done, kein Archiv; Zeile „weiter #n“). Das Board wird je Lauf einmal über
-# „tests/board.sh export“ geladen; ist es nicht lesbar, schließt das Skript nichts (FEHLER-Zeile, vorsichtshalber wie
-# bisher). Board-Inhalte erscheinen nie in der Ausgabe, nur die Nummer.
+# unverändert (keine Notiz, kein Done, kein Archiv; Zeile „weiter #n“). Das Board liest das Skript seit 28.11.2026
+# nicht mehr selbst (das Token von comms darf „gh project“ nicht; Umsetzung der Logikprüfung vom 27.11.2026, Punkt 5),
+# sondern nur die Nummern-Datei ~/halo-aufgaben/board-issue-nummern.json ({"zeit", "nummern"}), die
+# tests/board-nummern.zsh aus „tests/board.sh export“ schreibt (Aufruf über tests/bilder-eingang.zsh, wenn die Datei
+# älter als 6 Stunden ist). Fehlt sie, ist sie kaputt oder älter als 24 Stunden, gilt die Aufgabenliste als nicht
+# lesbar: das Skript schließt nichts (FEHLER-Zeile, vorsichtshalber wie bisher) und schreibt den Grund ins Protokoll.
+# Board-Inhalte erscheinen nie in der Ausgabe, nur die Nummer.
 # Proben: HALO_JETZT (Uhr), HALO_INA_AUSNAHMEN, HALO_INA_LOG, HALO_INA_DATEN (issues.json statt gh),
-# HALO_INA_BOARD (Befehl statt „zsh $HALO_REPO/tests/board.sh“, bekommt „export“ angehängt).
+# HALO_INA_NUMMERN (Nummern-Datei statt ~/halo-aufgaben/board-issue-nummern.json).
 # Test ohne Netz: zsh tests/inaktivitaet_test.zsh (gh-Attrappe, lädt mit INA_NUR_FUNKTIONEN=1).
 
 INA_R=sruf79/halo-spaces
@@ -55,7 +59,8 @@ INA_EIGENER=sruf79
 INA_REPO=${HALO_REPO:-$HOME/halo-spaces}
 INA_AUSNAHMEN=${HALO_INA_AUSNAHMEN:-$INA_REPO/tests/inaktivitaet-ausnahmen.txt}
 INA_LOG=${HALO_INA_LOG:-$HOME/halo-nacht/inaktivitaet.log}
-INA_BOARD=${HALO_INA_BOARD:-zsh $INA_REPO/tests/board.sh}
+INA_NUMMERN=${HALO_INA_NUMMERN:-$HOME/halo-aufgaben/board-issue-nummern.json}
+INA_NUMMERN_ALTER=$(( 24 * 3600 ))
 INA_MARKE='we will close this issue due to inactivity'
 INA_LABELS='keep-open waiting-on-us'
 INA_FRIST=$(( 7 * 86400 ))
@@ -71,28 +76,27 @@ ina_ausnahmen_lesen() {   # <Datei>
     gsub(/^[ \t]+|[ \t]+$/, "", g); gsub(/["\\]/, "", g); printf "{\"%s\": \"%s\"}\n", n, g }' $1 | jq -s 'add // {}'
 }
 
-# Export der Aufgabenliste ({"items": [{status, title, body}]}) → JSON {"<n>": true} der Issues, auf die ein
-# offener Eintrag verweist („GitHub #n“, „[GitHub #n]“, „GitHub-Issue #n“, auch Aufzählungen wie „GitHub #45 und #67“,
-# „GitHub-Issues #65, #66“; nicht „GitHub: PR #n“). Notizen stehen im Text und zählen mit.
-# Fehlertext von „board.sh export“ mit Zeitstempel ins Protokoll: höchstens 300 Zeichen; „Authorization“ samt Rest der
-# Zeile und GH_TOKEN/ghp_/github_pat_ samt Rest des Wortes werden durch *** ersetzt
-ina_board_fehler_log() {   # <stderr-Datei>
-  local t; t=$(tr '\n\r\t' '   ' < $1 2>/dev/null | tr -d '\000-\010\013-\037\177' | sed -E 's/Authorization.*/***/I; s/(gh[opsur]_|github_pat_)[^[:space:]]*/***/g; s/((GH_|GITHUB_)?TOKEN|Bearer|token)[=: ]+[^[:space:]]*/***/gI')
-  t=${t[1,300]}
-  [[ -n ${t//[[:space:]]/} ]] || return 0
-  mkdir -p ${INA_LOG:h} && print -r -- "$(date '+%F %T') FEHLER Aufgabenliste nicht lesbar: $t" >> $INA_LOG
-}
-
-ina_board_nummern() {   # <export.json>
-  jq -c 'if (.items | type) != "array" then error("kein Board-Export") else . end
-    | [.items[] | select(.status != "Done") | ((.title // "") + "\n" + (.body // ""))
-       | scan("GitHub(?:-[A-Za-z]+)? #[0-9]+(?:(?:, ?| und | and | oder | or |/)#[0-9]+)*"; "i")
-       | scan("[0-9]+")] | unique | map({(.): true}) | add // {}' $1
+# Nummern-Datei (tests/board-nummern.zsh: {"zeit": "<ISO>", "nummern": [n, …]}) → JSON {"<n>": true} der Issues, auf
+# die ein offener Eintrag verweist (Muster „GitHub #n“ usw. wertet board-nummern.zsh aus, unverändert wie bisher hier).
+# Fehlt die Datei, ist sie kaputt, älter als 24 Stunden oder mehr als eine Stunde in der Zukunft: Rückgabe 1, Grund
+# auf stderr
+ina_nummern_lesen() {   # <Datei> <jetzt Epoch>
+  [[ -e $1 ]] || { print -u2 -r -- "Nummern-Datei ${1:t} fehlt"; return 1 }
+  local stand
+  stand=$(jq -er 'if (.nummern | type) == "array" and (.nummern | all(type == "number" and . > 0 and floor == .))
+    then .zeit | fromdate else error("kaputt") end' $1 2>/dev/null) || { print -u2 -r -- "Nummern-Datei ${1:t} nicht lesbar (kein {\"zeit\", \"nummern\"})"; return 1 }
+  if (( $2 - stand > INA_NUMMERN_ALTER )); then
+    print -u2 -r -- "Nummern-Datei ${1:t} älter als 24 Stunden (Stand $(ci_wien $stand) Wiener Zeit)"; return 1
+  fi
+  if (( stand - $2 > 3600 )); then
+    print -u2 -r -- "Nummern-Datei ${1:t} mit Zeit in der Zukunft (Stand $(ci_wien $stand) Wiener Zeit)"; return 1
+  fi
+  jq -c '[.nummern[] | tostring] | unique | map({(.): true}) | add // {}' $1
 }
 
 # Zustand je Issue → Zeilen (siehe Kopf)
 # issues.json: [{number, pr, autor, labels: [..], comments: [{login, bot, created_at, body}]}]
-ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch> [<board.json> aus ina_board_nummern]
+ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch> [<board.json> aus ina_nummern_lesen]
   TZ=Europe/Vienna jq -r --slurpfile a $2 --argjson jetzt $3 --argjson frist $INA_FRIST \
       --slurpfile b ${4:-/dev/null} \
       --arg ich $INA_EIGENER --arg marke $INA_MARKE --arg labels $INA_LABELS '
@@ -159,7 +163,7 @@ ina_gh_token() {   # gh ohne Anmeldung: Token aus hosts.yml wie in der geplanten
 ina_lauf() {   # [--trocken | --anfragen]
   emulate -L zsh
   setopt pipe_fail
-  local modus=$1 tmp n wann st fehler=0 zu=()
+  local modus=$1 tmp n wann st grund fehler=0 zu=()
   tmp=$(mktemp -d) || return 2
   {
     if [[ -n $HALO_INA_DATEN ]]; then cp $HALO_INA_DATEN $tmp/i.json
@@ -170,11 +174,12 @@ ina_lauf() {   # [--trocken | --anfragen]
       print "Hinweis: Ausnahmedatei $INA_AUSNAHMEN fehlt"
     fi
     ina_ausnahmen_lesen $INA_AUSNAHMEN > $tmp/a.json
-    # Aufgabenliste einmal je Lauf; nicht lesbar: vorsichtshalber nie schließen
-    if ! { ${=INA_BOARD} export > $tmp/board.json 2> $tmp/board.err && ina_board_nummern $tmp/board.json > $tmp/b.json 2>/dev/null }; then
-      ina_board_fehler_log $tmp/board.err
-      [[ -z $modus ]] && { print "FEHLER Aufgabenliste nicht lesbar (tests/board.sh export), nichts geschlossen"; return 1 }
-      print "Hinweis: Aufgabenliste nicht lesbar, Ausnahme „offener Board-Eintrag“ nicht geprüft"
+    # Aufgabenliste nur aus der Nummern-Datei; fehlt sie oder ist sie zu alt: vorsichtshalber nie schließen
+    if ! ina_nummern_lesen $INA_NUMMERN $(ci_jetzt) > $tmp/b.json 2> $tmp/b.err; then
+      grund=$(head -1 $tmp/b.err)
+      mkdir -p ${INA_LOG:h} && print -r -- "$(date '+%F %T') FEHLER Aufgabenliste nicht lesbar: $grund, nichts geschlossen" >> $INA_LOG
+      [[ -z $modus ]] && { print "FEHLER Aufgabenliste nicht lesbar ($grund), nichts geschlossen"; return 1 }
+      print "Hinweis: Aufgabenliste nicht lesbar ($grund), Ausnahme „offener Board-Eintrag“ nicht geprüft"
       print '{}' > $tmp/b.json
     fi
     ina_auswerten $tmp/i.json $tmp/a.json $(ci_jetzt) $tmp/b.json > $tmp/z.txt || { print "FEHLER Auswertung"; return 2 }

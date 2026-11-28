@@ -1,7 +1,8 @@
 #!/bin/zsh
 # Prüfung der Inaktivitätsregel (tests/inaktivitaet.sh) ohne Claude, ohne Thunderbird, ohne Netz, im
 # Wegwerf-Ordner: gh ist eine Shell-Funktion (Attrappe) mit Issues und Kommentaren als Dateien; das echte
-# gh wird nie aufgerufen, die Aufgabenliste ist eine Attrappe für tests/board.sh (Export aus $T/board.json). Aufruf: zsh tests/inaktivitaet_test.zsh → je Fall eine Zeile OK/FEHLER,
+# gh wird nie aufgerufen. Die Aufgabenliste kommt nur aus der Nummern-Datei; die schreibt tests/board-nummern.zsh aus
+# einer Attrappe für tests/board.sh (Export aus $T/board.json). Aufruf: zsh tests/inaktivitaet_test.zsh → je Fall eine Zeile OK/FEHLER,
 # Exitcode 1 bei einem Fehler.
 emulate -L zsh
 HIER=${0:A:h}
@@ -23,7 +24,10 @@ fi
 cat ${0:h}/board.json
 ENDE
 print -r -- '{"items": []}' > $T/board.json
-export HALO_INA_BOARD="zsh $T/board.sh"
+# Nummern-Datei wie im Betrieb über board-nummern.zsh (Stand eine Stunde vor HALO_JETZT); inaktivitaet.sh liest nur sie
+export HALO_INA_NUMMERN=$T/nummern.json
+nummern() { HALO_BN_DATEI=$HALO_INA_NUMMERN HALO_BN_BOARD="zsh $T/board.sh" HALO_BN_ZEIT=${1:-2026-11-15T10:00:00Z} zsh $HIER/board-nummern.zsh }
+nummern >/dev/null || { print "FEHLER  Nummern-Datei ließ sich nicht anlegen"; exit 1 }
 INA_NUR_FUNKTIONEN=1 source $HIER/inaktivitaet.sh
 JETZT=$(ci_jetzt)
 MARKE='If we do not hear back within a week, we will close this issue due to inactivity.'
@@ -150,6 +154,9 @@ cat > $T/board.json <<'ENDE'
 ]}
 ENDE
 : > $T/board.log
+nummern >/dev/null
+pruefe "Nummern-Datei: nur Zeit und Nummern, keine Board-Inhalte" '[[ $(jq -c . $HALO_INA_NUMMERN) == "{\"zeit\":\"2026-11-15T10:00:00Z\",\"nummern\":[15,16,20,21,22,24,25,29,90,180]}" ]]'
+: > $T/board.log
 aus=$(ina_lauf --trocken); rc=$?
 pruefe "Board ohne Markierung: [GitHub #n] im Titel → ausgenommen, keine Anfrage" 'zeile "^ausgenommen #15 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
 pruefe "Board ohne Markierung: GitHub-Issue #n im Text, Wartet auf OK → ausgenommen" 'zeile "^ausgenommen #16 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
@@ -160,39 +167,50 @@ pruefe "Board: Eintrag Done → keine Ausnahme" 'zeile "^würde schließen #17 "
 pruefe "Board: #180 und PR #18 zählen nicht für #18" 'zeile "^würde schließen #18 "'
 pruefe "Board mit Markierung über 7 Tage → würde schließen (keine Ausnahme)" 'zeile "^würde schließen #20 " && zeile "^würde schließen #21 "'
 pruefe "trocken: würde schließen nennt weiterlaufenden Eintrag (nur mit Eintrag)" 'zeile "^würde schließen #20 (Nachfrage .*), offener Board-Eintrag läuft weiter$" && ! zeile "^würde schließen #17 .*läuft weiter"'
-pruefe "Board: einmal je Lauf geladen" '(( $(wc -l < $T/board.log) == 1 )) && grep -q "^board export$" $T/board.log'
+pruefe "inaktivitaet.sh liest das Board nie selbst (nur die Nummern-Datei)" '[[ ! -s $T/board.log ]]'
 pruefe "trocken: Board nicht verändert" '! grep -q "^board " $T/folge.log'
 pruefe "Board: keine Inhalte in der Ausgabe" '[[ $aus != *Geheim* && $aus != *PVTI_* ]]'
 aus=$(ina_lauf); rc=$?
 pruefe "ausführen: #17, #18, #20, #21, #22 geschlossen, #15/#16 nicht" '(( rc == 0 )) && (for i in 17 18 20 21 22; do grep -q "^$i " $T/geschlossen.txt || exit 1; done) && ! grep -qE "^1[56] " $T/geschlossen.txt'
-pruefe "offener Eintrag allein keine Ausnahme: geschlossen, Board nie beschrieben" 'grep -q "^board export$" $T/board.log && ! grep -qE "^board (notiz|status)" $T/board.log && ! grep -q "^board " $T/folge.log'
+pruefe "offener Eintrag allein keine Ausnahme: geschlossen, Board nie gelesen oder beschrieben" '[[ ! -s $T/board.log ]] && ! grep -q "^board " $T/folge.log'
 pruefe "geschlossen mit Eintrag: Zeile weiter, ohne Board-Inhalt" '(for i in 20 21 22; do zeile "^weiter #$i (offener Board-Eintrag läuft weiter)$" || exit 1; done) && ! zeile "^weiter #1[78] "'
 pruefe "keine Abräum-Meldungen mehr" '! print -r -- $aus | grep -qE "^(abgeräumt|melden) "'
 pruefe "ausführen: keine Board-Inhalte in der Ausgabe" '[[ $aus != *Geheim* && $aus != *PVTI_* ]]'
 
-# --- Aufgabenliste nicht lesbar: nie schließen, FEHLER-Zeile; trocken nur Hinweis ---
+# --- Nummern-Datei fehlt, ist alt oder kaputt: Aufgabenliste nicht lesbar, nie schließen, Grund ins Protokoll;
+# trocken nur Hinweis ---
 issue 19 nutzer '[]' < <(k sruf79 8 $MARKE)
-mv $T/board.json $T/board.json.weg
-aus=$(ina_lauf); rc=$?
-pruefe "Board nicht lesbar: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
-aus=$(ina_lauf --trocken); rc=$?
-pruefe "Board nicht lesbar, trocken: Hinweis, Exitcode 0" '(( rc == 0 )) && zeile "^Hinweis: Aufgabenliste nicht lesbar" && zeile "^würde schließen #19 "'
-print -r -- '{"fehler": 1}' > $T/board.json
-aus=$(ina_lauf); rc=$?
-pruefe "Board-Export ohne items: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
-mv $T/board.json.weg $T/board.json
-
-# --- Fehlertext des Exports landet maskiert im Protokoll (höchstens 300 Zeichen) ---
-cp $T/board.sh $T/board.sh.ok
-cat > $T/board.sh <<'ENDE'
-print -u2 "FEHLER: Zugriff verweigert GH_TOKEN=ghp_abc123SECRET Authorization: Bearer github_pat_XYZ"
-print -u2 "${(l:400::x:)}"
-exit 1
-ENDE
+mv $HALO_INA_NUMMERN $T/nummern.gut
 : > $HALO_INA_LOG
 aus=$(ina_lauf); rc=$?
-pruefe "Board-Fehlertext im Protokoll, Token maskiert, höchstens 300 Zeichen" '(( rc == 1 )) && grep -qE "^[0-9-]+ [0-9:]+ FEHLER Aufgabenliste nicht lesbar: FEHLER: Zugriff verweigert \*\*\*" $HALO_INA_LOG && ! grep -qE "ghp_|github_pat_|GH_TOKEN|Authorization|SECRET" $HALO_INA_LOG && (( $(head -1 $HALO_INA_LOG | sed "s/^[^:]*:[^:]*:[^:]*: //" | wc -c) <= 302 ))'
-mv $T/board.sh.ok $T/board.sh
+pruefe "Nummern-Datei fehlt: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar (Nummern-Datei nummern.json fehlt), nichts geschlossen"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
+pruefe "Nummern-Datei fehlt: Grund im Protokoll" 'grep -qE "^[0-9-]+ [0-9:]+ FEHLER Aufgabenliste nicht lesbar: Nummern-Datei nummern.json fehlt, nichts geschlossen$" $HALO_INA_LOG'
+aus=$(ina_lauf --trocken); rc=$?
+pruefe "Nummern-Datei fehlt, trocken: Hinweis, Exitcode 0" '(( rc == 0 )) && zeile "^Hinweis: Aufgabenliste nicht lesbar (Nummern-Datei nummern.json fehlt)" && zeile "^würde schließen #19 "'
+# 25 Stunden vor HALO_JETZT (2026-11-15T11:00Z): zu alt; 23 Stunden: noch gut
+jq -c '.zeit = "2026-11-14T10:00:00Z"' $T/nummern.gut > $HALO_INA_NUMMERN
+: > $HALO_INA_LOG
+aus=$(ina_lauf); rc=$?
+pruefe "Nummern-Datei älter als 24 Stunden: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar (Nummern-Datei nummern.json älter als 24 Stunden (Stand 14.11.2026 11:00 Wiener Zeit)), nichts geschlossen"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
+pruefe "Nummern-Datei alt: Grund im Protokoll" 'grep -q "FEHLER Aufgabenliste nicht lesbar: Nummern-Datei nummern.json älter als 24 Stunden" $HALO_INA_LOG'
+aus=$(ina_lauf --trocken); rc=$?
+pruefe "Nummern-Datei alt, trocken: Hinweis, Ausnahme nicht geprüft" '(( rc == 0 )) && zeile "^Hinweis: Aufgabenliste nicht lesbar (Nummern-Datei nummern.json älter als 24 Stunden" && zeile "^zusage #15 "'
+jq -c '.zeit = "2026-11-14T12:00:00Z"' $T/nummern.gut > $HALO_INA_NUMMERN
+aus=$(ina_lauf --trocken); rc=$?
+pruefe "Nummern-Datei 23 Stunden alt: gut, Ausnahme greift" '(( rc == 0 )) && ! zeile "^Hinweis: Aufgabenliste" && zeile "^ausgenommen #15 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
+jq -c '.zeit = "2026-11-15T14:00:00Z"' $T/nummern.gut > $HALO_INA_NUMMERN
+aus=$(ina_lauf); rc=$?
+pruefe "Nummern-Datei mit Zeit in der Zukunft: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"Zeit in der Zukunft"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
+for kaputt in '{"fehler": 1}' '{"zeit": "gestern", "nummern": [1]}' '{"zeit": "2026-11-15T10:00:00Z", "nummern": ["15"]}' 'kein json'; do
+  print -r -- $kaputt > $HALO_INA_NUMMERN
+  aus=$(ina_lauf); rc=$?
+  pruefe "Nummern-Datei kaputt ($kaputt): FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar (Nummern-Datei nummern.json nicht lesbar"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
+done
+mv $T/nummern.gut $HALO_INA_NUMMERN
+# Datei gut: #19 ohne Eintrag wird geschlossen, ohne Protokollzeile „nicht lesbar“
+: > $HALO_INA_LOG
+aus=$(ina_lauf); rc=$?
+pruefe "Nummern-Datei gut: geschlossen, kein FEHLER" '(( rc == 0 )) && grep -q "^19 " $T/geschlossen.txt && [[ $aus != *FEHLER* ]] && ! grep -q "nicht lesbar" $HALO_INA_LOG'
 
 # --- ohne Ausnahmedatei: nie schließen ---
 issue 14 nutzer '[]' < <(k sruf79 8 $MARKE)

@@ -6063,15 +6063,11 @@ button[part~="dialog-button"][dlgtype]:not([default])[disabled],
   #prefs > tr.deleted > th > span {
     color: var(--mt-text-tertiary) !important;
   }
-  /* Abstand vor der Zeile zum Anlegen in Fensterfarbe, ohne Linie: die
-     Zeile steht als eigene kleine Karte unter der Liste */
+  /* Zeile zum Anlegen wie die übrigen Zeilen: Thunderbirds 12 px hoher
+     Leerraum davor (::before) braucht 14 px Innenabstand oben, den die
+     Zeilen hier nicht haben; er deckte die Zeile sonst zu 10 px zu */
   #prefs[has-visible-prefs] > .add > :is(th, td)::before {
-    inset-inline: 0 !important;
-    border: none !important;
-    background-color: var(--mt-window) !important;
-  }
-  #prefs[has-visible-prefs] > .add > :is(th, td) {
-    border-block-start: none !important;
+    display: none !important;
   }
   #prefs > tr > td:is(.cell-edit, .cell-reset) {
     width: 30px !important;

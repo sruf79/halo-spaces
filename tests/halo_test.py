@@ -5527,9 +5527,20 @@ def dialog_checks(m, results):
             const btns = {}; for (const k of ["edit", "toggle", "reset", "delete"]) { const b = prefs.querySelector(".button-" + k); if (b) btns[k] = box(b); }
             const hb = prefs.querySelector(".button-toggle"); InspectorUtils.addPseudoClassLock(hb, ":hover"); const btnHover = csOf(hb).backgroundColor;
             const hr = hb.closest("tr"); InspectorUtils.addPseudoClassLock(hr, ":hover"); const rowHover = csOf(hr).backgroundColor;
-            const shotTable = await snap(t, 520);
+            // Zeile zum Anlegen („mail.biff“ mit Boolean/Number/String und Plus): ganz sichtbar, ohne Lücke zur vorigen Zeile,
+            // nichts darüber (Thunderbirds Leerraum ::before ist 12 px hoch und braucht 14 px Innenabstand oben)
+            const addRow = prefs.querySelector(":scope > tr.add"), addR = addRow.getBoundingClientRect(), lastR = rows.at(-1).getBoundingClientRect();
+            const addCells = [...addRow.children].map(c => { const b = t.browser.contentWindow.getComputedStyle(c, "::before"), s = csOf(c);
+              const on = b.content !== "none" && b.display !== "none";
+              return { cover: on ? Math.round(parseFloat(b.height) || 0) - Math.round(parseFloat(s.paddingTop)) : 0, pad: s.paddingTop, line: [s.borderTopWidth, s.borderTopColor] }; });
+            const radios = [...addRow.querySelectorAll("input[type=radio]")].map(r => { const q = r.getBoundingClientRect(); return [Math.round(q.top - addR.top), Math.round(addR.bottom - q.bottom), Math.round(q.height)]; });
+            const ab = addRow.querySelector(".button-add"), abR = ab.getBoundingClientRect();
+            const hit = t.browser.contentWindow.document.elementFromPoint(abR.left + abR.width / 2, abR.top + abR.height / 2);
+            const add = { gap: Math.round(addR.top - lastR.bottom), h: Math.round(addR.height), cells: addCells, radios, btn: box(ab), hit: hit === ab,
+              name: addRow.querySelector("th")?.textContent, nameTop: Math.round(addRow.querySelector("th > span, th").getBoundingClientRect().top - addR.top) };
+            const shotTable = await snap(t, Math.ceil(card.y + card.h + 20));
             InspectorUtils.removePseudoClassLock(hb, ":hover"); InspectorUtils.removePseudoClassLock(hr, ":hover");
-            const out = { dark: isDark, field, hover, icon, help, show, card, rowH, cells, oddBg, weights, btns, btnHover, rowHover, ...vars(dd) };
+            const out = { dark: isDark, field, hover, icon, help, show, card, rowH, add, cells, oddBg, weights, btns, btnHover, rowHover, ...vars(dd) };
             out.png = shotEmpty; out.png2 = shotTable;
             return out;
           } finally { tm.closeTab(t); Services.prefs.clearUserPref("browser.aboutConfig.showWarning");
@@ -5539,7 +5550,7 @@ def dialog_checks(m, results):
         res["png"] = png2
         expert_shot(res, "expertenseiten-config-liste")
         clear = ("rgba(0, 0, 0, 0)", "transparent")
-        f, ic, b = res["field"], res["icon"], res["btns"]
+        f, ic, b, a = res["field"], res["icon"], res["btns"], res["add"]
         ok = (f["h"] == 30 and f["radius"] == "999px" and f["border"][0] == "0px" and same_color(f["bg"], res["control"])
               and "mailcards/icons/search.svg" in f["img"] and res["field"] == res["hover"]
               and ic["w"] == 40 and ic["h"] == 40 and "mailcards/icons/warning-40.svg" in ic["img"]
@@ -5553,9 +5564,13 @@ def dialog_checks(m, results):
               and all(x["w"] == 24 and x["h"] == 24 and x["radius"] == "50%" and x["bg"] in clear for x in b.values())
               and "icons/pencil.svg" in b["edit"]["img"] and "icons/swap.svg" in b["toggle"]["img"]
               and "icons/restore.svg" in b["reset"]["img"] and "icons/trash.svg" in b["delete"]["img"]
-              and same_color(res["btnHover"], res["control"]) and res["rowHover"] not in clear)
+              and same_color(res["btnHover"], res["control"]) and res["rowHover"] not in clear
+              and a["name"] == "mail.biff" and a["gap"] == 0 and 28 <= a["h"] <= 30
+              and all(c["cover"] <= 0 and c["line"][0] != "0px" and same_color(c["line"][1], res["separator"]) for c in a["cells"])
+              and len(a["radios"]) == 3 and all(top >= 2 and bottom >= 2 and h >= 12 for top, bottom, h in a["radios"])
+              and a["btn"]["w"] == 24 and a["btn"]["h"] == 24 and "icons/add.svg" in a["btn"]["img"] and a["hit"])
         return ok, f"{res}"
-    check("Konfiguration: about:config im halo-Stil – graues Warnsymbol 40 px über dem Hinweis, Show All 30 px, Suchfeld graue 30-px-Kapsel mit Lupe ohne Hover, Liste als graue Karte mit feinen Linien, geänderte Werte fett, Zeile unter der Maus grau, runde 24-px-Symbolknöpfe", config_page, results)
+    check("Konfiguration: about:config im halo-Stil – graues Warnsymbol 40 px über dem Hinweis, Show All 30 px, Suchfeld graue 30-px-Kapsel mit Lupe ohne Hover, Liste als graue Karte mit feinen Linien, geänderte Werte fett, Zeile unter der Maus grau, runde 24-px-Symbolknöpfe, Zeile zum Anlegen ganz sichtbar ohne Lücke", config_page, results)
 
     def about_dialog():
         # „About Thunderbird“: Kopf und Linkleiste in Fensterfarbe (kein grauer Kopf über weißer Leiste), keine

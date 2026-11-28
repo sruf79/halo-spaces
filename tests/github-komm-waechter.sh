@@ -8,6 +8,8 @@
 # ~/halo-aufgaben/github-komm-stand.md aktualisiert hat oder die Vorprüfung „ÜBERSPRUNGEN github-kommunikation
 # nichts neu“ ins Protokoll (~/halo-nacht/uebersprungen.log) schrieb. Sonst eine Meldung aufs iPhone (push(),
 # erste Zeile „PUSH: …“ an github.comm.routine), höchstens einmal je Zeitfenster. Pausen: Routine github-komm.
+# Fehlt um :15 noch die Zeile des Fensters im Ausgang, wartet er darauf längstens bis :27 (siehe unten). Logik-Test:
+# tests/github_komm_waechter_test.zsh.
 emulate -L zsh
 setopt pipefail
 # Im LaunchAgent fehlt der PATH, in dem claude liegt (push() ruft claude auf): wie halo-zsh beim Nachtlauf setzen
@@ -31,6 +33,25 @@ zsh ${0:A:h}/board-uebergabe.zsh ${TROCKEN:+--trocken}
 # erstellten Sitzung) und markiert sie bei Erfolg als zugestellt; bei Misserfolg bleibt die Zeile für den nächsten Lauf.
 AUSGANG=${HALO_PUSH_AUSGANG:-$HOME/halo-aufgaben/github-push-ausgang.txt}
 FEHLERLOG=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+
+# Auf die Zeile des laufenden Fensters warten (Logikprüfung 27.11.2026, Punkt 3 „knapper Abstand“: die Aufgabe schrieb
+# ihre Zeile mehrfach erst kurz vor oder nach :15). Steht beim Start noch keine Zeile mit einer Zeit ab Beginn der
+# laufenden Stunde im Ausgang, schaut der Wächter alle 30 Sekunden nach, längstens bis :27; danach arbeitet er wie
+# bisher. Der Zeitplan des Dienstes (:15) bleibt. Nicht bei --trocken. Für Tests: HALO_WAECHTER_FENSTER (Beginn des
+# Fensters, Sekunden seit 1970), HALO_WAECHTER_BIS (Ende des Wartens, ebenso), HALO_WAECHTER_TAKT (Sekunden je Blick).
+fenster=${HALO_WAECHTER_FENSTER:-$(date -v0M -v0S +%s)}
+warten_bis=${HALO_WAECHTER_BIS:-$(( fenster + 27*60 ))}
+takt=${HALO_WAECHTER_TAKT:-30}
+fenster_utc=$(date -u -r $fenster +%Y-%m-%dT%H:%M)   # Zeiten im Ausgang: UTC, „2026-11-28T08:12Z“
+zeile_da() { [[ -r $AUSGANG ]] && awk -F'\t' -v s=$fenster_utc 'substr($1,1,16)>=s{f=1} END{exit !f}' $AUSGANG }
+if [[ -z $TROCKEN ]] && ! zeile_da && (( $(date +%s) < warten_bis )); then
+  log "noch keine Zeile für das Fenster ab $(date -r $fenster +%H:%M), schaue alle $takt s nach bis $(date -r $warten_bis +%H:%M)"
+  start=$(date +%s)
+  while ! zeile_da && (( $(date +%s) < warten_bis )); do sleep $takt; done
+  if zeile_da; then log "Zeile nach $(( $(date +%s) - start )) s da"
+  else log "bis $(date -r $warten_bis +%H:%M) keine Zeile, weiter wie bisher"; fi
+fi
+
 if [[ -z $TROCKEN && -r $AUSGANG ]]; then
   offen=("${(@f)$(awk -F'\t' '$2=="offen"{print NR"\t"$3}' $AUSGANG | tail -n 5)}")
   for z in $offen; do

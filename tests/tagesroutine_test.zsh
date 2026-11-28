@@ -413,4 +413,57 @@ pruefe "belegt_tag: Sperre eines toten Nachtlaufs zählt nicht" "$(bt leer)" '^t
 print $$ > $T/bt-nacht/lauf.lock
 pruefe "belegt_tag: laufender Nachtlauf zählt als belegt" "$(bt leer)" '^tag=Nachtlauf läuft oder wartet '
 rm -f $T/bt-nacht/lauf.lock
+
+# --- Leere Plan-Runde nicht stündlich wiederholen (Logikprüfung 27.11.2026, Punkt 7): Fingerabdruck und Entscheidung
+# über die Proben --fingerabdruck und --auslassen (kein Claude, kein Fetch, nur Testdateien und ein Wegwerf-Repo)
+FPR=$T/fp-repo FPN=$T/fp-nacht; mkdir -p $FPN
+git init -q $FPR && git -C $FPR -c user.name=t -c user.email=t@t commit -q --allow-empty -m eins \
+  && git -C $FPR update-ref refs/remotes/origin/main HEAD
+print -lr -- "# Häufung 2026-11-29" "" "Erzeugt 2026-11-29 09:01 von tests/haeufung.py aus 97 offenen Einträgen" "## G1: 3 Einträge" > $FPN/2026-11-29-haeufung.md
+print -r -- "umbau 2026-11-23 2026-12-01" > $FPN/umbau-woche.txt
+print -r -- "PVTI_a	erledigt" > $FPN/2026-11-29-tagesroutine-erledigt.txt
+fp() { HALO_NACHT_DIR=$FPN HALO_TAG=2026-11-29 HALO_UMBAU_DATEI=$FPN/umbau-woche.txt HALO_UMBAU_LOCKERUNG=$FPN/umbau-lockerung.txt \
+  zsh $SKRIPT --fingerabdruck $FPR 2>&1 }
+FP1=$(fp)
+setopt extendedglob
+if [[ $FP1 == [0-9a-f](#c16) ]]; then print "OK     Fingerabdruck: 16 Zeichen Prüfsumme"; else print "FEHLER Fingerabdruck: „$FP1“"; FEHLER=1; fi
+gleich_oder() {   # <Name> <erwartet gleich|anders> <Abdruck>
+  if [[ ($2 == gleich && $3 == $FP1) || ($2 == anders && $3 != $FP1) ]]; then print -r -- "OK     $1"
+  else print -r -- "FEHLER $1 ($3 gegen $FP1)"; FEHLER=1; fi
+}
+sed -i '' 's/09:01/10:01/' $FPN/2026-11-29-haeufung.md
+gleich_oder "Fingerabdruck: Erzeugungszeit der Häufung zählt nicht" gleich "$(fp)"
+sed -i '' 's/97 offenen/96 offenen/' $FPN/2026-11-29-haeufung.md
+gleich_oder "Fingerabdruck: geänderte Häufung zählt" anders "$(fp)"
+sed -i '' 's/96 offenen/97 offenen/' $FPN/2026-11-29-haeufung.md
+print -r -- "lockerung 2026-11-28 2026-12-01" > $FPN/umbau-lockerung.txt
+gleich_oder "Fingerabdruck: Lockerung der Umbau-Woche zählt" anders "$(fp)"
+rm $FPN/umbau-lockerung.txt
+gleich_oder "Fingerabdruck: ohne Lockerung wieder gleich" gleich "$(fp)"
+print -r -- "umbau 2026-11-23 2026-11-30" > $FPN/umbau-woche.txt
+gleich_oder "Fingerabdruck: Schalter der Umbau-Woche zählt" anders "$(fp)"
+print -r -- "umbau 2026-11-23 2026-12-01" > $FPN/umbau-woche.txt
+print -r -- "PVTI_b	zurück" >> $FPN/2026-11-29-tagesroutine-erledigt.txt
+gleich_oder "Fingerabdruck: Liste „heute erledigt“ zählt" anders "$(fp)"
+print -r -- "PVTI_a	erledigt" > $FPN/2026-11-29-tagesroutine-erledigt.txt
+git -C $FPR -c user.name=t -c user.email=t@t commit -q --allow-empty -m zwei && git -C $FPR update-ref refs/remotes/origin/main HEAD
+gleich_oder "Fingerabdruck: neuer Stand von origin/main zählt" anders "$(fp)"
+git -C $FPR update-ref refs/remotes/origin/main HEAD~1
+gleich_oder "Fingerabdruck: alter Stand wieder gleich" gleich "$(fp)"
+
+# Entscheidung: letzte echte Runde begann Sa 28.11. 09:00:20 Wien
+R9=$(python3 -I -c 'import datetime as d;print(int(d.datetime.fromisoformat("2026-11-28T09:00:20+01:00").timestamp()))')
+ausl() { HALO_JETZT=$1 zsh $SKRIPT --auslassen "$2" "$3" $R9 $REPO 2>&1 }
+pruefe "Auslassen: gleich um 10:00 → keine Plan-Runde" "$(ausl 2026-11-28T10:00:30+01:00 $FP1 $FP1)" '^auslassen$'
+pruefe "Auslassen: gleich um 12:00 → keine Plan-Runde" "$(ausl 2026-11-28T12:00:40+01:00 $FP1 $FP1)" '^auslassen$'
+pruefe "Auslassen: geändert → echte Plan-Runde" "$(ausl 2026-11-28T10:00:30+01:00 $FP1 0123456789abcdef)" '^runde geändert$'
+pruefe "Auslassen: kein neuer Abdruck (Häufung/Fetch gescheitert) → echte Plan-Runde" "$(ausl 2026-11-28T10:00:30+01:00 $FP1 '')" '^runde geändert$'
+pruefe "Auslassen: gleich, aber 4 Stunden um (13:00, Wecker 10 s früher als die Runde) → echte Plan-Runde" \
+  "$(ausl 2026-11-28T13:00:10+01:00 $FP1 $FP1)" '^runde 4 Stunden$'
+pruefe "Auslassen: gleich nach 5 Stunden → echte Plan-Runde" "$(ausl 2026-11-28T14:00:30+01:00 $FP1 $FP1)" '^runde 4 Stunden$'
+# Schleife: „leerer Plan ist kein Ende“ bleibt – das Auslassen wartet wie ein leerer Plan (nach_plan 0 0) und endet nie selbst
+SKRIPTTEXT=$(<$SKRIPT)
+if [[ $SKRIPTTEXT == *'if [[ $a == auslassen ]]; then'*'nach_plan 0 0 $OHNE_ERGEBNIS'*'Plan-Runde ausgelassen: nichts geändert'*'continue'* ]]; then
+  print "OK     Auslassen in der Schleife: wartet wie ein leerer Plan (nach_plan 0 0), kein Ende"
+else print "FEHLER Auslassen in der Schleife: Verdrahtung nicht gefunden"; FEHLER=1; fi
 exit $FEHLER

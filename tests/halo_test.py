@@ -14948,6 +14948,56 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Mailliste: dieselbe Mail mehrfach (in der Konversation oder direkt dahinter) nur einmal als Karte, Antwort bleibt", duplicate_cards, results)
 
+    def copies_show_mail():
+        # dieselbe Mail in zwei Ordnern (Gmail-Labels) im Suchordner über beide (wie die Suche über alle Postfächer):
+        # Thunderbird legt die Kopien zu einer zugeklappten Zeile zusammen. Wählen zeigt die Mail selbst statt
+        # Thunderbirds Zusammenfassung „2 messages“; Antworten der Toolbar aktiv und auf diese Mail
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { VirtualFolderHelper } = ChromeUtils.importESModule("resource:///modules/VirtualFolderWrapper.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+          if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const fa = folder("KopieA"), fb = folder("KopieB"); await ruhig(500);
+          const msg = "From - Sat Oct 17 10:00:00 2026\r\nFrom: Lena Kopie <lena@example.invalid>\r\nTo: Halo Test <halo@example.invalid>\r\nSubject: Kopienprobe Gutschein\r\nDate: Sat, 17 Oct 2026 10:07:00 +0200\r\nMessage-ID: <halo-kopie-1@example.invalid>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nInhalt der Kopienprobe.\r\n";
+          for (const f of [fa, fb]) if (!f.getTotalMessages(false)) f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(msg);
+          await bis(() => fa.getTotalMessages(false) >= 1 && fb.getTotalMessages(false) >= 1, "Kopien gespeichert", 4000);
+          let vf = root.containsChildNamed("KopienSuche") ? root.getChildNamed("KopienSuche") : null;
+          if (!vf) {
+            vf = VirtualFolderHelper.createNewVirtualFolder("KopienSuche", root, [fa, fb], "AND (subject,contains,Kopienprobe)", false).virtualFolder;
+            await ruhig(500);
+          }
+          Services.prefs.setIntPref("mail.threadpane.listview", 0);
+          const a3 = await toMail(); a3.displayFolder(vf.URI);
+          await bis(() => a3.gFolder?.URI == vf.URI && a3.gDBView?.rowCount >= 1 && !a3.gViewWrapper.searching, "Suchordner KopienSuche", 8000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(600);
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(600);
+          const out = { rows: a3.gDBView.rowCount };
+          a3.threadTree.selectedIndex = 0;
+          out.numSelected = a3.gDBView.numSelected;
+          const shown = () => a3.messageBrowser?.contentWindow?.gMessage?.messageId;
+          await until(() => shown() == "halo-kopie-1@example.invalid", 5000); await ruhig(600);
+          const mb = a3.document.getElementById("messageBrowser"), multi = a3.document.getElementById("multiMessageBrowser");
+          out.mail = shown() || null;
+          out.mbVisible = !!mb && !mb.hidden && a3.getComputedStyle(mb).visibility == "visible";
+          out.multiVisible = !!multi && !multi.hidden;
+          out.text = a3.messageBrowser?.contentDocument?.getElementById("messagepane")?.contentDocument?.querySelector(".moz-text-plain, .moz-text-flowed, pre")?.textContent.trim().slice(0, 23) || null;
+          const tbtn = id => d.querySelector(`#unifiedToolbarContent li[item-id="${id}"] button`);
+          out.toolbar = ["reply", "forward-inline"].map(id => tbtn(id) ? !tbtn(id).disabled : null);
+          const compose = w.ComposeMessage; let got = null;
+          w.ComposeMessage = (type, format, f, uris) => { got = [type, uris?.[0]]; };
+          try { tbtn("reply")?.click(); await ruhig(300); } finally { w.ComposeMessage = compose; }
+          out.replyTo = got ? [got[0] == Ci.nsIMsgCompType.ReplyToSender, MailServices.messageServiceFromURI(got[1]).messageURIToMsgHdr(got[1])?.messageId] : null;
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        ok = (res.get("rows") == 1 and res.get("numSelected") == 2 and res.get("mail") == "halo-kopie-1@example.invalid"
+              and res.get("mbVisible") and not res.get("multiVisible") and res.get("text") == "Inhalt der Kopienprobe."
+              and res.get("toolbar") == [True, True] and res.get("replyTo") == [True, "halo-kopie-1@example.invalid"])
+        return ok, f"{res}"
+    check("Suche über alle Postfächer: dieselbe Mail in zwei Ordnern (zugeklappte Zeile) zeigt beim Wählen die Mail statt Thunderbirds Zusammenfassung, Antworten wirkt auf sie", copies_show_mail, results)
+
     def hover_actions():
         # wie Apple Mail: beim Überfahren der geöffneten Mail eine Kapsel mittig auf der Linie unter
         # dem Kopf (Löschen | Antworten, Allen antworten, Weiterleiten); in der Mailliste keine mehr

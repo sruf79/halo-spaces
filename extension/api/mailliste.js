@@ -133,8 +133,35 @@ class EnhancerMailliste {
         return false;
       }
     };
+    // zugeklappte Zeile aus lauter Kopien derselben Mail (gleiche Message-ID, etwa
+    // Gmail-Labels in der Suche über alle Postfächer bzw. im Sammelordner):
+    // Thunderbird zeigte seine Zusammenfassung „2 messages“ mit zwei gleichen
+    // Einträgen, die Konversation fasst die Kopien zu einer Mail zusammen und
+    // blieb deshalb aus – die Mail war nur per Doppelklick lesbar. Wie Apple Mail
+    // dann die Mail selbst (eine Kopie außerhalb von Papierkorb und Spam)
+    const copyOf = messages => {
+      if (messages.length < 2 || win.gDBView?.selection?.count != 1 || groupHeadSelected()) {
+        return null;
+      }
+      const id = messages[0]?.messageId;
+      if (!id || messages.some(m => m?.messageId != id)) {
+        return null;
+      }
+      const F = Ci.nsMsgFolderFlags;
+      return messages.find(m => m.folder && !m.folder.getFlag(F.Trash) && !m.folder.getFlag(F.Junk)) || messages[0];
+    };
     pane.displayMessages = function (messages = []) {
       conv.hide();
+      const copy = copyOf(messages);
+      if (copy?.folder) {
+        if (conv.enabled()) {
+          pane.classList.add("mc-conv-pending");
+        }
+        const result = one.call(this, copy.folder.getUriForMsg(copy));
+        conv.show(copy, { thread: true, copies: true });
+        conv.refreshToolbar();
+        return result;
+      }
       // Thunderbirds eigene Konversationsansicht (mail.thread.conversation.enabled, ab
       // 15x im Konfigurationseditor) baut sich bei einer gewählten Zeile sonst
       // zusätzlich unter den Karten auf – solange halo die Konversation zeigt, für

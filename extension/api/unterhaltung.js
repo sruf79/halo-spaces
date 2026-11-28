@@ -155,6 +155,7 @@ class ConversationCards {
   hide() {
     this.seq++;
     this.shown = null;
+    this.copies = null;
     this.reveal();
     if (this.box) {
       this.observer?.disconnect();
@@ -210,10 +211,18 @@ class ConversationCards {
   // nach Thunderbirds Anzeige: Konversation zeigen, wenn sie mehr als eine Mail hat.
   // Bis die Antwort da ist, bleibt Thunderbirds Ansicht verdeckt (mc-conv-pending) –
   // sonst blitzte kurz die Einzelmail bzw. die Zusammenfassung auf
-  async show(hdr, { thread = false } = {}) {
+  async show(hdr, { thread = false, copies = false } = {}) {
     const token = ++this.seq;
     this.shown = null;
-    if (!hdr || !this.enabled()) {
+    if (!hdr) {
+      this.reveal();
+      return;
+    }
+    // zugeklappte Zeile aus Kopien derselben Mail (displayMessages in
+    // mailliste.js): Antworten und Weiterleiten wirken auf diese Mail, auch
+    // wenn die Konversation aus ist oder nur aus ihr besteht
+    this.copies = copies ? hdr : null;
+    if (!this.enabled()) {
       this.reveal();
       return;
     }
@@ -247,6 +256,9 @@ class ConversationCards {
   // zugeklappter Faden als Konversation: Karte, auf die Antworten und
   // Weiterleiten der Toolbar wirken (die gewählte, sonst die neueste)
   threadTarget() {
+    if (!this.box?.isConnected && this.copies?.folder) {
+      return { __mcHdr: this.copies };
+    }
     if (!this.box?.isConnected || !this.thread) {
       return null;
     }

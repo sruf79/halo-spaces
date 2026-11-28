@@ -24,10 +24,12 @@ div:is(.moz-text-plain, .moz-text-flowed) {
    defekt): statt Ersatztext wie „Icono 1“ ein dezenter Platzhalter mit
    durchgestrichenem Bild-Symbol. Nur für Bilder mit Ersatztext – unsichtbare
    Zählpixel ohne Text bleiben unsichtbar. Nur in angezeigten Mails – das
-   Stylesheet gilt sonst überall (die Lupe im Suchfeld wurde zum Platzhalter). */
+   Stylesheet gilt sonst überall (die Lupe im Suchfeld wurde zum Platzhalter).
+   Ausnahme Bilder in Links: dort bleibt der Ersatztext stehen, sonst wird z. B.
+   aus dem Logo-Link „Gurgl“ ein Symbol ohne erkennbares Ziel. */
 @-moz-document url-prefix("imap:"), url-prefix("mailbox:"), url-prefix("news:"),
                url-prefix("nntp:"), url-prefix("ews:"), url-prefix("owl:") {
-  img:-moz-broken[alt]:not([alt=""]) {
+  img:-moz-broken[alt]:not([alt=""], a[href] img) {
     display: inline-block !important;
     box-sizing: border-box !important;
     min-width: 32px !important;

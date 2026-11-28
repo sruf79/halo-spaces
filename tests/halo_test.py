@@ -16784,7 +16784,7 @@ def run_checks(m, version, profile, results):
           if (!f.getTotalMessages(false)) {
             lf.addMessage(mail(1, "<html><body><p id='t'>Ohne eigene Schrift</p><img src='https://example.invalid/bild.png' width='1' height='1'></body></html>"));
             lf.addMessage(mail(2, "<html><body style='font-family: Georgia, serif'><p id='t'>Mit eigener Schrift</p></body></html>"));
-            lf.addMessage(mail(3, "<html><body><p id='t'>Bild</p><img id='bild' src='https://example.invalid/logo.png' alt='Icono 1' width='48' height='40'><img id='pixel' src='https://example.invalid/p.gif' alt='' width='1' height='1'></body></html>"));
+            lf.addMessage(mail(3, "<html><body><p id='t'>Bild</p><img id='bild' src='https://example.invalid/logo.png' alt='Icono 1' width='48' height='40'><img id='pixel' src='https://example.invalid/p.gif' alt='' width='1' height='1'><a href='https://example.invalid/'><img id='verlinkt' src='https://example.invalid/gurgl.png' alt='Gurgl'></a></body></html>"));
             await bis(() => f.getTotalMessages(false) >= 3, "Testmails in Schrift", 4000);
           }
           const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 3, "Ordner Schrift angezeigt", 5000); await ruhig(800);
@@ -16966,10 +16966,16 @@ def run_checks(m, version, profile, results):
           await ruhig(800);
           const px = img.ownerDocument.getElementById("pixel");
           const cs = img.ownerDocument.defaultView.getComputedStyle(img), r = img.getBoundingClientRect(), pr = px.getBoundingClientRect();
-          return { placeholder: cs.backgroundImage.includes("svg"), textHidden: cs.color == "rgba(0, 0, 0, 0)" || parseFloat(cs.fontSize) == 0, size: [Math.round(r.width), Math.round(r.height)], pixel: [Math.round(pr.width), Math.round(pr.height)] };""")
-        ok = res["placeholder"] and res["textHidden"] and res["size"] == [48, 40] and max(res["pixel"]) <= 1
+          // Bild als einziger Inhalt eines Links (Logo-Link): Ersatztext bleibt lesbar, kein Platzhalter
+          const ln = img.ownerDocument.getElementById("verlinkt"), lc = ln && img.ownerDocument.defaultView.getComputedStyle(ln), lr = ln?.getBoundingClientRect();
+          return { placeholder: cs.backgroundImage.includes("svg"), textHidden: cs.color == "rgba(0, 0, 0, 0)" || parseFloat(cs.fontSize) == 0, size: [Math.round(r.width), Math.round(r.height)], pixel: [Math.round(pr.width), Math.round(pr.height)],
+                   linked: ln && { broken: ln.complete && ln.naturalWidth == 0, placeholder: lc.backgroundImage.includes("svg"), color: lc.color, font: parseFloat(lc.fontSize), size: [Math.round(lr.width), Math.round(lr.height)] } };""")
+        lk = res.get("linked") or {}
+        ok = (res["placeholder"] and res["textHidden"] and res["size"] == [48, 40] and max(res["pixel"]) <= 1
+              and lk.get("broken") and not lk.get("placeholder") and lk.get("color") not in (None, "rgba(0, 0, 0, 0)", "transparent")
+              and (lk.get("font") or 0) > 0 and min(lk.get("size") or [0]) > 0)
         return ok, f"{res}"
-    check("Blockierte Bilder: Platzhalter statt Ersatztext, Zählpixel unsichtbar", blocked_image, results)
+    check("Blockierte Bilder: Platzhalter statt Ersatztext, Zählpixel unsichtbar, Bild in einem Link behält seinen Ersatztext", blocked_image, results)
 
     reading_checks(m, results)
     compose_checks(m, results)

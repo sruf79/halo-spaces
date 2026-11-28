@@ -5,6 +5,7 @@
 #   sperre <Schalterdatei> <Vorlauf Std.>   rc 0 = keine neuen Worker (ab „ab“ minus Vorlauf, solange die Zeile steht)
 #   erlaubt <Typ> <Titel> [<id>] [<Status>] „ja …“ (rc 0) oder „nein …“ (rc 1): darf ein Lauf den Eintrag in der Woche beginnen?
 #   fable <Titel> [<id>]                    rc 0 = Fable aus der Tagesroutine erlaubt (nur nach „Rot bleibt rot“, S0 b)
+#   lockerung                               rc 0 = ~/halo-nacht/umbau-lockerung.txt gilt (lockert erlaubt, docs/umbau.md)
 #   sortieren <export.json> <Repo> [--main REF] [--gruen DATEI] [--jetzt ISO]   Listen für Tag 1 (nur Einträge auf In Progress);
 #                                           DATEI: je Zeile „<sha> <Zweig>“ grüner Push-Läufe (A nur aus Zweig main)
 # Zeit: HALO_JETZT (ISO mit Zone) für Proben, sonst jetzt.
@@ -88,6 +89,47 @@ def kuerzel(i):
     return (i or "")[-5:]
 
 
+LOCKERUNG_TAGE = 7   # Lockerung gilt höchstens 7 Tage im Voraus, sonst keine (Gegenprüfung 28.11.2026, A)
+# Titel, die auch die Lockerung nicht freigibt (Gegenprüfung 28.11.2026, B): Abläufe baut neon, Release und Store nicht
+GESPERRT_TITEL = re.compile(r"^(ablauf|release|store)\s*:", re.I)
+
+
+def lockerung_datei():
+    """~/halo-nacht/umbau-lockerung.txt neben dem Schalter. Proben: HALO_UMBAU_LOCKERUNG, sonst der Ordner von
+    HALO_UMBAU_DATEI (so liest eine Probe mit eigenem Schalter nie die echte Datei), sonst HALO_NACHT_DIR."""
+    d = os.environ.get("HALO_UMBAU_LOCKERUNG")
+    if d:
+        return d
+    s = os.environ.get("HALO_UMBAU_DATEI")
+    ordner = os.path.dirname(s) if s else os.environ.get("HALO_NACHT_DIR") or os.path.expanduser("~/halo-nacht")
+    return os.path.join(ordner, "umbau-lockerung.txt")
+
+
+def lockerung():
+    """Lockerung des Umbau-Filters (Fable-Entscheidung 28.11.2026, Klasse B; ~/halo-berichte/2026-11-28-kontingent-
+    nutzen.md Abschnitt 3). Zeile wie in pausen.txt: „[lockerung] <bis ISO-Zeit mit Zone> <Grund>“; die letzte Zeile ohne
+    „#“ gilt. Rückgabe (bis, Grund) nur, wenn die Datei lesbar, die Zeile gültig und die Zeit nicht abgelaufen ist; sonst
+    None. Jeder Fehler heißt keine Lockerung (sicherer Rückfall auf den starren Filter)."""
+    try:
+        with open(lockerung_datei(), encoding="utf-8") as f:
+            zeilen = [z.strip() for z in f if z.strip() and not z.lstrip().startswith("#")]
+        if not zeilen:
+            return None
+        t = zeilen[-1].split()
+        if t and t[0] == "lockerung":
+            t = t[1:]
+        if len(t) < 2:
+            return None
+        bis = iso(t[0])
+        if jetzt() >= bis:
+            return None
+        if bis - jetzt() > dt.timedelta(days=LOCKERUNG_TAGE):
+            return None   # Obergrenze (Gegenprüfung 28.11.2026, A): keine Dauer-Lockerung durch Tippfehler wie 2099
+        return t[0], " ".join(t[1:])
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
 def erlaubt(typ, titel, ident="", status=""):
     k = kuerzel(ident)
     if status == "Pausiert":
@@ -100,6 +142,22 @@ def erlaubt(typ, titel, ident="", status=""):
         return True, "ja von Nutzern gemeldeter Bug (GitHub #n) – nur, wenn Nutzer ihn spüren"
     if k in UMBAU or UMBAU_TITEL.search(titel):
         return False, "nein Umbau-Eintrag: baut neon tagsüber, kein Lauf"
+    lo = lockerung()
+    if lo:
+        # Nicht gelockert (Bericht 28.11.2026, „Was ich nicht freigebe“): Pausiert, Umbau und nur Maintainer (oben),
+        # Ablauf-Einträge (baut neon am Tag), Wartet auf OK; Fable (fable) und Release unter Tage hängen nicht hieran
+        # Gegenprüfung 28.11.2026, B: getrimmt und ohne Groß-/Kleinschreibung; nur Typ Bug oder Feature
+        t, st = titel.strip(), " ".join(status.split()).lower()
+        if GESPERRT_TITEL.search(t):
+            return False, "nein %s-Eintrag: auch mit Lockerung nicht (Abläufe baut neon tagsüber)" % t.split(":")[0].strip()
+        if st == "wartet auf ok":
+            return False, "nein Status Wartet auf OK (bleibt liegen, auch mit Lockerung)"
+        if st == "pausiert":
+            return False, "nein Status Pausiert (nie bearbeiten, nie schließen)"
+        if typ.strip().lower() not in ("bug", "feature"):
+            return False, "nein Typ %s: Lockerung gilt nur für Bug und Feature" % (typ.strip() or "leer")
+        return True, ("ja Lockerung Fable bis %s (%s): wie im Normalbetrieb; Design-Einträge nur über den designer, "
+                      "kein Fable aus der Tagesroutine" % lo)
     if status == "In Progress":
         # Fable-Prüfung M6: was Tag 1 auf In Progress ließ, „bleibt In Progress und wird abgeschlossen“ (Wortlaut 20.11.):
         # zu Ende bringen ist kein Beginnen, aber nur abschließen, keine neue Arbeit
@@ -322,6 +380,11 @@ def main(a):
         return 0 if ok else 1
     if c == "fable":
         return 0 if fable(a[1], a[2] if len(a) > 2 else "") else 1
+    if c == "lockerung":
+        lo = lockerung()
+        print(("Lockerung gilt bis %s – %s" % lo) if lo else "keine Lockerung (%s fehlt, leer, unlesbar oder abgelaufen)"
+              % lockerung_datei())
+        return 0 if lo else 1
     if c == "sortieren":
         return sortieren(a[1:])
     print("unbekannter Befehl " + c, file=sys.stderr)

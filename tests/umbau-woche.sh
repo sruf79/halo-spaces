@@ -86,7 +86,9 @@ case $cmd in
     # Unlesbarer Schalter (Fable-Prüfung M7): die Woche gilt nicht automatisch (kein Sortieren, keine Sperren), aber er
     # gibt auch nicht alles frei – sicherer Standard ist der Filter der Woche, wie Rückfall B im Nachtlauf-Auftrag
     if (( rc == 4 )); then
-      out=$(py erlaubt "$@"); r=$?; print -r -- "$out (Schalter unlesbar: Filter der Umbau-Woche, bis geklärt)"; exit $r
+      # ohne Lockerung (Gegenprüfung 28.11.2026, C): bei unlesbarem Schalter gilt nur der starre Filter
+      out=$(HALO_UMBAU_LOCKERUNG=/dev/null/keine-lockerung py erlaubt "$@"); r=$?
+      print -r -- "$out (Schalter unlesbar: starrer Filter der Umbau-Woche ohne Lockerung, bis geklärt)"; exit $r
     fi
     [[ $4 == Pausiert ]] && { print "nein Status Pausiert (nie bearbeiten, nie schließen)"; exit 1 }
     print "ja Umbau-Woche nicht aktiv"; exit 0 ;;

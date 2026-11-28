@@ -112,3 +112,16 @@ Die Zuordnung Stufe → Maßnahme folgt den Auftragsdateien; einzelne Unterstufe
 dort nicht beschrieben (Status unklar). Morgenbrief und Tagesroutine nimmt man zurück, indem man
 ihren LaunchAgent entlädt (`launchctl bootout gui/$(id -u)/at.halo-spaces.<name>`) und die plist
 entfernt.
+
+## Lockerung
+
+Umbau-Woche, Fable-Entscheidung vom 28.11.2026 (Klasse B, `~/halo-berichte/2026-11-28-kontingent-nutzen.md` Abschnitt 3):
+Die optionale Datei `~/halo-nacht/umbau-lockerung.txt` lockert den Filter `zsh tests/umbau-woche.sh erlaubt`; der
+Umbau-Schalter selbst bleibt stehen. Eine Zeile wie in `pausen.txt`: `[lockerung] <bis ISO-Zeit mit Zone> <Grund>`,
+z. B. `2026-12-01T01:00+01:00 Fable 28.11.2026`; die letzte Zeile ohne `#` gilt. Solange sie lesbar, gültig, nicht
+abgelaufen und höchstens 7 Tage im Voraus gesetzt ist, antwortet `erlaubt` für Einträge vom Typ Bug oder Feature (auch Design) „ja Lockerung Fable …“ wie im Normalbetrieb
+(Design weiter nur über den designer). Nicht gelockert: Status „Pausiert“, Umbau-Einträge, Titel „Ablauf: …“, „Release: …“ und „Store: …“ (ohne Groß-/Kleinschreibung), Status
+„Wartet auf OK“, Einträge nur für den Maintainer, Fable aus der Tagesroutine (`fable` liest die Datei nicht) und Release
+unter Tage (nur nach den Kriterien der Karte director). Fehlt die Datei, ist sie leer, unlesbar, die Zeit ohne Zone oder
+abgelaufen oder ist der Umbau-Schalter selbst unlesbar, gilt der starre Filter unverändert; ein Fehler lockert nie. Stand prüfen: `python3 -I tests/umbau-woche.py
+lockerung` (rc 0 = gilt). Zurück: Datei löschen, wirkt beim nächsten Aufruf. Prüfungen: `zsh tests/umbau_woche_test.zsh`.

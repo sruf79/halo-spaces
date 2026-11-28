@@ -7791,8 +7791,15 @@ const CSS = `
 #threadTree tr[is="thread-card"][data-mc-dup] {
   display: none !important;
 }
+/* Absenderbild so hoch wie der Textblock daneben (Absender, Betreff, Vorschau)
+   und senkrecht mittig in der Karte; wächst mit der Schriftgröße mit. Bild zu
+   Text bleibt 10 px. Die Zeichen links (Punkt, Pfeile) stehen auf der Bildmitte
+   (--mc-status-top in userChrome.css). */
+#threadTree {
+  --mc-avatar-size: calc(44px * var(--mt-font-scale, 1));
+}
 #threadTree tr[is="thread-card"] .card-container {
-  grid-template-columns: 16px 46px minmax(0, 1fr) !important;
+  grid-template-columns: 16px calc(var(--mc-avatar-size) + 10px) minmax(0, 1fr) !important;
   /* Inhalt senkrecht mittig: Thunderbird stapelt ihn sonst oben, und der
      Rest der festen Zeilenhöhe landet unten (bei kompakter Dichte deutlich) */
   align-content: center !important;
@@ -7819,10 +7826,9 @@ const CSS = `
   top: -1px;
 }
 #threadTree tr[is="thread-card"] .mc-avatar {
-  width: 36px;
-  height: 36px;
-  margin-top: 3px;
-  align-self: start;
+  width: var(--mc-avatar-size);
+  height: var(--mc-avatar-size);
+  align-self: center;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -7831,7 +7837,7 @@ const CSS = `
   /* wie Apple Mail: Verlauf Blaugrau → Lavendel, Initialen ~54 % des Kreises */
   background: linear-gradient(180deg, #B4CAE4, #8A97C5);
   color: #fff;
-  font: 600 19px -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font: 600 calc(var(--mc-avatar-size) * 19 / 36) -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   letter-spacing: 0;
   user-select: none;
   pointer-events: none;

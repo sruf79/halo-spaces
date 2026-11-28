@@ -15106,6 +15106,75 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Mailliste: zugeklappte Konversation mit beantworteter oder weitergeleiteter oberster Mail und neuer ungelesener Antwort zeigt den blauen Punkt statt eines blauen Pfeils", reply_marks_collapsed_unread, results)
 
+    def card_avatar_centered():
+        # Absenderbild 44 px (mal Schriftfaktor) senkrecht mittig in der Karte, 1 px über rechnerisch mittig wie der Text;
+        # Punkt und Pfeile links genau auf der Bildmitte, auch in einer aufgeklappten Unterhaltung; Text 10 px neben dem
+        # Bild; bei größerer Schrift wächst das Bild mit und bleibt mittig (vorher 36 px mit 5 px Abstand oben)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { UIFontSize } = ChromeUtils.importESModule("resource:///modules/UIFontSize.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("BildMitte")) { root.createSubfolder("BildMitte", null); await bis(() => root.containsChildNamed("BildMitte"), "Ordner BildMitte angelegt", 4000); }
+          const f = root.getChildNamed("BildMitte");
+          const raw = (id, from, subject, ref, min) => ["From - Mon Oct 19 10:00:00 2026", `From: ${from}`, "To: Halo <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - min * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(ref ? [`In-Reply-To: <${ref}@example.invalid>`, `References: <${ref}@example.invalid>`] : []), "", "Erfundene Testnachricht mit etwas Text.", ""].join("\r\n");
+          if (!f.getTotalMessages(false)) {
+            const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lf.addMessage(raw("bm-un", "Anna Berger <anna@example.invalid>", "Halo ungelesen", null, 10));
+            lf.addMessage(raw("bm-rp", "Radverein Ost <rad@example.invalid>", "Halo beantwortet", null, 20));
+            lf.addMessage(raw("bm-fw", "Gemeinde Musterdorf <amt@example.invalid>", "Halo weitergeleitet", null, 30));
+            lf.addMessage(raw("bm-k1", "Ben Muster <ben@example.invalid>", "Halo Faden", null, 50));
+            lf.addMessage(raw("bm-k2", "Carla Muster <carla@example.invalid>", "Re: Halo Faden", "bm-k1", 40));
+            await bis(() => f.getTotalMessages(false) >= 5, "Testmails in BildMitte", 4000);
+          }
+          const hdr = id => [...f.messages].find(h => h.messageId == id + "@example.invalid");
+          const D = Ci.nsIMsgFolder;
+          f.addMessageDispositionState(hdr("bm-rp"), D.nsMsgDispositionState_Replied);
+          f.addMessageDispositionState(hdr("bm-fw"), D.nsMsgDispositionState_Forwarded);
+          for (const id of ["bm-rp", "bm-fw", "bm-k1"]) hdr(id).markRead(true);
+          for (const id of ["bm-un", "bm-k2"]) hdr(id).markRead(false);
+          const a3 = await toMail(); const ad = a3.document;
+          if (Services.prefs.getIntPref("mail.threadpane.listview", 0) != 0) { a3.commandController.doCommand("cmd_threadPaneViewCards"); await ruhig(1000); }
+          a3.displayFolder(f.URI);
+          await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 4, "Ordner BildMitte", 5000); await ruhig(800);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.threadTree.selectedIndex = -1; a3.goDoCommand?.("cmd_expandAllThreads"); await ruhig(800);
+          const k = x => Math.round(x * 10) / 10;
+          const look = () => {
+            const scale = parseFloat(a3.getComputedStyle(ad.documentElement).getPropertyValue("--mt-font-scale")) || 1;
+            const o = { scale };
+            for (const row of ad.querySelectorAll('#threadTree tr[is="thread-card"]')) {
+              const id = a3.gDBView.getMsgHdrAt(row.index)?.messageId?.split("@")[0]; if (!id?.startsWith("bm-")) continue;
+              const c = row.querySelector(".card-container").getBoundingClientRect(), av = row.querySelector(".mc-avatar").getBoundingClientRect();
+              const rs = row.querySelector(".read-status"), r = rs.getBoundingClientRect(), cs = a3.getComputedStyle(rs);
+              const sn = row.querySelector(".sender").getBoundingClientRect();
+              o[id] = { size: [k(av.width), k(av.height)], top: k(av.top - c.top), bottom: k(c.bottom - av.bottom),
+                        mid: k((av.top + av.height / 2) - (c.top + c.height / 2)),
+                        mark: cs.display != "none" && cs.visibility != "hidden" && r.width > 0 ? k((r.top + r.height / 2) - (av.top + av.height / 2)) : null,
+                        gap: k(sn.left - av.right) };
+            }
+            return o;
+          };
+          const out = { normal: look() };
+          try {
+            Services.prefs.setIntPref("mail.uifontsize", (UIFontSize.osValue || 13) + 3); await ruhig(1500);
+            out.gross = look();
+          } finally {
+            Services.prefs.clearUserPref("mail.uifontsize"); await ruhig(1200);
+          }
+          return out;""")
+        def good(o):
+            want = 44 * o.get("scale", 1)
+            rows = [o.get(i) or {} for i in ("bm-un", "bm-rp", "bm-fw", "bm-k1", "bm-k2")]
+            return (all(r.get("size") and all(abs(v - want) <= 1 for v in r["size"]) and abs(r.get("mid", 99) + 1) <= 0.6
+                        and abs(r.get("gap", 99) - 10) <= 3 for r in rows)
+                    and all(r.get("mark") is not None and abs(r["mark"]) <= 0.6 for r in rows if r is not rows[3]))
+        n, g = res.get("normal") or {}, res.get("gross") or {}
+        ok = good(n) and good(g) and g.get("scale", 1) > 1.05
+        return ok, f"{res}"
+    check("Mailliste: Absenderbild 44 px (wächst mit der Schrift) senkrecht mittig in der Karte, Punkt und Pfeile links auf der Bildmitte, auch in der aufgeklappten Unterhaltung", card_avatar_centered, results)
+
     def list_date_future():
         # Datum in der Mailliste: heute nur die Uhrzeit, in der Zukunft (falsche Uhr,
         # Spam „oben halten“) das ganze Datum statt nur der Uhrzeit; „jetzt“ = Di 20.10.2026 15:00
@@ -18983,9 +19052,10 @@ Neu
               and b and b["name"] == "Ben Ohnefirma" and not b["secondShown"]
               and e and e["name"] == "ohne.alles@example.invalid" and not e["secondShown"]
               and res["anyMail"] == ["ohne.alles@example.invalid"]
-              and abs(res["list"] - res["mailList"]) <= 1 and res["avatar"] == (res["mailAv"] or 36))
+              # Bild so hoch wie der Textblock daneben: im Adressbuch (zwei Zeilen) 36 px, in der Mailkarte (drei Zeilen) 44 px
+              and abs(res["list"] - res["mailList"]) <= 1 and res["avatar"] == 36 and res["mailAv"] in (None, 44))
         return ok, f"{res}"
-    check("Adressbuch: Karten nur mit Name bzw. Firma (keine E-Mail-Adresse), Liste so breit und Bilder so groß wie bei den Mailkarten", ab_cards_like_mail, results)
+    check("Adressbuch: Karten nur mit Name bzw. Firma (keine E-Mail-Adresse), Liste so breit wie bei den Mailkarten, Bilder so hoch wie der Textblock (36 px, Mailkarten 44 px)", ab_cards_like_mail, results)
 
     def photo_dialog():
         # Kontaktfoto wie Apple Kontakte: „Choose…“ öffnet jederzeit die Dateiauswahl, runder Ausschnitt ohne Eckgriffe,

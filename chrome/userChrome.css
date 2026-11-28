@@ -1364,7 +1364,7 @@ hr[is="pane-splitter"]::after {
 }
 
 /* Karten: Punkt wie in Apple Mail links neben dem Absenderbild, auf
-   dessen Mitte (Bild 36 px ab 6 px oben → Mitte 24 px) */
+   dessen Mitte (Bild mittig in der Karte, 1 px über rechnerisch mittig) */
 #threadTree tr[is="thread-card"] .card-container {
   position: relative !important;
   padding-inline-start: 8px !important;
@@ -1386,9 +1386,10 @@ hr[is="pane-splitter"]::after {
 #threadTree tr[is="thread-card"] .read-status {
   position: absolute !important;
   inset-inline-start: 7px !important;
-  /* ohne Kontaktfoto setzt die Erweiterung --mc-status-top auf die Mitte
-     der Absenderzeile */
-  top: var(--mc-status-top, 19px) !important;
+  /* Mitte des Punkts (10 px) auf der Bildmitte: halbe Karte minus 1 px wie
+     das Bild; ohne Kontaktfoto setzt die Erweiterung --mc-status-top auf die
+     Mitte der Absenderzeile */
+  top: var(--mc-status-top, calc(50% - 6px)) !important;
 }
 
 /* Beantwortet / weitergeleitet wie in Apple Mail: grauer Pfeil an der
@@ -1405,7 +1406,7 @@ hr[is="pane-splitter"]::after {
   width: 12px !important;
   height: 12px !important;
   inset-inline-start: 6px !important;
-  top: calc(var(--mc-status-top, 19px) - 1px) !important;
+  top: calc(var(--mc-status-top, calc(50% - 6px)) - 1px) !important;
   border-radius: 0 !important;
   background-color: var(--mt-text-tertiary) !important;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 6 4 12l6 6M4 12h10a6 6 0 0 1 6 6'/%3E%3C/svg%3E") center / 12px no-repeat !important;

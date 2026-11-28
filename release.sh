@@ -17,6 +17,11 @@ ROOT="${0:A:h}"
 cd "$ROOT"
 VERSION="$1"
 [[ -z "$VERSION" ]] && { echo "Aufruf: ./release.sh <version>  (z. B. 2.11.0)"; exit 1; }
+# Release aus eigenem Worktree (nur mit HALO_RELEASE_WORKTREE=1, tests/release-worktree.zsh): vorher prüfen, dass hier ein
+# eigener Worktree auf sauberem origin/main liegt; ohne Schalter unverändert
+if [[ "$HALO_RELEASE_WORKTREE" == 1 ]]; then
+  zsh tests/release-worktree.zsh pruefen || exit 1
+fi
 [[ -f repo.conf ]] || { echo "repo.conf fehlt (GITHUB_REPO=\"besitzer/repo\")"; exit 1; }
 source ./repo.conf
 [[ -z "$GITHUB_REPO" ]] && { echo "GITHUB_REPO in repo.conf fehlt"; exit 1; }

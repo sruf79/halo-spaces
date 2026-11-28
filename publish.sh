@@ -75,6 +75,13 @@ for addon in json.load(open("updates.json"))["addons"].values():
 PY
 )
 [[ "$LOCAL" == "$LISTED" ]] || { echo "Hash in updates.json passt nicht zum Paket (Paket neu gebaut?) – ./release.sh $VERSION erneut"; exit 1; }
+# Release aus eigenem Worktree (nur mit HALO_RELEASE_WORKTREE=1, tests/release-worktree.zsh): eigener Worktree auf
+# origin/main, außer den Release-Dateien nichts geändert; gepusht wird dann über den Upstream origin/main
+PUSH=(git -c http.postBuffer=157286400 push -q)
+if [[ "$HALO_RELEASE_WORKTREE" == 1 ]]; then
+  zsh tests/release-worktree.zsh pruefen --release-dateien || exit 1
+  PUSH=(git -c http.postBuffer=157286400 -c push.default=upstream push -q)
+fi
 
 # Bericht für den Morgen: wird am Ende geschrieben, auch wenn etwas schiefgeht
 BERICHTE="$HOME/halo-berichte"
@@ -114,8 +121,8 @@ if [[ -n "$OTHER" ]]; then
 fi
 git add -- "${RELEASE_FILES[@]}"
 git commit -q -m "halo.spaces $VERSION" -- "${RELEASE_FILES[@]}" || true
-git -c http.postBuffer=157286400 push -q
-STATUS+=("gepusht: $(git rev-parse --short HEAD) auf $(git rev-parse --abbrev-ref HEAD)")
+"${PUSH[@]}"
+STATUS+=("gepusht: $(git rev-parse --short HEAD) auf $(git rev-parse --abbrev-ref HEAD)$([[ "$HALO_RELEASE_WORKTREE" == 1 ]] && echo " (Worktree $ROOT, Upstream origin/main)")")
 "$GH" release create "v$VERSION" "$XPI" --repo "$GITHUB_REPO" --title "$VERSION" --notes-file "$NOTES"
 STATUS+=("GitHub-Release v$VERSION angelegt: https://github.com/$GITHUB_REPO/releases/tag/v$VERSION")
 

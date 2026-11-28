@@ -147,6 +147,19 @@ es, ein Director darf im Bericht nur auf einen möglichen Notfall hinweisen.
   Korrekturen des Maintainers trägt neon dort ein. Regeländerungen nur als Vorschlag im Bericht.
 - Prüfung: `zsh tests/zwischen_schleife_test.zsh`.
 
+## Release aus eigenem Worktree (Umbau P5, Probebetrieb)
+
+Maintainer 27.11.2026 „ja ja“ (Sammelfrage S5, `ENTSCHEIDUNGEN.md`). Standard bleibt der Aufruf in `~/halo-spaces` auf `main`;
+der neue Weg nur mit dem Schalter `HALO_RELEASE_WORKTREE=1`, bis ein Release aus dem Worktree gelang (Stufe C).
+- `zsh tests/release-worktree.zsh anlegen <version>`: `git fetch`, Worktree `~/halo-release-<version>` (Zweig `rel/<version>`,
+  Upstream `origin/main`) auf `origin/main`, `repo.conf` kopiert; `~/halo-spaces` bleibt unberührt, dessen lokale Commits
+  und Ungespeichertes kommen nicht mit. Dort README-Commit, dann `HALO_RELEASE_WORKTREE=1` vor `release.sh`, `publish.sh`
+  bzw. `tests/release-unter-tage.sh`.
+- Mit Schalter prüfen alle drei `tests/release-worktree.zsh pruefen` (eigener Worktree, nicht `main`, Upstream `origin/main`,
+  darüber nichts für Thunderbird, nichts Ungespeichertes; `publish.sh` erlaubt nur die Release-Dateien) statt „Zweig main“;
+  `publish.sh` pusht über den Upstream. Unverändert: Testmarke, `NUR_CI`, Windows, Zeitfenster, Push-Sperre, ein Release pro Tag.
+- Prüfung (Wegwerf-Repo, Attrappen für gh und curl, kein Netz): `zsh tests/release_worktree_test.zsh`.
+
 ## Rote Änderung auf einen Nebenzweig (Maintainer 18.11.2026)
 
 Ist eine Prüfung für ein Release rot, wird erst belegt, ob es eine Regression ist (Wiederholung, Gegenprobe mit dem letzten Release, Bisect). Ein belegter, sauber trennbarer Verursacher (Revert ohne Konflikte, Funktion und Test zusammen) kommt auf einen Nebenzweig; der Rest wird als neuer Stand mit voller CI, Windows und neuer Testmarke veröffentlicht, README und Notizen werden neu geschrieben, ein Board-Eintrag hält die Wiederaufnahme fest. Steht der Fehler schon im letzten Release oder hängt er an der Umgebung, wird er mit `check(…, bekannt=True)` samt Board-Eintrag festgehalten oder behoben. Je öfter derselbe Commit rot wird und auf einem Nebenzweig landet, desto höher das untersuchende Modell, immer mit Skill `systematic-debugging` (1. Opus, 2. und 3. Fable nach den Grenzen aus „Rot bleibt rot“ in `docs/neon-sitzung.md` Schritte 0–6, danach Übergabe an den Maintainer). Nie die Sperre umgehen.

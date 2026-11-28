@@ -183,6 +183,159 @@ function paneShortcut(pane, os) {
 function paneShortcutBlocked(pane, os, editing) {
   return os != "Darwin" && pane == "sidebar" && !!editing;
 }
+// Zugriffsbuchstaben (unterstrichener Buchstabe in Beschriftungen, Knöpfen, Menüs) unter Windows und Linux wie in
+// anderen Programmen dort erst mit Alt zeigen statt dauernd; die Tasten selbst wirken unverändert, nur der Strich
+// fehlt. macOS hat keine (ui.key.menuAccessKey 0), ebenso wenn die Systemeinstellung „Zugriffstasten immer
+// unterstreichen“ an ist (alwaysShown). Reine Funktionen, siehe tests/logik/zugriffstasten.test.mjs
+function accessCuesHidden(os, menuAccessKey, alwaysShown) {
+  return os != "Darwin" && menuAccessKey != 0 && !alwaysShown;
+}
+// Windows: SPI_GETKEYBOARDCUES steht als Bit 0x20 im ersten Byte von HKCU\Control Panel\Desktop\UserPreferencesMask
+// (readBinaryValue liefert die Bytes als Zeichen)
+function keyboardCuesFromMask(mask) {
+  return !!(mask && mask.charCodeAt(0) & 0x20);
+}
+// Zustand nach einem Ereignis: Alt gedrückt zeigt die Striche; Alt allein getippt lässt sie stehen („nach Alt“),
+// Alt mit einer anderen Taste (Zugriffstaste benutzt) nimmt sie beim Loslassen weg; Escape, Mausklick und Wechsel des
+// Fensters nehmen sie weg. AltGr (Strg+Alt) zählt nicht. ev: { type, key, altKey, ctrlKey }
+function accessCuesStep(state, ev) {
+  const s = { shown: !!state?.shown, combo: !!state?.combo };
+  if (ev.type == "keydown") {
+    if (ev.key == "Alt") {
+      return ev.ctrlKey ? s : { shown: true, combo: false };
+    }
+    if (ev.key == "Escape") {
+      return { shown: false, combo: false };
+    }
+    return ev.altKey ? { shown: s.shown, combo: true } : s;
+  }
+  if (ev.type == "keyup" && ev.key == "Alt") {
+    return s.combo ? { shown: false, combo: false } : s;
+  }
+  if (ev.type == "mousedown" || ev.type == "blur") {
+    return { shown: false, combo: false };
+  }
+  return s;
+}
+// Striche ausblenden: globales Benutzer-Stilblatt (gilt auch in Einstellungen, Kontoeinstellungen, Unterdialogen und
+// Verfassen), solange die Wurzel des Dokuments kein mc-access-cues trägt. Trifft Thunderbirds beide Wege: Beschriftung
+// mit Text (text.js, <span class="accesskey">) und mit value (-moz-label-content legt den Buchstaben als <u> in den
+// erzeugten Inhalt; dorthin reicht kein Stilblatt, darum steht dort solange der reine Text des value, Knöpfe und
+// Menüs bleiben gleich breit; nur fehlt ohne Alt das angehängte „(X)“, wo der Buchstabe nicht im Text vorkommt).
+// Die value-Regel darf nur Thunderbirds Grundregel (label[value]::before, UA-Stilblatt) ersetzen: ohne !important und
+// mit :where() (Spezifität 0) gewinnt jede eigene ::before-Regel des Designs (Benutzer-Stilblatt, z. B. der
+// Fortschrittsring vor „50% Completed“ im Aufgabenmenü); mit !important überschrieb sie diese (rote CI 23.11.2026,
+// „Aufgaben: ohne Schnelleingabe …“: Ring-Inhalt war der Text statt "")
+// Tasten fängt je Fenster ein Zuhörer in der Einfangphase: Ereignisse aus Inhalts-Tabs im selben Prozess
+// (about:preferences …) laufen durch das Fenster, in dem ihr Browser steht
+const AccessCues = {
+  ATTR: "mc-access-cues",
+  SHEET: "data:text/css," + encodeURIComponent(":root:not([mc-access-cues]) label span.accesskey { text-decoration: none !important; }" +
+    ":where(:root:not([mc-access-cues]) label[value][accesskey]:not([value='']))::before { content: attr(value); }"),
+  os: null,
+  state: { shown: false, combo: false },
+  sheet: null,
+  handlers: new Map(),
+  systemCues() {
+    if (this.os != "WINNT") {
+      return false;
+    }
+    try {
+      const key = Cc["@mozilla.org/windows-registry-key;1"].createInstance(Ci.nsIWindowsRegKey);
+      key.open(key.ROOT_KEY_CURRENT_USER, "Control Panel\\Desktop", key.ACCESS_READ);
+      try {
+        return keyboardCuesFromMask(key.readBinaryValue("UserPreferencesMask"));
+      } finally {
+        key.close();
+      }
+    } catch {
+      return false; // gewollt: Wert fehlt, dann wie Windows ab Werk (Striche erst mit Alt)
+    }
+  },
+  wanted() {
+    return accessCuesHidden(this.os, Services.prefs.getIntPref("ui.key.menuAccessKey", 0), this.systemCues());
+  },
+  updateSheet() {
+    const sss = Cc["@mozilla.org/content/style-sheet-service;1"].getService(Ci.nsIStyleSheetService);
+    const uri = this.sheet || Services.io.newURI(this.SHEET);
+    const has = sss.sheetRegistered(uri, sss.USER_SHEET);
+    const want = this.os != null && this.wanted();
+    if (want && !has) {
+      sss.loadAndRegisterSheet(uri, sss.USER_SHEET);
+    } else if (!want && has) {
+      sss.unregisterSheet(uri, sss.USER_SHEET);
+    }
+    this.sheet = uri;
+  },
+  // alle Dokumente aller Fenster (auch Inhalts-Tabs und Unterdialoge)
+  mark(shown) {
+    for (const top of Services.wm.getEnumerator(null)) {
+      for (const bc of ThemeSheet.contexts(top)) {
+        bc.window?.document?.documentElement?.toggleAttribute(this.ATTR, shown);
+      }
+    }
+  },
+  onEvent(ev) {
+    if (ev.type == "activate") {
+      this.updateSheet(); // Systemeinstellung kann sich geändert haben
+      return;
+    }
+    const next = accessCuesStep(this.state, { type: ev.type == "deactivate" ? "blur" : ev.type, key: ev.key, altKey: ev.altKey, ctrlKey: ev.ctrlKey });
+    const changed = next.shown != this.state.shown;
+    this.state = next;
+    if (changed) {
+      this.mark(next.shown);
+    }
+  },
+  attach(w) {
+    if (this.handlers.has(w)) {
+      return;
+    }
+    const fn = ev => this.onEvent(ev);
+    for (const type of ["keydown", "keyup", "mousedown"]) {
+      w.addEventListener(type, fn, true);
+    }
+    w.addEventListener("activate", fn);
+    w.addEventListener("deactivate", fn);
+    this.handlers.set(w, fn);
+  },
+  detach(w) {
+    const fn = this.handlers.get(w);
+    if (!fn) {
+      return;
+    }
+    for (const type of ["keydown", "keyup", "mousedown"]) {
+      w.removeEventListener(type, fn, true);
+    }
+    w.removeEventListener("activate", fn);
+    w.removeEventListener("deactivate", fn);
+    this.handlers.delete(w);
+  },
+  start(os) {
+    this.stop();
+    this.os = os;
+    this.updateSheet();
+    if (os == "Darwin") {
+      return;
+    }
+    ExtensionSupport.registerWindowListener("mail-cards-access-cues", {
+      onLoadWindow: w => this.attach(w),
+      onUnloadWindow: w => this.detach(w),
+    });
+  },
+  stop() {
+    if (this.os != null && this.os != "Darwin") {
+      ExtensionSupport.unregisterWindowListener("mail-cards-access-cues");
+    }
+    for (const w of [...this.handlers.keys()]) {
+      this.detach(w);
+    }
+    this.mark(false);
+    this.state = { shown: false, combo: false };
+    this.os = null;
+    this.updateSheet();
+  },
+};
 // Faktor aus Thunderbirds Schriftgröße (≡ → Schriftgröße): gewählte durch
 // Standardgröße des Systems, 1 bei Standardgröße. Die Einstellung direkt
 // lesen: Thunderbirds eigener Beobachter kann nach unserem laufen
@@ -8419,6 +8572,8 @@ class CardEnhancer {
     this.restorers.push(() => ExtensionSupport.unregisterWindowListener("mail-cards-findbar"));
     this.watchChatVariant();
     this.watchPromptTitles();
+    AccessCues.start(Services.appinfo.OS);
+    this.restorers.push(() => AccessCues.stop());
     // Datumsfelder (z. B. im Terminfenster) im Format des Systems: Thunderbirds
     // „Regionale Einstellungen des Systems verwenden“ als Vorgabe an – wer es
     // selbst eingestellt hat, behält seine Wahl

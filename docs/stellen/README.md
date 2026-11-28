@@ -25,7 +25,7 @@ Sekretariat (keine Stelle): neon (Tests, CI, Release), neon-board (Board, Bilder
 | director | `director.md` | `director` (seit 27.11.2026, Opus, Stärke medium) |
 | designer | `designer.md` | `designer` (besteht) |
 | engineer | `engineer.md` | keine (M) |
-| orga | `orga.md` | ab Sa 28.11. |
+| orga | `orga.md` | `orga` (eingerichtet am 28.11.2026, Sonnet, Stärke medium) |
 | inspector | `inspector.md` | ab So 29.11. |
 | comms | `comms.md` | `comms` (seit 27.11.2026; alter Name `github.comm.routine` wird bis 4.12.2026 mitgesucht) |
 | Sekretariat | `sekretariat.md` | `neon`, `neon-board` |

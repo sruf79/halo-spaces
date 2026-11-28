@@ -678,6 +678,33 @@ cp ~/halo-spaces/tests/at.halo-spaces.designer.plist ~/Library/LaunchAgents/ &&
 Danach muss `designer` in `ListAgents` erscheinen. Neu starten, abschalten: wie neon-board mit dem
 Label `at.halo-spaces.designer`; `tests/notfall.sh stopp --hart` hält sie an (nicht in `BLEIBEN`).
 
+### Sechste Sitzung `orga` (Betrieb und Abläufe)
+
+Stellenkarte `docs/stellen/orga.md` (Einstellung mit Probewoche, Maintainer 20.11.2026), eingerichtet am
+28.11.2026 wie die Sitzung `director`: LaunchAgent `at.halo-spaces.orga` (Vorlage
+`tests/at.halo-spaces.orga.plist`) startet dasselbe Skript mit `HALO_RC_NAME=orga`, Arbeitsordner
+`~/halo-orga` (kein Checkout), Protokoll `~/Library/Logs/halo-orga.log`, `HALO_RC_MODELL=sonnet` und
+`HALO_RC_EFFORT=medium` (`docs/alltagsmodus.md` „Modelle je Stelle und Sitzung“). `mac-remote-control.sh`
+schreibt bei jedem Start `CLAUDE.md` (Rolle, Gedächtnis `~/halo-nacht/orga-gedaechtnis.md` nur lesen) und
+`.claude/settings.json` (lesen in `~/halo-spaces`, `~/halo-aufgaben`, `~/halo-nacht`, `~/halo-berichte`,
+`~/.config/halo-spaces`, `~/Library/Logs`; Board nur lesen; `launchctl` nur `print`/`list`; Schreiben
+außerhalb von `~/halo-orga`, `git`-Schreibbefehle, Tests, Builds, Release, Volldampf, Notfall,
+Setup- und Startskript gesperrt; Ausführung als Auftrag an neon). Kein `HALO_NEON`, dafür
+`HALO_ROLLE=orga`; kein SessionStart-Hook (`tests/neon-hook.sh` kennt die Rolle wie bei director noch
+nicht). `mac-mini-setup.sh --check` prüft sie nur (`pruefe_orga`, Modell über `RC_SOLL`); geladen wird
+sie nur vom Maintainer (`docs/dauerfreigaben.md`). Test: `zsh tests/neon_hook_test.zsh` (Abschnitt 6).
+
+```bash
+cd ~/halo-spaces && tests/mac-mini-setup.sh          # Skripte nach ~/.config/halo-spaces/
+HALO_RC_NAME=orga zsh ~/.config/halo-spaces/remote-control.sh ~/halo-orga --nur-ordner
+cd ~/halo-orga && claude                              # „Trust this folder“, dann /exit
+cp ~/halo-spaces/tests/at.halo-spaces.orga.plist ~/Library/LaunchAgents/ &&
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/at.halo-spaces.orga.plist
+```
+
+Danach muss `orga` in `ListAgents` erscheinen. Neu starten, abschalten: wie neon-board mit dem Label
+`at.halo-spaces.orga`; `tests/notfall.sh stopp --hart` hält sie an (nicht in `BLEIBEN`).
+
 ### Kein täglicher Neustart von `neon`, `/clear` von Hand
 
 Entscheidung des Maintainers (Cloud-Sitzung global.design.comparison,

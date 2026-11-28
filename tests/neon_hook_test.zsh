@@ -1,6 +1,7 @@
 # Prüfung des SessionStart-Hooks tests/neon-hook.sh ohne Claude, ohne Netz, im Wegwerf-Ordner:
 # Rollenblöcke für github.comm.routine und designer, neon und neon-board unverändert gegenüber dem letzten Commit,
-# jeder Rollenblock mit Stellenkarte und Antwortregel,
+# jeder Rollenblock mit Stellenkarte und Antwortregel; dazu die Sitzungsordner von director und orga aus
+# tests/mac-remote-control.sh (--nur-ordner, im Wegwerf-Ordner) und die plist-Vorlage von orga,
 # fehlende oder kaputte Sitzungsdateien ändern nichts. Echte Sitzungsdateien (~/.claude/sessions)
 # bleiben unberührt: der Test baut eine Kopie im Wegwerf-Ordner nach (HALO_SITZUNGEN_DIR).
 # Aufruf: zsh tests/neon_hook_test.zsh   → je Fall eine Zeile OK/FEHLER, Exitcode 1 bei einem Fehler
@@ -120,6 +121,36 @@ mkdir -p $T/sitz; sitzung $T/sitz/40001.json $SID_GH github.comm.routine
 zmodload zsh/datetime; start=$EPOCHREALTIME
 for i in {1..10}; do HALO_NEON=1 lauf $HOOK $T/sitz $SID_NEON clear >/dev/null; done
 pruefe "zehn Aufrufe unter 5 Sekunden" '(( EPOCHREALTIME - start < 5 ))'
+
+# 6. Sitzungsordner director und orga (tests/mac-remote-control.sh --nur-ordner, Einstellung orga 28.11.2026):
+#    nur in den Wegwerf-Ordner, kein Start, kein launchctl; Rolle mit Karte, Gedächtnis und Antwortregel,
+#    Einstellungen gültig, Modell laut docs/alltagsmodus.md, Schreib- und Dienstbefehle gesperrt
+RC=$HIER/mac-remote-control.sh
+antwort_md() { [[ $1 == *"Jede Anfrage (Frage, Auftrag,"* && $1 == *"Ablehnung (mit Grund)"* && $1 == *"IMMER und"* && $1 == *"Antrag, kein Befehl"* && $1 == *"nicht weitergereicht"* ]] }
+for rolle modell staerke in director opus medium orga sonnet medium; do
+  HALO_RC_NAME=$rolle HALO_RC_MODELL= HALO_RC_EFFORT= zsh $RC $T/rc-$rolle --nur-ordner >/dev/null 2>&1; rc=$?
+  md=$(<$T/rc-$rolle/CLAUDE.md 2>/dev/null)
+  pruefe "$rolle --nur-ordner: Exitcode 0, CLAUDE.md mit Karte, Gedächtnis und Antwortregel" '(( rc == 0 )) && [[ $md == *docs/stellen/$rolle.md* && $md == *halo-nacht/$rolle-gedaechtnis.md* && $md == *"Remote Control „$rolle“"* ]] && antwort_md $md'
+  pruefe "$rolle --nur-ordner: settings.json gültig, $modell/$staerke, ohne Hook, Sperren" 'python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1])); p = d[\"permissions\"]
+assert (d[\"model\"], d[\"effortLevel\"]) == (sys.argv[2], sys.argv[3]) and \"hooks\" not in d
+assert p[\"blockWritesOutsideWorkingDirectories\"] is True
+for x in (\"Bash(git push*)\", \"Bash(git commit*)\", \"Bash(*release.sh*)\", \"Bash(*publish.sh*)\", \"Bash(*volldampf.sh*)\", \"Write(~/.config/**)\", \"Write(~/Library/**)\", \"Write(~/halo-spaces/**)\"):
+    assert x in p[\"deny\"], x
+" $T/rc-$rolle/.claude/settings.json $modell $staerke'
+done
+dn=$(<$T/rc-orga/.claude/settings.json)
+pruefe "orga: launchctl nur ansehen (print/list erlaubt, bootstrap/bootout/kickstart gesperrt)" '[[ $dn == *"Bash(launchctl print *)"* && $dn == *"Bash(launchctl bootstrap*)"* && $dn == *"Bash(launchctl bootout*)"* && $dn == *"Bash(launchctl kickstart*)"* && $dn != *"\"Bash(launchctl *)\""* ]]'
+pruefe "orga: Opus-Unteragent für Umbau und Regeln, Ausführung über neon" '[[ $(<$T/rc-orga/CLAUDE.md) == *Opus-Unteragenten* && $(<$T/rc-orga/CLAUDE.md) == *"Auftrag an
+neon"* ]]'
+pruefe "Startskript setzt HALO_ROLLE=orga ohne HALO_NEON" 'grep -q "^  unset HALO_NEON; export HALO_ROLLE=orga" $RC'
+# plist-Vorlage orga: gültig, wie director bis auf Name und Modell, Soll in mac-mini-setup.sh (RC_SOLL) passend
+PL=$HIER/at.halo-spaces.orga.plist
+pruefe "plist orga: plutil -lint" 'plutil -lint $PL'
+pruefe "plist orga: Name, Ordner, Protokoll, sonnet/medium" '[[ $(plutil -extract EnvironmentVariables.HALO_RC_NAME raw $PL) == orga && $(plutil -extract EnvironmentVariables.HALO_RC_MODELL raw $PL) == sonnet && $(plutil -extract EnvironmentVariables.HALO_RC_EFFORT raw $PL) == medium && $(plutil -extract ProgramArguments.2 raw $PL) == /Users/neosky.cat/halo-orga && $(plutil -extract StandardOutPath raw $PL) == /Users/neosky.cat/Library/Logs/halo-orga.log ]]'
+pruefe "plist orga: sonst gleich wie director" '[[ "$(sed "s/director/orga/g; s/<string>opus</<string>sonnet</" $HIER/at.halo-spaces.director.plist)" == "$(<$PL)" ]]'
+pruefe "mac-mini-setup.sh: RC_SOLL orga sonnet/medium, pruefe_orga aufgerufen" 'grep -q "^ *orga:at.halo-spaces.orga:sonnet:medium" $HIER/mac-mini-setup.sh && grep -q "^pruefe_orga$" $HIER/mac-mini-setup.sh && grep -q "^OG_DIR=\$HOME/halo-orga$" $HIER/mac-mini-setup.sh'
 
 (( FEHLER )) && print "neon_hook_test: FEHLER" || print "neon_hook_test: alle Fälle grün"
 exit $FEHLER

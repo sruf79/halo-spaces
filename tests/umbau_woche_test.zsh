@@ -22,6 +22,7 @@ pruefe() {   # <Name> <Ausgabe> <Muster …> (grep -E, alle müssen vorkommen)
   print -r -- "OK      $name"
 }
 rc() { "$@" >/dev/null 2>&1; print -r -- "rc=$?" }
+unset HALO_UMBAU_LOCKERUNG   # nie eine Lockerung von außen erben
 export HALO_UMBAU_DATEI=$T/n/umbau-woche.txt
 mkdir -p $T/n
 uw() { zsh $U "$@" 2>&1 }
@@ -87,6 +88,66 @@ done
 pruefe "Pausiert: nie, auch P4" "$(uw erlaubt Bug 'Tests: flackert – x' PVTI_x Pausiert)" '^nein Status Pausiert'
 pruefe "vor der Woche (So): alles wie bisher" "$(HALO_JETZT=2026-11-22T19:00+01:00 uw erlaubt Feature 'Mail: x')" '^ja Umbau-Woche nicht aktiv'
 pruefe "vor der Woche: Pausiert trotzdem nie" "$(HALO_JETZT=2026-11-22T19:00+01:00 uw erlaubt Feature 'Mail: x' PVTI_x Pausiert)" '^nein Status Pausiert'
+
+# --- Lockerung (Fable 28.11.2026, Klasse B): ~/halo-nacht/umbau-lockerung.txt neben dem Schalter ---
+L=$T/n/umbau-lockerung.txt
+pruefe "Lockerung: Datei fehlt → starrer Filter (Feature nein, Bug ohne #n nein)" \
+  "$(uw erlaubt Feature 'Mail: x'; uw erlaubt Bug 'Mail: eigener Fund'; rc python3 -I $HIER/umbau-woche.py lockerung)" '^nein Feature' '^nein Bug ohne Meldung' 'rc=1'
+print -r -- "2026-12-01T01:00+01:00 Fable 28.11.2026 Probe" > $L
+pruefe "Lockerung gültig: Bug und Feature ja (rc 0), Status Todo und In Progress" \
+  "$(uw erlaubt Bug 'Mail: eigener Fund'; uw erlaubt Feature 'Mail: x' PVTI_x Todo; uw erlaubt Feature 'Mail: x' PVTI_x 'In Progress'; rc zsh $U erlaubt Feature 'Mail: x')" \
+  '^ja Lockerung Fable bis 2026-12-01T01:00\+01:00 \(Fable 28\.11\.2026 Probe\)' 'nur über den designer' 'rc=0'
+pruefe "Lockerung gültig: Feature „ja“ dreimal (kein „nur abschließen“)" \
+  "$(uw erlaubt Feature 'Mail: x'; uw erlaubt Feature 'Mail: x' PVTI_x 'In Progress' | grep -c 'nur abschließen')" '^ja Lockerung' '^0$'
+pruefe "Lockerung gültig: Pausiert, Umbau, Ablauf, Wartet auf OK, nur Maintainer bleiben nein" \
+  "$(uw erlaubt Feature 'Mail: x' PVTI_x Pausiert; uw erlaubt Feature 'Ablauf: Organigramm' PVTI_lAHODEPpks4BoBQwzhKep4c
+     uw erlaubt Feature 'Ablauf: Morgenbrief warnt' PVTI_x Todo; uw erlaubt Feature 'Mail: x' PVTI_x 'Wartet auf OK'
+     uw erlaubt Feature 'Tests: Bildtakt nur warnen' PVTI_lAHODEPpks4BoBQwzhKq83E; uw erlaubt Feature 'Umbau-Woche: Probe'
+     rc zsh $U erlaubt Feature 'Ablauf: x')" \
+  '^nein Status Pausiert' '^nein Umbau-Eintrag' '^nein Ablauf-Eintrag' '^nein Status Wartet auf OK' '^nein nur der Maintainer' 'rc=1'
+pruefe "Lockerung gültig: P4 mit Ablauf-Titel und Nutzer-Bug weiter wie bisher" \
+  "$(uw erlaubt Feature 'Ablauf: Dunkel-Lauf der Mac-CI verkleinern' PVTI_lAHODEPpks4BoBQwzhKRJ0I; uw erlaubt Bug 'X [GitHub #67]')" '^ja P4' '^ja von Nutzern'
+pruefe "Lockerung gültig: Fable aus der Tagesroutine bleibt gesperrt (nur rote Prüfung frei)" \
+  "$(rc zsh $U fable 'Mail: x'; rc zsh $U fable 'Symbolleiste: Suchfeld [GitHub #67]'; rc zsh $U fable 'Tests: flackert – x')" '^rc=1$' '^rc=0$'
+pruefe "Lockerung gültig: Status „lockerung“ rc 0" "$(python3 -I $HIER/umbau-woche.py lockerung; rc python3 -I $HIER/umbau-woche.py lockerung)" '^Lockerung gilt bis 2026-12-01T01:00\+01:00' 'rc=0'
+pruefe "Lockerung gültig (B): Titel/Status getrimmt, ohne Groß-/Kleinschreibung gesperrt" \
+  "$(uw erlaubt Feature 'ablauf: x'; uw erlaubt Feature ' Ablauf: x'; uw erlaubt Bug 'ABLAUF : x'; uw erlaubt Feature 'Mail: x' PVTI_x 'Wartet auf OK '
+     uw erlaubt Feature 'Mail: x' PVTI_x 'wartet auf ok'; uw erlaubt Feature 'Mail: x' PVTI_x ' Pausiert')" \
+  '^nein ablauf-Eintrag' '^nein Ablauf-Eintrag' '^nein ABLAUF-Eintrag' '^nein Status Wartet auf OK' '^nein Status Pausiert'
+pruefe "Lockerung gültig (B): Release: und Store: nicht frei" \
+  "$(uw erlaubt Feature 'Release: x'; uw erlaubt Bug 'store: x'; rc zsh $U erlaubt Feature 'Release: x')" '^nein Release-Eintrag' '^nein store-Eintrag' 'rc=1'
+pruefe "Lockerung gültig (B): nur Typ Bug oder Feature (Task, leer: nein; ' bug ' ja)" \
+  "$(uw erlaubt Task 'Mail: x'; uw erlaubt '' 'Mail: x'; uw erlaubt ' BUG ' 'Mail: x')" '^nein Typ Task' '^nein Typ leer' '^ja Lockerung'
+for _b in 2026-12-01T02:01+01:00 2099-01-01T00:00+01:00 9999-12-31T23:59+00:00; do
+  print -r -- "$_b zu weit" > $L
+  pruefe "Lockerung (A): bis $_b mehr als 7 Tage voraus → starrer Filter" "$(uw erlaubt Feature 'Mail: x'; rc python3 -I $HIER/umbau-woche.py lockerung)" '^nein Feature' 'rc=1'
+done
+print -r -- "2026-12-01T02:00+01:00 genau 7 Tage" > $L
+pruefe "Lockerung (A): genau 7 Tage voraus gilt noch" "$(uw erlaubt Feature 'Mail: x')" '^ja Lockerung'
+print -r -- "lockerung 2026-12-01T01:00+01:00 bug feature Fable 28.11.2026" > $L
+pruefe "Lockerung: Form mit Wort „lockerung“ vorn gilt auch" "$(uw erlaubt Feature 'Mail: x')" '^ja Lockerung Fable bis 2026-12-01T01:00\+01:00'
+pruefe "Lockerung abgelaufen (Zeit erreicht und danach): starrer Filter" \
+  "$(HALO_JETZT=2026-12-01T01:00+01:00 uw erlaubt Feature 'Mail: x'; HALO_JETZT=2026-12-01T00:00+00:00 uw erlaubt Bug 'Mail: eigener Fund')" '^nein Feature' '^nein Bug ohne Meldung'
+pruefe "Lockerung: eine Minute vorher gilt sie noch" "$(HALO_JETZT=2026-12-01T00:59+01:00 uw erlaubt Feature 'Mail: x')" '^ja Lockerung'
+chmod 000 $L
+pruefe "Lockerung unlesbar (keine Rechte): starrer Filter" "$(uw erlaubt Feature 'Mail: x'; rc zsh $U erlaubt Feature 'Mail: x')" '^nein Feature' 'rc=1'
+chmod 600 $L
+for _z in '' '# 2026-12-01T01:00+01:00 nur Kommentar' '2026-12-01T01:00 ohne Zone' '2026-12-01T01:00+01:00' 'morgen Probe' 'lockerung 2026-12-01T01:00+01:00'; do
+  print -r -- "$_z" > $L
+  pruefe "Lockerung unlesbare/leere Zeile „$_z“: starrer Filter" "$(uw erlaubt Feature 'Mail: x')" '^nein Feature'
+done
+printf '2026-12-01T01:00+01:00 Gr\xff\xfeund\n' > $L
+pruefe "Lockerung: kein UTF-8 → starrer Filter" "$(uw erlaubt Feature 'Mail: x')" '^nein Feature'
+print -r -- "2026-12-01T01:00+01:00 gut" > $L; print -r -- "kaputt" >> $L
+pruefe "Lockerung: letzte Zeile gilt (kaputt → starrer Filter)" "$(uw erlaubt Feature 'Mail: x')" '^nein Feature'
+print -r -- "2026-12-01T01:00+01:00 gut" > $L; cp -p $HALO_UMBAU_DATEI $T/umbau-gut.txt; print -r -- "umbau morgen kaputt" > $HALO_UMBAU_DATEI
+pruefe "Lockerung (C): Schalter unlesbar → starrer Filter ohne Lockerung, Meldung eindeutig" \
+  "$(uw erlaubt Feature 'Mail: x'; rc zsh $U erlaubt Feature 'Mail: x'; uw erlaubt Feature 'Mail: x' | grep -c 'ja Lockerung')" \
+  '^nein Feature.*starrer Filter der Umbau-Woche ohne Lockerung' 'rc=1' '^0$'
+cp -p $T/umbau-gut.txt $HALO_UMBAU_DATEI
+rm -f $L; mkdir $L
+pruefe "Lockerung: Ordner statt Datei → starrer Filter" "$(uw erlaubt Feature 'Mail: x')" '^nein Feature'
+rmdir $L
 
 # --- Fable aus der Tagesroutine (S0 b): nur nach „Rot bleibt rot“ ---
 pruefe "Woche: Fable für Feature gesperrt" "$(rc zsh $U fable 'Mail: Vorschlagsmenü')" 'rc=1'

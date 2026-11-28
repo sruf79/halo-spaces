@@ -22,7 +22,7 @@ der Woche nur P4 und spürbare Nutzer-Bugs; Sammelfrage S0 22.11.2026; ENTSCHEID
 `zsh tests/umbau-woche.sh status`. Gilt sie (Exitcode 0, oben Zeile „Umbau-Woche:“):
 - Nur P4 (Testzeit, rote und flackernde Prüfungen) und von Nutzern gemeldete Bugs, die Nutzer spüren. Vor jedem Eintrag
   `zsh tests/umbau-woche.sh erlaubt <Typ> "<Titel>" <id> "<Status>"`, nur bei „ja …“ in den Plan. Keine neuen Features
-  und Design-Einträge, keine Designer-Aufträge für neue Arbeit (Ausnahme S1 (Maintainer 23.11.2026: „Ich folge deinen Empfehlungen“; Deutung von neon: von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden; ENTSCHEIDUNGEN.md „Umbau-Woche: S1 und Zweige der Tagesroutine“): solche Fehler,
+  und Design-Einträge (es gilt allein die Antwort von `erlaubt`, auch wenn sie durch die Lockerung ja sagt), keine Designer-Aufträge für neue Arbeit (Ausnahme S1 (Maintainer 23.11.2026: „Ich folge deinen Empfehlungen“; Deutung von neon: von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden; ENTSCHEIDUNGEN.md „Umbau-Woche: S1 und Zweige der Tagesroutine“): solche Fehler,
   Bug mit „GitHub #n“, den Nutzer spüren, nur über den Designer), nicht an Abläufen und Skripten bauen (macht neon).
 - Fable nur nach „Rot bleibt rot“ (S0 b); das Skript lässt sonst keine Fable-Runde zu, „fable“ als Ergebnis nur dort.
 - „Pausiert“: nie planen, nie bearbeiten, nie schließen. Release unter Tage nach den bisherigen Regeln.

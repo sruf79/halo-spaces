@@ -15,7 +15,7 @@ Skript läuft aus dem Checkout). Gilt sie (Exitcode 0):
   tests/umbau-tag1-auftrag.md sortieren.
 - Danach nur noch: P4 (Testzeit, rote und flackernde Prüfungen), von Nutzern gemeldete Bugs, die Nutzer spüren, und
   Release bei Bedarf. Vor jedem Eintrag `zsh tests/umbau-woche.sh erlaubt <Typ> "<Titel>" <id> "<Status>"`, nur bei
-  „ja …“ planen (Director in Schritt 1a wie Rückfall 1b). Keine neuen Features und Design-Einträge, auch nicht über den
+  „ja …“ planen (Director in Schritt 1a wie Rückfall 1b). Keine neuen Features und Design-Einträge (es gilt allein die Antwort von `erlaubt`, auch wenn sie durch die Lockerung ja sagt), auch nicht über den
   Designer; Ausnahme S1 (Maintainer 23.11.2026: „Ich folge deinen Empfehlungen“; Deutung von neon: von Nutzern gemeldete Darstellungsfehler dürfen in der Umbau-Woche über den Designer behoben werden; ENTSCHEIDUNGEN.md „Umbau-Woche: S1 und Zweige der Tagesroutine“): solche Fehler (Bug mit „GitHub #n“, den Nutzer spüren) nur über den Designer.
   Einträge, die Tag 1 auf „In Progress“ ließ (Liste B), zu Ende zu bringen ist kein Beginnen: mit Status
   „In Progress“ sagt der Filter „ja nur abschließen …“ (vorhandenen Commit nach main, CI, Done; keine neue Arbeit).

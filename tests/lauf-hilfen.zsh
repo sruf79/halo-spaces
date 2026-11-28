@@ -835,8 +835,11 @@ aktive_sitzung() {
   local f id letzte neu unter board=${${HALO_BOARD_DIR:-$HOME/halo-board}//[\/.]/-}
   local github=${${HALO_GITHUB_DIR:-$HOME/halo-github}//[\/.]/-}
   local designer=${${HALO_DESIGNER_DIR:-$HOME/halo-designer}//[\/.]/-}
+  local director=${${HALO_DIRECTOR_DIR:-$HOME/halo-director}//[\/.]/-}
+  local orga=${${HALO_ORGA_DIR:-$HOME/halo-orga}//[\/.]/-}
+  local inspector=${${HALO_INSPECTOR_DIR:-$HOME/halo-inspector}//[\/.]/-}
   for f in $HOME/.claude/projects/${HOME//[\/.]/-}-halo*/*.jsonl(N.); do
-    [[ ${f:h:t} == $board || ${f:h:t} == $github || ${f:h:t} == $designer ]] && continue
+    [[ ${f:h:t} == $board || ${f:h:t} == $github || ${f:h:t} == $designer || ${f:h:t} == $director || ${f:h:t} == $orga || ${f:h:t} == $inspector ]] && continue   # Rollen-Sitzungen halten Nachtlauf und Routinen nicht auf (28.11.2026)
     unter=(${f:r}/**/*.jsonl(N.mh-2))
     neu=($f(N.mh-2) $unter)
     (( $#neu )) || continue

@@ -5786,23 +5786,64 @@ button[part~="dialog-button"][dlgtype]:not([default])[disabled],
   }
 }
 
-/* Fehlerbehebungsseite (about:support): Knöpfe als Kapsel mit der
-   üblichen Knopffläche statt eckigem Toolkit-Grau */
+/* Expertenseiten im halo-Stil wie die Unterdialoge der Einstellungen (Aus einem
+   Guss, Variante A vom 15.11.2026): graue Karten ohne Rahmen, 12 px Ecken,
+   Zeilen mit feiner Linie, Beschriftungen grau, Knöpfe als graue Kapsel 30 px,
+   in Zeilen 24 px, kein Blau außer Links. (Fast alles mit !important: die
+   Seiten bringen eigene Autorenregeln mit, das Design ist ein Benutzer-Stilblatt.) */
+
+/* Fehlerbehebungsseite (about:support): Überschrift links 22 px wie die
+   Konto-Seiten, Einleitung grau, „Diagnose issues“ und jeder Abschnitt als
+   graue Karte; Beschriftung grau links ohne blaue Spalte, Wert rechts davon */
 @-moz-document url("about:support") {
+  :root, body {
+    background-color: var(--mt-window) !important;
+    color: var(--mt-text) !important;
+  }
+  body {
+    font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
+  }
+  a, a:link, a:visited {
+    color: var(--mt-accent) !important;
+    text-decoration: none !important;
+  }
+  h1 {
+    margin-block: 0 8px !important;
+    font-size: calc(22px * var(--mt-font-scale, 1)) !important;
+    font-weight: 700 !important;
+    text-align: start !important;
+  }
+  .page-subtitle, .gray-text {
+    color: var(--mt-text-secondary) !important;
+  }
+  .page-subtitle {
+    margin-block-end: 16px !important;
+  }
+  #support-buttons {
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
   button {
     appearance: none !important;
     border: none !important;
     border-radius: var(--mt-radius-capsule, 999px) !important;
     background-color: var(--mt-control) !important;
     color: var(--mt-text) !important;
-    min-height: 28px !important;
-    /* fest 28 px, einzeilig – unter Linux brach der Text der oberen Knöpfe um (36 px) */
-    height: 28px !important;
+    font: inherit !important;
+    min-height: var(--mt-btn-h, 30px) !important;
+    /* fest, einzeilig – unter Linux brach der Text der oberen Knöpfe sonst um */
+    height: var(--mt-btn-h, 30px) !important;
     white-space: nowrap !important;
     padding-block: 0 !important;
     padding-inline: 14px !important;
     /* Textknopf der Knopf-Familie: grau mit Lichtkante */
     box-shadow: var(--mt-btn-lite-shadow) !important;
+  }
+  table button {
+    min-height: var(--mt-btn-h-small, 24px) !important;
+    height: var(--mt-btn-h-small, 24px) !important;
+    padding-inline: 10px !important;
+    margin-block: 0 !important;
   }
   button:not([disabled]):hover {
     background-color: var(--mt-control-hover) !important;
@@ -5816,18 +5857,81 @@ button[part~="dialog-button"][dlgtype]:not([default])[disabled],
     box-shadow: none !important;
     color: var(--mt-btn-disabled-text) !important;
   }
+  .action-box {
+    border: none !important;
+    border-radius: var(--mt-radius-card, 12px) !important;
+    background-color: var(--mt-control) !important;
+    padding: 14px 16px !important;
+  }
+  .action-box h3 {
+    margin-block: 0 8px !important;
+    font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+    font-weight: 600 !important;
+  }
+  .action-box > div:not([hidden]) ~ div:not([hidden]) > h3 {
+    margin-block-start: 14px !important;
+  }
+  h2.major-section {
+    margin-block: 28px 10px !important;
+    font-size: calc(17px * var(--mt-font-scale, 1)) !important;
+    font-weight: 600 !important;
+  }
+  table {
+    border: none !important;
+    border-radius: var(--mt-radius-card, 12px) !important;
+    border-spacing: 0 !important;
+    background-color: var(--mt-control) !important;
+    color: var(--mt-text) !important;
+    font: inherit !important;
+  }
+  table caption {
+    text-align: start !important;
+    font-weight: 600 !important;
+  }
+  th, td {
+    border: none !important;
+    padding-block: 5px !important;
+    padding-inline: 14px !important;
+  }
+  /* feine Linie zwischen den Zeilen, nicht über der ersten */
+  tr > :is(th, td) {
+    border-block-start: var(--mt-hairline) solid var(--mt-separator) !important;
+  }
+  table > :first-child > tr:first-child > :is(th, td),
+  table > caption + * > tr:first-child > :is(th, td) {
+    border-block-start: none !important;
+  }
+  th {
+    background-color: transparent !important;
+    color: var(--mt-text-secondary) !important;
+    font-weight: 400 !important;
+    text-align: start !important;
+  }
+  /* Spaltenköpfe (Add-ons, Grafik, Medien …) wie in den Tabellen der Unterdialoge */
+  thead th, .thead-level2 > th {
+    font-size: calc(11.5px * var(--mt-font-scale, 1)) !important;
+    font-weight: 600 !important;
+  }
 }
 
-/* Konfiguration (about:config): Knöpfe als 28-px-Kapsel mit Knopffläche,
-   Suchfeld als Kapsel ohne Rand und ohne Hover-Zustand (erst der Fokus zeigt
-   den Ring), Tabelle mit Haarlinie; dunkel ohne die hell gefüllte Grafik */
+/* Konfiguration (about:config): beim Öffnen das graue halo-Warnsymbol 40 px
+   über dem grauen Hinweis und „Show All“ darunter (Bauart wie „Suche ohne
+   Treffer“) statt der großen Zeichnung; Suchfeld graue Kapsel mit halo-Lupe,
+   ohne Rand und ohne Hover-Zustand (erst der Fokus zeigt den Ring); Liste als
+   graue Karte mit 12 px Ecken und feinen Linien, ohne Streifen, Zeile unter
+   der Maus grau; Knöpfe je Zeile runde 24-px-Symbolknöpfe mit halo-Symbolen,
+   in Ruhe ohne Fläche */
 @-moz-document url-prefix("about:config") {
   :root {
-    --border-color: var(--mt-pane-line) !important;
+    --border-color: var(--mt-separator) !important;
     --background-color-canvas: var(--mt-window) !important;
   }
   :root, body, #toolbar {
     background-color: var(--mt-window) !important;
+    color: var(--mt-text) !important;
+  }
+  body {
+    font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
   }
   button:not(.primary) {
     appearance: none !important;
@@ -5835,13 +5939,12 @@ button[part~="dialog-button"][dlgtype]:not([default])[disabled],
     border-radius: var(--mt-radius-capsule, 999px) !important;
     background-color: var(--mt-control) !important;
     color: var(--mt-text) !important;
-    min-height: 28px !important;
+    font: inherit !important;
+    min-height: var(--mt-btn-h, 30px) !important;
     padding-block: 0 !important;
+    padding-inline: 14px !important;
     /* Textknopf der Knopf-Familie: grau mit Lichtkante */
     box-shadow: var(--mt-btn-lite-shadow) !important;
-  }
-  button:not(.primary, [class^="button-"]) {
-    padding-inline: 14px !important;
   }
   button:not(.primary, [disabled]):hover {
     background-color: var(--mt-control-hover) !important;
@@ -5855,8 +5958,10 @@ button[part~="dialog-button"][dlgtype]:not([default])[disabled],
     box-shadow: none !important;
     color: var(--mt-btn-disabled-text) !important;
   }
-  #prefs > tr > td > button[class^="button-"] {
-    margin-block: 2px !important;
+  #toolbar {
+    gap: 12px !important;
+    padding: 20px 20px 0 !important;
+    align-items: center !important;
   }
   #about-config-search,
   #about-config-search:hover {
@@ -5867,19 +5972,158 @@ button[part~="dialog-button"][dlgtype]:not([default])[disabled],
     border: none !important;
     border-radius: var(--mt-radius-capsule, 999px) !important;
     background-color: var(--mt-control) !important;
+    background-image: url("resource://mailcards/icons/search.svg") !important;
+    background-position: 9px center !important;
+    background-size: 16px 16px !important;
+    -moz-context-properties: stroke, fill, fill-opacity !important;
+    stroke: var(--mt-text-tertiary) !important;
+    fill: transparent !important;
+    fill-opacity: 0 !important;
+    padding-left: 32px !important;
+    outline: none !important;
     box-shadow: none !important;
+    color: var(--mt-text) !important;
+    font: inherit !important;
+  }
+  #about-config-search:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  }
+  #about-config-search::placeholder {
+    color: var(--mt-text-tertiary) !important;
+  }
+  :not(.table-shown) > .config-background-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding-block: 48px !important;
+  }
+  .config-background {
+    order: 0 !important;
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 0 10px !important;
+    background: url("resource://mailcards/icons/warning-40.svg") center / 40px 40px no-repeat !important;
+    -moz-context-properties: stroke, fill, fill-opacity !important;
+    stroke: var(--mt-text-tertiary) !important;
+    fill: transparent !important;
+    fill-opacity: 0 !important;
+  }
+  .config-help-text {
+    order: 1 !important;
+    margin: 0 0 14px !important;
+    color: var(--mt-text-secondary) !important;
+  }
+  #show-all {
+    order: 2 !important;
+    margin: 0 !important;
   }
   #prefs {
-    border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-    border-radius: 7px !important;
-  }
-  #prefs:not(:has(tr)) {
+    margin: 14px 20px 20px !important;
+    width: calc(100% - 40px) !important;
     border: none !important;
+    border-radius: var(--mt-radius-card, 12px) !important;
+    border-spacing: 0 !important;
+    background-color: var(--mt-control) !important;
+    color: var(--mt-text) !important;
   }
-  @media (prefers-color-scheme: dark) {
-    .config-background {
-      display: none !important;
-    }
+  #prefs > tr,
+  #prefs > tr.odd {
+    background-color: transparent !important;
+  }
+  #prefs > tr:hover {
+    background-color: var(--mt-control) !important;
+    color: var(--mt-text) !important;
+  }
+  #prefs > tr > :is(th, td) {
+    border: none !important;
+    padding-block: 2px !important;
+  }
+  /* feine Linie zwischen den Zeilen, nicht über der ersten */
+  #prefs > tr + tr > :is(th, td) {
+    border-block-start: var(--mt-hairline) solid var(--mt-separator) !important;
+  }
+  #prefs > tr:first-child > :first-child {
+    border-start-start-radius: var(--mt-radius-card, 12px) !important;
+  }
+  #prefs > tr:first-child > :last-child {
+    border-start-end-radius: var(--mt-radius-card, 12px) !important;
+  }
+  #prefs > tr:last-child > :first-child {
+    border-end-start-radius: var(--mt-radius-card, 12px) !important;
+  }
+  #prefs > tr:last-child > :last-child {
+    border-end-end-radius: var(--mt-radius-card, 12px) !important;
+  }
+  #prefs > tr:dir(ltr) > th {
+    padding-left: 14px !important;
+  }
+  #prefs > tr.locked:dir(ltr) > th {
+    padding-left: 30px !important;
+  }
+  #prefs > tr.deleted > th > span {
+    color: var(--mt-text-tertiary) !important;
+  }
+  /* Abstand vor der Zeile zum Anlegen in Fensterfarbe, ohne Linie: die
+     Zeile steht als eigene kleine Karte unter der Liste */
+  #prefs[has-visible-prefs] > .add > :is(th, td)::before {
+    inset-inline: 0 !important;
+    border: none !important;
+    background-color: var(--mt-window) !important;
+  }
+  #prefs[has-visible-prefs] > .add > :is(th, td) {
+    border-block-start: none !important;
+  }
+  #prefs > tr > td:is(.cell-edit, .cell-reset) {
+    width: 30px !important;
+  }
+  #prefs > tr > td.cell-reset {
+    padding-inline-end: 6px !important;
+  }
+  #prefs button[class^="button-"] {
+    /* als Block, sonst hebt die Grundlinie die Zeile um 3 bis 4 px an */
+    display: block !important;
+    box-sizing: border-box !important;
+    width: var(--mt-btn-h-small, 24px) !important;
+    min-width: 0 !important;
+    height: var(--mt-btn-h-small, 24px) !important;
+    min-height: var(--mt-btn-h-small, 24px) !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background-color: transparent !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-size: 16px 16px !important;
+    box-shadow: none !important;
+    -moz-context-properties: stroke, fill, fill-opacity !important;
+    stroke: var(--mt-text-secondary) !important;
+    fill: transparent !important;
+    fill-opacity: 0 !important;
+  }
+  #prefs button[class^="button-"]:not([disabled]):hover {
+    background-color: var(--mt-control) !important;
+  }
+  #prefs button[class^="button-"]:not([disabled]):hover:active {
+    background-color: var(--mt-control-hover) !important;
+    box-shadow: none !important;
+  }
+  #prefs .button-edit { background-image: url("resource://mailcards/icons/pencil.svg") !important; }
+  #prefs .button-toggle { background-image: url("resource://mailcards/icons/swap.svg") !important; }
+  #prefs .button-reset { background-image: url("resource://mailcards/icons/restore.svg") !important; }
+  #prefs .button-delete { background-image: url("resource://mailcards/icons/trash.svg") !important; }
+  #prefs .button-add { background-image: url("resource://mailcards/icons/add.svg") !important; }
+  #prefs .button-save { background-image: url("resource://mailcards/icons/check.svg") !important; }
+  /* Wert bearbeiten: Feld 24 px in der Zeile, kleiner Radius mit Haarlinie */
+  td.cell-value > form > input:is([type="text"], [type="number"]) {
+    appearance: none !important;
+    box-sizing: border-box !important;
+    height: var(--mt-field-h-small, 24px) !important;
+    padding-inline: 8px !important;
+    border: var(--mt-hairline) solid var(--mt-pane-line) !important;
+    border-radius: var(--mt-radius-field, 7px) !important;
+    background-color: var(--mt-window) !important;
+    color: var(--mt-text) !important;
+    font: inherit !important;
   }
 }
 

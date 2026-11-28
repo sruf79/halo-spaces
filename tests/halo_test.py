@@ -5437,45 +5437,125 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Einstellungen: Unterdialoge nach einem Muster – Panel Radius 18 mit 20 px Rand, Überschrift links 17 px halbfett, Schrift 13 px, Listen und Tabellen als graue Karte (Kopf 30 px grau, Zeilen 28 px, Auswahl grau), Häkchen-Gruppen als Karte, Hilfetext grau, ein Hauptknopf, kein sichtbarer Größengriff", pref_subdialogs, results)
 
+    def expert_shot(out, name):
+        # mit HALO_SHOTS Bilder der Expertenseiten (Testprofil, keine echten Daten)
+        png = out.pop("png", None)
+        if png and os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            path = os.path.join(os.environ["HALO_SHOTS"], f"{name}-{'dunkel' if out.get('dark') else 'hell'}.png")
+            open(path, "wb").write(base64.b64decode(png))
+            print(f"Bild {path}", flush=True)
+
+    EXPERT_JS = r"""
+          const SHOT = %s;
+          const snap = async (t, h) => { if (!SHOT) return null; const cw = t.browser.contentWindow;
+            const bm = await t.browser.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(0, 0, cw.innerWidth, Math.min(h, cw.innerHeight)), 2, "white");
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+            cv.getContext("2d").drawImage(bm, 0, 0); return cv.toDataURL("image/png").split(",")[1]; };
+          const vars = dd => ({ control: colorOf(dd, "var(--mt-control)", "backgroundColor"), secondary: colorOf(dd, "var(--mt-text-secondary)"),
+            separator: colorOf(dd, "var(--mt-separator)"), accent: colorOf(dd, "var(--mt-accent)"), window: colorOf(dd, "var(--mt-window)", "backgroundColor") });
+          const box = el => { const s = csOf(el), r = el.getBoundingClientRect(); return { h: Math.round(r.height), w: Math.round(r.width), x: Math.round(r.left), y: Math.round(r.top),
+            radius: s.borderTopLeftRadius, bg: s.backgroundColor, img: s.backgroundImage, border: [s.borderTopWidth, s.borderLeftWidth, s.borderBottomWidth], sh: s.boxShadow,
+            color: s.color, size: s.fontSize, weight: s.fontWeight, align: s.textAlign, display: s.display, deco: s.textDecorationLine }; };
+          const isDark = w.matchMedia("(prefers-color-scheme: dark)").matches;"""
+
     def support_page():
-        # Fehlerbehebungsseite (about:support): Knöpfe als 28-px-Kapsel mit der üblichen Knopffläche statt eckigem Toolkit-Grau
-        res = m.js(COMPOSE_CHECK_JS + r"""
+        # Fehlerbehebungsseite (about:support) im halo-Stil: Überschrift links 22 px, Einleitung grau, Knöpfe 30 px
+        # (in den Zeilen 24 px) als graue Kapsel mit Lichtkante, „Diagnose issues“ und jeder Abschnitt als graue
+        # Karte (12 px Ecken) ohne Rahmen, Beschriftung grau links ohne blaue Fläche, Zeilen mit feiner Linie
+        res = m.js(COMPOSE_CHECK_JS + EXPERT_JS % ("true" if os.environ.get("HALO_SHOTS") else "false") + r"""
           tm.switchToTab(0); await ruhig(300);
           const t = tm.openTab("contentTab", { url: "about:support", background: false });
-          try { await bis(() => t.browser?.contentDocument?.getElementById("copy-to-clipboard") && t.browser.contentWindow.__mcTheme, "about:support mit Design", 8000); await ruhig(400);
+          try { await bis(() => t.browser?.contentDocument?.querySelector("#application-box")?.textContent && t.browser.contentWindow.__mcTheme, "about:support mit Design", 8000); await ruhig(600);
             const dd = t.browser.contentDocument;
-            const bs = [...dd.querySelectorAll("button")].filter(b => b.getClientRects().length).slice(0, 6).map(b => { const s = csOf(b); return [b.id || b.textContent.trim().slice(0, 20), Math.round(b.getBoundingClientRect().height), s.borderTopLeftRadius, s.backgroundColor, s.boxShadow]; });
-            return { bs, control: colorOf(dd, "var(--mt-control)", "backgroundColor") };
+            const top = ["copy-to-clipboard", "send-via-email", "clear-startup-cache-button"].map(id => box(dd.getElementById(id)));
+            const inRow = [...dd.querySelectorAll("#contents table button")].filter(b => b.getClientRects().length).slice(0, 3).map(box);
+            const table = dd.querySelector("#contents table"), rows = [...table.querySelectorAll("tr")].filter(r => r.getClientRects().length);
+            const th = [...table.querySelectorAll("th.column")].slice(0, 2).map(box), td = [...table.querySelectorAll("td")].slice(0, 2).map(box);
+            const line = rows.slice(0, 2).map(r => { const c = r.firstElementChild, s = csOf(c); return [s.borderTopWidth, s.borderTopColor]; });
+            const tables = [...dd.querySelectorAll("#contents table")].filter(x => x.getClientRects().length).map(x => [csOf(x).backgroundColor, csOf(x).borderTopWidth, csOf(x).borderTopLeftRadius]);
+            const heads = [...dd.querySelectorAll("#contents thead th")].filter(x => x.getClientRects().length).slice(0, 3).map(box);
+            const link = box(dd.getElementById("supportLink"));
+            const out = { dark: isDark, h1: box(dd.querySelector("h1")), sub: box(dd.querySelector(".page-subtitle")), section: box(dd.querySelector("h2.major-section")),
+              action: box(dd.querySelector(".action-box")), top, inRow, th, td, line, tables: tables.length, tablesOk: tables.every(x => x[1] == "0px" && x[2] == "12px"),
+              tableBg: tables[0], heads, link, ...vars(dd) };
+            out.png = await snap(t, 900);
+            return out;
           } finally { tm.closeTab(t); await ruhig(300); }""")
-        # Knopf-Familie: Textknöpfe mit Lichtkante (innerer heller Strich oben)
-        ok = len(res["bs"]) >= 3 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) and "inset" in sh for _, h, r, bg, sh in res["bs"])
+        expert_shot(res, "expertenseiten-support")
+        cap = lambda b, h: b["h"] == h and b["radius"] == "999px" and same_color(b["bg"], res["control"]) and "inset" in b["sh"]
+        ok = (res["h1"]["size"] == "22px" and int(res["h1"]["weight"]) >= 700 and res["h1"]["align"] in ("start", "left")
+              and same_color(res["sub"]["color"], res["secondary"]) and res["section"]["size"] == "17px" and res["section"]["weight"] == "600"
+              and same_color(res["action"]["bg"], res["control"]) and res["action"]["border"][0] == "0px" and res["action"]["radius"] == "12px"
+              and all(cap(b, 30) for b in res["top"]) and len(res["inRow"]) >= 2 and all(cap(b, 24) for b in res["inRow"])
+              and res["tables"] >= 5 and res["tablesOk"] and same_color(res["tableBg"][0], res["control"])
+              and all(same_color(x["color"], res["secondary"]) and x["border"][1:] == ["0px", "0px"] and x["weight"] == "400"
+                      and x["bg"] in ("rgba(0, 0, 0, 0)", "transparent") for x in res["th"])
+              and all(x["border"][1] == "0px" and x["bg"] in ("rgba(0, 0, 0, 0)", "transparent") for x in res["td"])
+              and res["line"][0][0] == "0px" and res["line"][1][0] != "0px" and same_color(res["line"][1][1], res["separator"])
+              and all(same_color(x["color"], res["secondary"]) and x["bg"] in ("rgba(0, 0, 0, 0)", "transparent") for x in res["heads"])
+              and same_color(res["link"]["color"], res["accent"]) and res["link"]["deco"] == "none")
         return ok, f"{res}"
-    check("Fehlerbehebung: Knöpfe in about:support als 28-px-Kapsel mit Knopffläche und Lichtkante", support_page, results)
+    check("Fehlerbehebung: about:support im halo-Stil – Überschrift links 22 px, Einleitung grau, Knöpfe 30 px (in Zeilen 24 px) als graue Kapsel, Diagnose und Abschnitte als graue Karten ohne Rahmen, Beschriftung grau ohne blaue Fläche, feine Linien", support_page, results)
 
     def config_page():
-        # Konfiguration (about:config): „Show All“ und die Knöpfe der Tabelle als 28-px-Kapsel mit Knopffläche,
-        # Suchfeld als 28-px-Kapsel ohne Rand, das sich beim Überfahren nicht ändert
-        res = m.js(COMPOSE_CHECK_JS + r"""
+        # Konfiguration (about:config) im halo-Stil: beim Öffnen das graue halo-Warnsymbol 40 px über dem grauen Hinweis,
+        # darunter „Show All“ als graue Kapsel 30 px; Suchfeld graue 30-px-Kapsel mit halo-Lupe, ohne Rand und Hover;
+        # Liste als graue Karte mit 12 px Ecken, Zeilen ohne Rahmen und Streifen mit feinen Linien, geänderte Werte fett,
+        # Zeile unter der Maus grau, Knöpfe je Zeile als runde 24-px-Symbolknöpfe mit halo-Symbolen
+        res = m.js(COMPOSE_CHECK_JS + EXPERT_JS % ("true" if os.environ.get("HALO_SHOTS") else "false") + r"""
           tm.switchToTab(0); await ruhig(300);
           Services.prefs.setBoolPref("browser.aboutConfig.showWarning", false);
+          Services.prefs.setIntPref("mail.biff.halo_zahl", 2); Services.prefs.setStringPref("mail.biff.halo_text", "x");
+          const oldSound = Services.prefs.getBoolPref("mail.biff.play_sound"); Services.prefs.setBoolPref("mail.biff.play_sound", !oldSound);
           const t = tm.openTab("contentTab", { url: "about:config", background: false });
-          try { await bis(() => t.browser?.contentDocument?.getElementById("about-config-search") && t.browser.contentWindow.__mcTheme, "about:config mit Design", 8000); await ruhig(400);
+          try { await bis(() => t.browser?.contentDocument?.getElementById("about-config-search") && t.browser.contentWindow.__mcTheme, "about:config mit Design", 8000); await ruhig(600);
             const dd = t.browser.contentDocument;
-            const btn = b => { const s = csOf(b); return [b.id || b.className, Math.round(b.getBoundingClientRect().height), s.borderTopLeftRadius, s.backgroundColor]; };
-            const show = btn(dd.getElementById("show-all"));
-            const sf = dd.getElementById("about-config-search"), fs = () => { const s = csOf(sf); return [Math.round(sf.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor]; };
-            const field = fs();
-            InspectorUtils.addPseudoClassLock(sf, ":hover"); const hover = fs(); InspectorUtils.removePseudoClassLock(sf, ":hover");
-            dd.getElementById("show-all").click(); await bis(() => dd.querySelector("#prefs .button-edit, #prefs .button-toggle"), "Tabelle", 8000); await ruhig(300);
-            const row = [...dd.querySelectorAll("#prefs button")].filter(b => b.getClientRects().length).slice(0, 4).map(btn);
-            return { show, field, hover, row, control: colorOf(dd, "var(--mt-control)", "backgroundColor") };
-          } finally { tm.closeTab(t); Services.prefs.clearUserPref("browser.aboutConfig.showWarning"); await ruhig(300); }""")
-        caps = [res["show"]] + res["row"]
-        ok = (len(res["row"]) >= 2 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) for _, h, r, bg in caps)
-              and res["field"][0] == 30 and res["field"][1] == "999px" and res["field"][2] == "0px"
-              and same_color(res["field"][3], res["control"]) and res["field"] == res["hover"])
+            const sf = dd.getElementById("about-config-search"), field = box(sf);
+            InspectorUtils.addPseudoClassLock(sf, ":hover"); const hover = box(sf); InspectorUtils.removePseudoClassLock(sf, ":hover");
+            const icon = box(dd.querySelector(".config-background")), help = box(dd.querySelector(".config-help-text")), show = box(dd.getElementById("show-all"));
+            const shotEmpty = await snap(t, 420);
+            sf.value = "mail.biff"; sf.dispatchEvent(new t.browser.contentWindow.Event("input", { bubbles: true }));
+            await bis(() => dd.querySelector("#prefs .button-toggle") && dd.querySelector("#prefs .button-delete"), "Tabelle", 8000); await ruhig(400);
+            const prefs = dd.getElementById("prefs"), rows = [...prefs.querySelectorAll(":scope > tr")].filter(r => !r.classList.contains("add"));
+            const card = box(prefs), rowH = rows.slice(0, 6).map(r => Math.round(r.getBoundingClientRect().height));
+            const cells = rows.slice(0, 2).map(r => { const s = csOf(r.firstElementChild); return [s.borderTopWidth, s.borderTopColor, s.borderLeftWidth, s.borderBottomWidth]; });
+            const odd = rows.find(r => r.classList.contains("odd")), oddBg = odd ? csOf(odd).backgroundColor : null;
+            const mod = rows.find(r => r.classList.contains("has-user-value")), plain = rows.find(r => !r.classList.contains("has-user-value"));
+            const weights = [csOf(mod.firstElementChild).fontWeight, csOf(plain.firstElementChild).fontWeight];
+            const btns = {}; for (const k of ["edit", "toggle", "reset", "delete"]) { const b = prefs.querySelector(".button-" + k); if (b) btns[k] = box(b); }
+            const hb = prefs.querySelector(".button-toggle"); InspectorUtils.addPseudoClassLock(hb, ":hover"); const btnHover = csOf(hb).backgroundColor;
+            const hr = hb.closest("tr"); InspectorUtils.addPseudoClassLock(hr, ":hover"); const rowHover = csOf(hr).backgroundColor;
+            const shotTable = await snap(t, 520);
+            InspectorUtils.removePseudoClassLock(hb, ":hover"); InspectorUtils.removePseudoClassLock(hr, ":hover");
+            const out = { dark: isDark, field, hover, icon, help, show, card, rowH, cells, oddBg, weights, btns, btnHover, rowHover, ...vars(dd) };
+            out.png = shotEmpty; out.png2 = shotTable;
+            return out;
+          } finally { tm.closeTab(t); Services.prefs.clearUserPref("browser.aboutConfig.showWarning");
+            Services.prefs.clearUserPref("mail.biff.halo_zahl"); Services.prefs.clearUserPref("mail.biff.halo_text"); Services.prefs.clearUserPref("mail.biff.play_sound"); await ruhig(300); }""")
+        png2 = res.pop("png2", None)
+        expert_shot(res, "expertenseiten-config-leer")
+        res["png"] = png2
+        expert_shot(res, "expertenseiten-config-liste")
+        clear = ("rgba(0, 0, 0, 0)", "transparent")
+        f, ic, b = res["field"], res["icon"], res["btns"]
+        ok = (f["h"] == 30 and f["radius"] == "999px" and f["border"][0] == "0px" and same_color(f["bg"], res["control"])
+              and "mailcards/icons/search.svg" in f["img"] and res["field"] == res["hover"]
+              and ic["w"] == 40 and ic["h"] == 40 and "mailcards/icons/warning-40.svg" in ic["img"]
+              and ic["y"] < res["help"]["y"] < res["show"]["y"] and same_color(res["help"]["color"], res["secondary"])
+              and res["show"]["h"] == 30 and res["show"]["radius"] == "999px" and same_color(res["show"]["bg"], res["control"])
+              and same_color(res["card"]["bg"], res["control"]) and res["card"]["radius"] == "12px" and res["card"]["border"][0] == "0px"
+              and res["cells"][0][0] == "0px" and res["cells"][1][0] != "0px" and same_color(res["cells"][1][1], res["separator"])
+              and all(c[2] == "0px" and c[3] == "0px" for c in res["cells"]) and (res["oddBg"] is None or res["oddBg"] in clear)
+              and int(res["weights"][0]) >= 600 and int(res["weights"][1]) == 400 and all(28 <= h <= 30 for h in res["rowH"])
+              and set(b) >= {"edit", "toggle", "reset", "delete"}
+              and all(x["w"] == 24 and x["h"] == 24 and x["radius"] == "50%" and x["bg"] in clear for x in b.values())
+              and "icons/pencil.svg" in b["edit"]["img"] and "icons/swap.svg" in b["toggle"]["img"]
+              and "icons/restore.svg" in b["reset"]["img"] and "icons/trash.svg" in b["delete"]["img"]
+              and same_color(res["btnHover"], res["control"]) and res["rowHover"] not in clear)
         return ok, f"{res}"
-    check("Konfiguration: Knöpfe in about:config als 28-px-Kapsel, Suchfeld als 30-px-Kapsel ohne Hover", config_page, results)
+    check("Konfiguration: about:config im halo-Stil – graues Warnsymbol 40 px über dem Hinweis, Show All 30 px, Suchfeld graue 30-px-Kapsel mit Lupe ohne Hover, Liste als graue Karte mit feinen Linien, geänderte Werte fett, Zeile unter der Maus grau, runde 24-px-Symbolknöpfe", config_page, results)
 
     def about_dialog():
         # „About Thunderbird“: Kopf und Linkleiste in Fensterfarbe (kein grauer Kopf über weißer Leiste), keine

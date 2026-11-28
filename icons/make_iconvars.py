@@ -251,6 +251,11 @@ EXTRA = {
     "mobile-export.svg": ('<rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6"/><path d="M12 15.2V8.6M9.4 11.2 12 8.6l2.6 2.6"/>', 16, STROKE),
     "mobile-export-24.svg": ('<rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6"/><path d="M12 15.2V8.6M9.4 11.2 12 8.6l2.6 2.6"/>', 24, 1.5),
     "search-empty-40.svg": (GLYPHS["search"], 40, 1.5),
+    # Expertenseiten (28.11.2026): about:config „Umschalten“ als zwei gegenläufige Pfeile (16 px,
+    # Strich nach Staffel), Hinweis beim Öffnen als ruhiges Warnsymbol 40 px wie die Lupe der leeren Suche
+    "swap.svg": ('<path d="M4.5 8.5h14.6M15.6 5l3.5 3.5-3.5 3.5"/><path d="M19.5 15.5H4.9M8.4 12l-3.5 3.5 3.5 3.5"/>', 16, STROKE),
+    "warning-40.svg": ('<path d="M10.6 4.7a1.6 1.6 0 0 1 2.8 0l7.3 12.9a1.6 1.6 0 0 1-1.4 2.4H4.7a1.6 1.6 0 0 1-1.4-2.4z"/><path d="M12 9.5v4.2"/>'
+                       '<circle cx="12" cy="16.7" r="1"' + D + '/>', 40, 1.5),
     # Formatleiste der Aufgaben-Beschreibung (22.11.2026): Fett als kräftiges B (Strich 2,4,
     # die Bildidee „fett“ trägt der Strich), Kursiv als schräger Balken mit Querstrichen,
     # Unterstrichen als U mit Linie, Listen mit Punkten bzw. kleinen Ziffern (Strich 1,3) vor drei Zeilen

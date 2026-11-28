@@ -23477,8 +23477,13 @@ Neu
           const s = cal.dtz.now(); s.minute += 30; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
           const al = new CalAlarm(); al.related = Ci.calIAlarm.ALARM_RELATED_START; const off = cal.createDuration(); off.minutes = -10; al.offset = off; al.action = "DISPLAY"; e.addAlarm(al);
           const fail = () => { throw Components.Exception("kein Mitteilungsdienst", Cr.NS_ERROR_FAILURE); };
-          const out = { dismissed: false };
+          const out = { dismissed: false, snoozed: 0 };
           const service = AA.service;
+          // Thunderbird schlummert Erinnerungen, die beim Schließen noch im Fenster stehen (finishWindow); der Termin
+          // ist nie gespeichert, das Schreiben scheitert und meldet einen Schreibfehler (GitHub-CI: Fehlerprotokoll
+          // „alarm dismiss failed, error window closed“). Mitzählen, ob die Prüfung so etwas auslöst
+          const svc = Cc["@mozilla.org/calendar/alarm-service;1"].getService(Ci.calIAlarmService).wrappedJSObject;
+          svc.snoozeAlarm = function (...a) { out.snoozed++; return Object.getPrototypeOf(this).snoozeAlarm.apply(this, a); };
           let win = null;
           try {
             AA.alerts = { showAlertWithCallbacks: fail, showAlert: fail };
@@ -23492,13 +23497,17 @@ Neu
             AA.alerts = null; AA.service = service;
             const mon = Cc["@mozilla.org/calendar/alarm-monitor;1"].getService(Ci.calIAlarmServiceObserver).wrappedJSObject;
             mon.mAlarms = mon.mAlarms.filter(([i]) => i.id != e.id);
+            // die Erinnerung vor dem Schließen aus dem Fenster nehmen, sonst schlummert Thunderbird sie (siehe oben)
+            win?.document?.getElementById("alarm-richlist")?.replaceChildren();
             if (win && !win.closed) { win.close(); }
             // das Fenstermanager-Register gibt das Fenster erst etwas nach win.closed frei
             await until(() => !Services.wm.getMostRecentWindow("Calendar:AlarmWindow"), 3000);
+            delete svc.snoozeAlarm;
           }
           out.windowLeft = !!Services.wm.getMostRecentWindow("Calendar:AlarmWindow");
           return out;''' % ADDON_ID)
-        ok = res.get("widgets") == ["Halo Erinnerung ohne Dienst"] and res.get("dismissed") is False and not res.get("windowLeft")
+        ok = (res.get("widgets") == ["Halo Erinnerung ohne Dienst"] and res.get("dismissed") is False and not res.get("windowLeft")
+              and res.get("snoozed") == 0)
         return ok, f"{res}"
     check("Kalender: ohne Mitteilungsdienst zeigt Thunderbirds Erinnerungsfenster die Terminerinnerung, sie bleibt offen", calendar_alarm_fallback, results)
 

@@ -17627,9 +17627,18 @@ def run_checks(m, version, profile, results):
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
-          const ow = w.outerWidth;
+          const ow = w.outerWidth; let vorher = null;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
-            if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
+            // Im vollen Lauf ist hier meist eine Mail geöffnet: mit Ordnerliste, Mailliste, Leseansicht (Mindestbreite 480 px)
+            // und Today-Pane steht das Fenster dann schon an seiner Mindestbreite (1500 px, hookMinWindowWidth), resizeTo(1100)
+            // griff nicht und „schmal“ maß dasselbe breite Fenster ein zweites Mal (Befund 23.11.2026, volle Läufe
+            // 45204224600 und 45211184160). Darum für die schmalen Phasen die Startseite des Kontos zeigen (wie im Einzellauf,
+            // ohne Mailliste und Leseansicht), auf die Breite warten und sie ausgeben; danach Ordner und Auswahl zurück
+            if (phase == "aus schmal") { const a3 = tm.currentAbout3Pane, f = a3?.gFolder;
+              if (f && !f.isServer) { vorher = { uri: f.URI, sel: a3.threadTree?.selectedIndex ?? -1 }; a3.displayFolder(f.server.rootFolder.URI); await until(() => a3.gFolder?.isServer, 5000); await ruhig(800); }
+              w.resizeTo(1100, w.outerHeight); await until(() => w.outerWidth <= 1102, 3000); await ruhig(1200);
+              out.schmal = { ziel: 1100, erreicht: w.outerWidth, ordner: tm.currentAbout3Pane?.gFolder?.isServer ? "Konto" : String(tm.currentAbout3Pane?.gFolder?.name ?? "keiner") };
+              out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
             // mitten in der Bewegung und titleEnd sagt nichts über einen Ruck (CI 15.11. Lauf 43707298410, linux esr
             // „ein schmal“: 99 ms Lücke, Titel 2,2 px vor dem Ende, sonst alles im Takt). Dann zurückschalten und neu
@@ -17695,7 +17704,9 @@ def run_checks(m, version, profile, results):
             }
             if (verworfen.length) out[phase].verworfen = verworfen;
           }
-          w.resizeTo(ow, w.outerHeight); await ruhig(800);
+          w.resizeTo(ow, w.outerHeight); await until(() => w.outerWidth >= ow - 2, 3000); await ruhig(800);
+          if (vorher) { const a3 = tm.currentAbout3Pane; a3.displayFolder(vorher.uri); await until(() => a3.gFolder?.URI == vorher.uri && a3.gDBView, 5000);
+            if (vorher.sel >= 0 && a3.gDBView?.rowCount > vorher.sel) a3.threadTree.selectedIndex = vorher.sel; await ruhig(800); }
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
           Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
@@ -17736,7 +17747,9 @@ def run_checks(m, version, profile, results):
                     and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
                     and (soft or (takt and v["maxJump"] < res["start"] / 2)))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
-        ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
+        # „schmal“ misst wirklich das schmale Fenster (früher im vollen Lauf unbemerkt dasselbe 1500-px-Fenster)
+        schmal = (res.get("schmal") or {}).get("erreicht", 9999) <= 1102
+        ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"] and schmal
         return ok, f"{res}"
     check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
 

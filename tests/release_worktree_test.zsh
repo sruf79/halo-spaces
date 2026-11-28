@@ -170,6 +170,8 @@ pruefe "origin/main nicht enthalten → ABBRUCH" "$(P)" 'ABBRUCH: origin/main is
 pruefe "publish.sh ohne Schalter: Push wie bisher (ohne push.default)" "$(grep -c '^PUSH=(git -c http.postBuffer=157286400 push -q)$' $HIER/../publish.sh)" '^1$'
 pruefe "Schalter nur als HALO_RELEASE_WORKTREE == 1" \
   "$(grep -h 'HALO_RELEASE_WORKTREE' $HIER/../release.sh $HIER/../publish.sh $HIER/release-unter-tage.sh | grep -vE '^ *#' | grep -vE 'HALO_RELEASE_WORKTREE\"? == 1' | grep -c .)" '^0$'
+pruefe "publish.sh: kein '[[ … ]] && echo' in einer Ersetzung ohne Schalter (set -e brach nach dem Push ab)" \
+  "$(grep -v '^ *#' $HIER/../publish.sh | grep -cE '\$\(\[\[[^)]*HALO_RELEASE_WORKTREE[^)]*\]\] && echo')" '^0$'
 pruefe "keine Sperre entfernt (Testmarke, NUR_CI, Zeitfenster, ein Release pro Tag)" \
   "$(grep -c 'ABBRUCH: keine Testmarke' $HIER/../publish.sh; grep -c 'NUR_CI\" && -z \"\$CI_OK\" ]] && fehlschlag' $HIER/../release.sh; grep -c 'nur zwischen 09:00 und 22:00' $HIER/release-unter-tage.sh; grep -c 'heute schon ein Release' $HIER/release-unter-tage.sh)" \
   '^1$' '^1$' '^1$' '^2$'

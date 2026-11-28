@@ -122,7 +122,9 @@ fi
 git add -- "${RELEASE_FILES[@]}"
 git commit -q -m "halo.spaces $VERSION" -- "${RELEASE_FILES[@]}" || true
 "${PUSH[@]}"
-STATUS+=("gepusht: $(git rev-parse --short HEAD) auf $(git rev-parse --abbrev-ref HEAD)$([[ "$HALO_RELEASE_WORKTREE" == 1 ]] && echo " (Worktree $ROOT, Upstream origin/main)")")
+WT_VERMERK=""
+if [[ "$HALO_RELEASE_WORKTREE" == 1 ]]; then WT_VERMERK=" (Worktree $ROOT, Upstream origin/main)"; fi   # kein && in der Ersetzung: unter set -e brach das Skript sonst nach dem Push ab
+STATUS+=("gepusht: $(git rev-parse --short HEAD) auf $(git rev-parse --abbrev-ref HEAD)$WT_VERMERK")
 "$GH" release create "v$VERSION" "$XPI" --repo "$GITHUB_REPO" --title "$VERSION" --notes-file "$NOTES"
 STATUS+=("GitHub-Release v$VERSION angelegt: https://github.com/$GITHUB_REPO/releases/tag/v$VERSION")
 
